@@ -1,26 +1,513 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Body → Inter (loaded via next/font) */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /* Numbers → Geist Mono */
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Display/headings → SF Pro on Apple devices, system-ui elsewhere */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-display);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-whatsapp: var(--whatsapp);
+  --color-whatsapp-foreground: var(--whatsapp-foreground);
+  --color-luxe: var(--luxe);
+  --color-plus: var(--plus);
+  --color-editorial: var(--editorial-accent);
+  --color-editorial-soft: var(--editorial-accent-soft);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* ── Semantic spacing tokens ─────────────────────────────────
+     Stop typing raw values like `space-y-8` everywhere. These map
+     to Tailwind's 8pt scale but communicate INTENT, which lets
+     editors/readers see where the rhythm sits without counting
+     pixels. Use them via `space-y-(--spacing-section)` etc. */
+  --spacing-tight:    0.5rem;   /* 8px  · siblings inside a row    */
+  --spacing-cluster:  1rem;     /* 16px · grouping inside a card   */
+  --spacing-block:    1.5rem;   /* 24px · between blocks in a card */
+  --spacing-section:  2.5rem;   /* 40px · between sections (page)  */
+  --spacing-major:    4rem;     /* 64px · between major page bands */
+
+  /* ── Motion tokens ───────────────────────────────────────────
+     Product register: 150-250 ms. Use ease-out curves only —
+     bounce/elastic are banned (look dated, draw attention to the
+     animation itself rather than what it communicates). */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+
+  --duration-snap:    150ms;  /* button feedback, instant ack       */
+  --duration-state:   200ms;  /* hover, menu open, tab switch       */
+  --duration-reveal:  350ms;  /* funnel bar, progress fill          */
+  --duration-hero:    600ms;  /* score count-up, signature moments  */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ============================================================
+   Brand design system — sourced from `design-updated-primary-FEE138.md`.
+   Single accent: Primary Yellow (#FEE138). Foreground/text on
+   primary surfaces is INK (#222), never white — yellow + white has
+   poor contrast and reads cheap.
+   ============================================================
+
+   ── Surface registers ──────────────────────────────────────────
+   The codebase has TWO registers with different freedom levels:
+
+   • DASHBOARD ((dashboard) routes, app shell)
+     Strict DS. Primary CTAs route through `bg-primary` (yellow + ink).
+     Selection state (chips, filters, active nav) = `bg-primary/15 text-foreground`
+     or `bg-primary text-primary-foreground`. Predictability IS the
+     affordance — same patterns across every screen.
+
+   • PUBLIC ((public), (unbranded), (auth) routes)
+     Editorial freedom: huge clamp() typography, asymmetric grids,
+     parallax, decorative wordmarks, full-bleed photos. Primary CTAs
+     can use ink (`bg-foreground text-background`) when impact > brand
+     recall (e.g., hero submit pills). Inline editorial highlights
+     can use `--editorial-accent` (deep blue) for emphasis in
+     long-form copy. Yellow primary still appears as brand DNA in
+     status badges, "Amueblado"/"Plantilla" tags, hero word
+     highlights — but doesn't have to dominate.
+
+   What stays SHARED (similarity contract):
+     – Typography stack (Inter body, SF Pro display, Geist Mono numeric)
+     – Spacing scale (`--spacing-tight/cluster/block/section/major`)
+     – Ink scale (`--ink/-body/-muted/-muted-soft`)
+     – Hairlines (`--border`, `--hairline-soft`, `--border-strong`)
+     – Semantic state colors (success/warning/info/destructive)
+     – UI primitives (Button/Input/Card/Sheet/Dialog vocabulary)
+     – Yellow primary as a recognizable brand cue across both
+   ============================================================ */
+:root {
+  /* ── Surface ─────────────────────────────────────────────── */
+  --background:           #ffffff;     /* canvas */
+  --card:                 #ffffff;
+  --popover:              #ffffff;
+  --secondary:            #f2f2f2;     /* surface-strong (icon-button surface) */
+  --muted:                #f7f7f7;     /* surface-soft (disabled fields, sub-nav hover) */
+  --accent:               #f2f2f2;
+
+  /* ── Ink / text ──────────────────────────────────────────── */
+  --foreground:           #222222;     /* ink — never pure black */
+  --card-foreground:      #222222;
+  --popover-foreground:   #222222;
+  --secondary-foreground: #222222;
+  --muted-foreground:     #6a6a6a;     /* muted body */
+  --accent-foreground:    #222222;
+
+  /* Extended ink scale (used via `text-(--ink-body)` etc. when
+     the standard foreground/muted aren't enough). */
+  --ink:                  #222222;     /* default ink — h1, body, primary nav */
+  --ink-body:             #3f3f3f;     /* secondary running-text — long-form copy */
+  --ink-muted:            #6a6a6a;     /* sub-titles, "View all" links */
+  --ink-muted-soft:       #929292;     /* disabled link text */
+  --star-rating:          #222222;     /* star icons render in ink, not gold */
+
+  /* ── Brand · Primary Yellow ──────────────────────────────── */
+  --primary:              #fee138;     /* the brand */
+  --primary-foreground:   #222222;     /* ink on yellow — NOT white */
+  --primary-active:       #e6c91f;     /* press / pointer-down */
+  --primary-disabled:     #fff4b0;     /* disabled CTA fill */
+
+  /* Sub-brand accents — appear ONLY inside Luxe / Plus surfaces.
+     Never used on mainline marketing or product UI. */
+  --luxe:                 #460479;
+  --plus:                 #92174d;
+
+  /* ── Borders & hairlines ────────────────────────────────── */
+  --border:               #dddddd;     /* hairline — default 1px borders */
+  --hairline-soft:        #ebebeb;     /* lighter editorial dividers */
+  --border-strong:        #c1c1c1;     /* disabled outline buttons, focused inputs */
+  --input:                #dddddd;
+  --ring:                 #222222;     /* focus ring — uses ink (no glow) */
+
+  /* ── Semantic state vocabulary ───────────────────────────────
+     Single source of truth for success / warning / error / info.
+     Each role has THREE tones:
+       solid  — used as foreground icon/text on light surface or as
+                a saturated badge fill (paired with *-foreground)
+       soft   — 8-12% surface wash for banners, alert backgrounds,
+                soft chips
+       fg     — text/icon color on top of `solid` fills
+     Tints are pulled toward the brand hue (slight warmth) using
+     OKLCH so equal lightness steps look equal across roles.   */
+
+  /* destructive — rose/red, mapped to spec #c13515 */
+  --destructive:          #c13515;
+  --destructive-foreground:#ffffff;
+  --destructive-soft:     oklch(0.96 0.025 22);   /* rose-50 ≈ */
+  --destructive-hover:    #b32505;
+
+  /* success — semantic green. Darkened so it passes WCAG AA (4.5:1)
+     when used as TEXT on white or *-soft surfaces. */
+  --success:              oklch(0.50 0.13 152);   /* ~ emerald-700 */
+  --success-foreground:   #ffffff;                /* white on dark green ≈ 7:1 */
+  --success-soft:         oklch(0.965 0.025 152); /* emerald-50 ≈ */
+
+  /* warning — amber. Darkened to a deep amber so text passes AA on
+     white. Solid fill keeps ink (#222) on top per spec; ink on this
+     darker amber still passes (~4.7:1). */
+  --warning:              oklch(0.50 0.13 70);    /* ~ amber-700/800 */
+  --warning-foreground:   #ffffff;                /* white now passes on this darker amber */
+  --warning-soft:         oklch(0.965 0.04 80);   /* amber-50 ≈ */
+
+  /* info — blue. Slightly darker for AA on white. */
+  --info:                 oklch(0.48 0.18 252);   /* ~ blue-700 */
+  --info-foreground:      #ffffff;
+  --info-soft:            oklch(0.965 0.025 250); /* blue-50 ≈ */
+
+  /* WhatsApp — external brand color, kept literal */
+  --whatsapp:             #25d366;
+  --whatsapp-foreground:  #ffffff;
+  --whatsapp-hover:       #1ea957;
+
+  --legal-link:           #1857c2;     /* legal-band inline links — darkened from #428bff to pass AA on white */
+
+  /* ── Editorial accent (PUBLIC SURFACES ONLY) ────────────────
+     Deep editorial blue used for inline emphasis in long-form
+     marketing copy on public pages — mirrors the "blue highlights"
+     pattern in the Realnest reference. Passes WCAG AA (≈8:1) on
+     white. NEVER use on dashboard surfaces; reserve yellow primary
+     there for brand consistency. */
+  --editorial-accent:     oklch(0.50 0.16 240);   /* deep sky/teal blue */
+  --editorial-accent-soft:oklch(0.96 0.02 240);   /* near-white wash for editorial bg */
+
+  /* ── Charts (kept neutral grayscale until the team picks a
+        palette — Airbnb itself doesn't define chart colors). */
+  --chart-1: #222222;
+  --chart-2: #6a6a6a;
+  --chart-3: #929292;
+  --chart-4: #c1c1c1;
+  --chart-5: #dddddd;
+
+  /* ── Shape (Airbnb-style soft language) ─────────────────────
+     Buttons 8px (radius-sm), property cards ~14px (radius-lg),
+     pill search 9999px (radius-full). The cascade below assumes
+     a base of 0.625rem (10px) — which lines up with the tokens
+     used across the codebase already. */
+  --radius:               0.625rem;    /* 10px base — used by `rounded-[var(--radius)]` */
+
+  /* ── Sidebar (dashboard chrome) ─────────────────────────── */
+  --sidebar:                       #ffffff;
+  --sidebar-foreground:            #222222;
+  --sidebar-primary:               #fee138;
+  --sidebar-primary-foreground:    #222222;
+  --sidebar-accent:                #f7f7f7;
+  --sidebar-accent-foreground:     #222222;
+  --sidebar-border:                #dddddd;
+  --sidebar-ring:                  #222222;
+}
+
+/* ============================================================
+   Public surface — warm editorial palette (Horizon Estate-style)
+   ============================================================
+   Applied via `[data-surface="public"]` on the public layout's root.
+   Gives the whole public area a soft cream backdrop while keeping
+   cards crisp white so they pop off the page. Dashboard surfaces
+   are unaffected — they keep `--background: #fff` per the strict
+   DS register. */
+[data-surface="public"] {
+  --background:    #f5f2ec;   /* warm cream — page bg */
+  --card:          #ffffff;   /* cards stay crisp white on cream */
+  --popover:       #ffffff;
+  --muted:         #ece8e0;   /* deeper warm — for tinted accents */
+  --secondary:     #e6e1d8;
+  --accent:        #e6e1d8;
+  --hairline-soft: #ddd7cc;   /* warmer hairline so it disappears on cream */
+}
+
+/* ============================================================
+   Dark mode — dashboard chrome only. Airbnb itself has no dark
+   mode on the public web; this exists for `(app)` admin surfaces
+   where a dim register reduces fatigue during long sessions.
+   The brand yellow stays exactly the same on dark — the design
+   spec is explicit that `--primary` is `#FEE138` everywhere, with
+   ink (#222) on yellow regardless of mode.
+   ============================================================ */
+.dark {
+  /* Surface — soft near-blacks, no pure #000 (kills depth). */
+  --background:           #0e0e0e;
+  --card:                 #161616;
+  --popover:              #161616;
+  --secondary:            #1f1f1f;
+  --muted:                #1a1a1a;
+  --accent:               #1f1f1f;
+
+  /* Ink scale — light text on dark surfaces. */
+  --foreground:           #f7f7f7;
+  --card-foreground:      #f7f7f7;
+  --popover-foreground:   #f7f7f7;
+  --secondary-foreground: #f7f7f7;
+  --muted-foreground:     #a3a3a3;
+  --accent-foreground:    #f7f7f7;
+  --ink:                  #f7f7f7;
+  --ink-body:             #d4d4d4;
+  --ink-muted:            #a3a3a3;
+  --ink-muted-soft:       #6a6a6a;
+  --star-rating:          #f7f7f7;
+
+  /* Brand — yellow stays identical; ink-on-yellow always. */
+  --primary:              #fee138;
+  --primary-foreground:   #222222;
+  --primary-active:       #e6c91f;
+  --primary-disabled:     #4a4316;
+
+  /* Sub-brand — slightly brightened for legibility on dark. */
+  --luxe:                 #7a3cba;
+  --plus:                 #c4477d;
+
+  /* Hairlines — translucent whites read as depth, not paint. */
+  --border:               rgba(255,255,255,0.10);
+  --hairline-soft:        rgba(255,255,255,0.06);
+  --border-strong:        rgba(255,255,255,0.18);
+  --input:                rgba(255,255,255,0.14);
+  --ring:                 #f7f7f7;
+
+  /* Semantic — brightened for legibility on dark surfaces */
+  --destructive:          #ff6a3d;
+  --destructive-foreground:#0e0e0e;
+  --destructive-soft:     oklch(0.30 0.06 22);
+  --destructive-hover:    #ff8762;
+
+  --success:              oklch(0.70 0.13 152);
+  --success-foreground:   #0e0e0e;
+  --success-soft:         oklch(0.28 0.05 152);
+
+  --warning:              oklch(0.78 0.14 70);
+  --warning-foreground:   #0e0e0e;
+  --warning-soft:         oklch(0.28 0.05 70);
+
+  --info:                 oklch(0.68 0.16 250);
+  --info-foreground:      #0e0e0e;
+  --info-soft:            oklch(0.28 0.05 250);
+
+  --whatsapp:             #25d366;
+  --whatsapp-foreground:  #ffffff;
+  --whatsapp-hover:       #1ea957;
+
+  --legal-link:           #6aa3ff;
+  --editorial-accent:     oklch(0.72 0.16 240);
+  --editorial-accent-soft:oklch(0.30 0.05 240);
+
+  /* Charts — neutrals climbing toward foreground. */
+  --chart-1: #f7f7f7;
+  --chart-2: #d4d4d4;
+  --chart-3: #a3a3a3;
+  --chart-4: #6a6a6a;
+  --chart-5: #3f3f3f;
+
+  /* Sidebar (dashboard chrome) */
+  --sidebar:                       #0e0e0e;
+  --sidebar-foreground:            #f7f7f7;
+  --sidebar-primary:               #fee138;
+  --sidebar-primary-foreground:    #222222;
+  --sidebar-accent:                #1a1a1a;
+  --sidebar-accent-foreground:     #f7f7f7;
+  --sidebar-border:                rgba(255,255,255,0.08);
+  --sidebar-ring:                  #f7f7f7;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+
+  /* Display / headings → SF Pro stack */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Numeric class — monospace tabular figures (prices, counts, IDs) */
+@layer utilities {
+  .font-numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Hero fallback gradient — used when no photo is available behind a
+     CTA / login / project hero. Three-stop, slightly cool neutral
+     tinted toward the brand hue (chroma 0.005 ≪ visual). Lives here
+     so all hero surfaces stay identical without each file repeating
+     its own slate/zinc choice. Combine with a black/40 overlay if the
+     hero hosts white text on top. */
+  .bg-hero-fallback {
+    background-image: linear-gradient(
+      to bottom right,
+      oklch(0.32 0.005 250),
+      oklch(0.22 0.005 250),
+      oklch(0.14 0.005 250)
+    );
+  }
+}
+
+/* ── Scroll-driven parallax — hero photo on /p/[slug] ────────────
+   Subtle depth-of-field as the user scrolls past the property
+   gallery's hero. The image translates at ~0.85x scroll speed,
+   creating the illusion that the photo sits behind the rest of the
+   page. Pure CSS, no JS, no rAF.
+
+   Browser support: Chrome/Edge/Safari ✓, Firefox behind a flag.
+   Wrapped in @supports so unsupporting browsers get a static photo
+   (which still looks correct). The element opts in by setting
+   `data-parallax="hero"`. */
+@supports (animation-timeline: scroll()) {
+  [data-parallax="hero"] {
+    animation: hero-parallax linear forwards;
+    animation-timeline: scroll();
+    /* Drive only across the first ~80vh of scroll — beyond that the
+       hero is off-screen anyway. */
+    animation-range: 0 80vh;
+  }
+
+  @keyframes hero-parallax {
+    /* translateY only — leaves object-fit + cropping unchanged. */
+    from { transform: translate3d(0, 0, 0)    scale(1.02); }
+    to   { transform: translate3d(0, 6%, 0)   scale(1.02); }
+  }
+}
+
+/* ── View Transitions — cinematic property reveal ────────────────
+   Browser-driven shared-element morph between marketplace cards and
+   property detail hero. The cover img on each carries the same
+   `view-transition-name: cover-{slug}` (set inline). The browser
+   captures the bounding box on the source page, navigates, then
+   tweens the captured pixels into the destination element.
+
+   The default UA timing (250ms ease) is too snappy for a hero
+   reveal — we slow it to 600ms with ease-out-expo so the morph
+   reads as cinematic, not as a jump. */
+@supports (view-transition-name: a) {
+  ::view-transition-group(*) {
+    animation-duration: var(--duration-hero, 600ms);
+    animation-timing-function: var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+  }
+
+  /* The "old" snapshot (the marketplace card cover) fades out fast
+     so the destination img isn't competing with a ghost. The "new"
+     snapshot fades in at the same rate as the morph. */
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: var(--duration-hero, 600ms);
+    animation-timing-function: var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+    /* Cover keeps aspect during the morph — no squashing. */
+    object-fit: cover;
+  }
+
+  /* Root crossfade between pages — gentler than the default. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 250ms;
+  }
+}
+
+/* ── Reduced-motion guard ─────────────────────────────────────────
+   Strip every animation/transition for users who request it. This
+   is an accessibility requirement (WCAG 2.3.3). The `0.01ms` keeps
+   `transitionend` events firing for any code that depends on them.
+   Place AFTER all animation declarations so it wins specificity. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable the View Transitions morph — fall back to instant cut. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+/* ── Tiptap rich-text editor content ─────────────────────────────── */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+.tiptap ul  { list-style: disc;    padding-left: 1.25rem; }
+.tiptap ol  { list-style: decimal; padding-left: 1.25rem; }
+.tiptap li  { margin: 0.15rem 0; }
+.tiptap strong { font-weight: 600; }
+.tiptap em { font-style: italic; }
+.tiptap p + p { margin-top: 0.5rem; }
+.tiptap h2  { font-size: 1.05rem; font-weight: 600; margin: 0.75rem 0 0.25rem; }
+.tiptap h3  { font-size: 0.95rem; font-weight: 600; margin: 0.5rem  0 0.2rem;  }
+
+/* ── Property preview — rendered HTML description ────────────────── */
+.preview-prose ul  { list-style: disc;    padding-left: 1.25rem; }
+.preview-prose ol  { list-style: decimal; padding-left: 1.25rem; }
+.preview-prose li  { margin: 0.15rem 0; }
+.preview-prose strong { font-weight: 600; }
+.preview-prose em { font-style: italic; }
+.preview-prose p + p { margin-top: 0.4rem; }
+.preview-prose h2  { font-size: 1rem; font-weight: 600; margin: 0.6rem 0 0.2rem; }
+.preview-prose h3  { font-size: 0.9rem; font-weight: 600; margin: 0.4rem 0 0.15rem; }
+
+/* ── Leaflet — reset default divIcon white box behind our custom pin ── */
+.leaflet-div-icon.property-marker {
+  background: transparent;
+  border: 0;
 }

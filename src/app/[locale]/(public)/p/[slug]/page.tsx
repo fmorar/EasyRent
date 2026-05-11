@@ -1,0 +1,551 @@
+import { createClient } from "@/lib/supabase/server"
+import { notFound } from "next/navigation"
+import { getLocale, getTranslations } from "next-intl/server"
+import { Link } from "@/i18n/navigation"
+import { formatListingPrice } from "@/lib/utils"
+import { BedIcon, BathIcon } from "@/lib/property-icons"
+import { AmenitiesList } from "@/components/shared/amenities-list"
+import { HtmlDescription } from "@/components/shared/html-description"
+import { LightboxProvider } from "@/components/ui/lightbox"
+import { PropertyGallery } from "@/components/property/property-gallery"
+import { Badge } from "@/components/ui/badge"
+import { TourForm } from "@/components/property/tour-form"
+import { MobileContactSticky } from "@/components/layout/mobile-contact-sticky"
+import { PropertyContactSidebar } from "@/components/property/property-contact-sidebar"
+import { LegalDisclaimer } from "@/components/shared/legal-disclaimer"
+import { PropertyViewTracker } from "@/components/analytics/property-view-tracker"
+import { ClickOnceTracker } from "@/components/analytics/click-once-tracker"
+import { PublicShareButton } from "@/components/sharing/public-share-button"
+import { PropertyLocationMap } from "@/components/property/property-location-map-loader"
+import { MarketplaceCard } from "@/components/property/marketplace-card"
+import { getSimilarProperties } from "@/lib/similar-properties"
+import { MapPinIcon as MapPin, ArrowsPointingOutIcon as Maximize2, TruckIcon as Car } from "@heroicons/react/24/outline"
+import type { Metadata } from "next"
+import type { MarketplaceProperty, Profile } from "@/types"
+
+interface Props {
+  params: Promise<{ slug: string }>
+}
+
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug }  = await params
+  const supabase  = await createClient()
+  const locale    = await getLocale()
+
+  const { data } = await supabase
+    .from("v_marketplace")
+    .select("id, title, description, listing_type, property_type, price, currency, bedrooms, area_sqm, display_address")
+    .eq("slug", slug)
+    .single() as {
+      data: Pick<
+        MarketplaceProperty,
+        "id" | "title" | "description" | "listing_type" | "property_type" |
+        "price" | "currency" | "bedrooms" | "area_sqm" | "display_address"
+      > | null
+    }
+
+  if (!data) return {}
+
+  // Strip HTML from the description for safe meta usage and trim to ~160 chars
+  const stripHtml = (html: string | null) =>
+    (html ?? "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+  const truncate = (s: string, max = 160) =>
+    s.length <= max ? s : s.slice(0, max - 1).trimEnd() + "…"
+
+  // Build a descriptive SEO title following the skill's formula:
+  //   "[Type] en [venta/alquiler] en [zona] · [N] hab · [precio]"
+  const TYPE_ES: Record<string, string> = {
+    apartment:  "Apartamento",
+    house:      "Casa",
+    land:       "Terreno",
+    commercial: "Local comercial",
+    office:     "Oficina",
+    warehouse:  "Bodega",
+  }
+  const typeLabel = data.property_type ? TYPE_ES[data.property_type] ?? "Propiedad" : "Propiedad"
+  const opLabel   = data.listing_type === "rent" ? "en alquiler" : "en venta"
+  const lastZone  = data.display_address?.split(",").map((s) => s.trim()).filter(Boolean).slice(-2)[0]
+  const priceStr  = data.price != null
+    ? `${data.currency ?? "USD"} ${Number(data.price).toLocaleString("en-US")}${data.listing_type === "rent" ? "/mes" : ""}`
+    : ""
+  const titleParts = [
+    `${typeLabel} ${opLabel}${lastZone ? ` en ${lastZone}` : ""}`,
+    data.bedrooms != null ? `${data.bedrooms} hab` : null,
+    data.area_sqm != null ? `${data.area_sqm} m²` : null,
+    priceStr || null,
+  ].filter(Boolean)
+  const fallbackTitle = titleParts.join(" · ")
+
+  // Description: use the stripped property description, or build one from facts
+  const stripped = truncate(stripHtml(data.description))
+  const fallbackDesc = stripped ||
+    truncate(`${typeLabel} ${opLabel}${lastZone ? ` en ${lastZone}` : ""}` +
+             `${data.bedrooms != null ? ` · ${data.bedrooms} hab` : ""}` +
+             `${data.area_sqm != null ? ` · ${data.area_sqm} m²` : ""}` +
+             `${priceStr ? ` · ${priceStr}` : ""}` +
+             `. Consultá disponibilidad y agendá visita.`)
+
+  // Translated SEO fields override when available
+  if (locale !== "es" && data.id) {
+    const { data: tr } = await supabase
+      .from("property_translations")
+      .select("seo_title, seo_description")
+      .eq("property_id", data.id)
+      .eq("locale", locale)
+      .in("status", ["auto_translated", "reviewed"])
+      .single() as { data: { seo_title: string | null; seo_description: string | null } | null }
+
+    if (tr) {
+      return {
+        title:       tr.seo_title       ?? fallbackTitle,
+        description: tr.seo_description ?? fallbackDesc,
+      }
+    }
+  }
+
+  return { title: fallbackTitle, description: fallbackDesc }
+}
+
+export default async function PublicPropertyPage({ params }: Props) {
+  const { slug } = await params
+  const supabase  = await createClient()
+  const locale    = await getLocale()
+
+  const { data: property } = await supabase
+    .from("v_marketplace")
+    .select("*")
+    .eq("slug", slug)
+    .single() as { data: MarketplaceProperty | null }
+
+  if (!property) notFound()
+
+  // Fetch additional fields not in the view
+  const { data: propExtra } = await supabase
+    .from("properties")
+    .select("parking_spaces, floor, created_by, amenities, location_mode")
+    .eq("id", property.id!)
+    .single() as { data: { parking_spaces: number | null; floor: number | null; created_by: string; amenities: string[] | null; location_mode: "exact" | "approximate" | null } | null }
+
+  // Fetch photos
+  const { data: photos } = await supabase
+    .from("property_photos")
+    .select("url, caption, is_cover, order_index")
+    .eq("property_id", property.id!)
+    .order("order_index") as { data: { url: string; caption: string | null; is_cover: boolean; order_index: number }[] | null }
+
+  // Fetch project amenities + photos when the property belongs to a project
+  const [{ data: projectAmenities }, { data: projectPhotos }] = property.project_id
+    ? await Promise.all([
+        supabase
+          .from("project_amenities")
+          .select("name, icon")
+          .eq("project_id", property.project_id)
+          .order("sort_order"),
+        supabase
+          .from("project_photos")
+          .select("url, caption, is_cover, order_index")
+          .eq("project_id", property.project_id)
+          .order("order_index") as unknown as Promise<{ data: { url: string; caption: string | null; is_cover: boolean; order_index: number }[] | null }>,
+      ])
+    : [{ data: null }, { data: null }]
+
+  // Combine project + property amenities for display (project first, dedup)
+  const amenitiesSeen = new Set<string>()
+  const amenities: { name: string; icon: string | null }[] = []
+  for (const a of (projectAmenities ?? []) as { name: string; icon: string | null }[]) {
+    const k = a.name.toLowerCase()
+    if (!amenitiesSeen.has(k)) { amenitiesSeen.add(k); amenities.push(a) }
+  }
+  for (const name of (propExtra?.amenities ?? [])) {
+    const k = name.toLowerCase()
+    if (!amenitiesSeen.has(k)) { amenitiesSeen.add(k); amenities.push({ name, icon: null }) }
+  }
+
+  // Fetch the contact agent — the person whose profile shows on the
+  // sidebar + "publicado por". We prefer the property's actual creator
+  // (`created_by`) so visitors talk to the agent who owns the listing,
+  // not whoever happens to be the platform's owner_admin. Only when
+  // that profile is missing / inactive / soft-deleted do we fall back
+  // to a generic owner_admin so the page never goes contact-less.
+  type ContactProfile = Pick<
+    Profile,
+    "id" | "full_name" | "slug" | "avatar_url" | "phone" | "email" | "role" | "bio"
+  >
+
+  let contactAgent: ContactProfile | null = null
+  if (propExtra?.created_by) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, slug, avatar_url, phone, email, role, bio")
+      .eq("id", propExtra.created_by)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .maybeSingle() as { data: ContactProfile | null }
+    contactAgent = data
+  }
+  if (!contactAgent) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, slug, avatar_url, phone, email, role, bio")
+      .eq("role", "owner_admin")
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle() as { data: ContactProfile | null }
+    contactAgent = data
+  }
+  // Keep `admin` as the variable name used downstream by the JSX —
+  // smaller diff and the prop is the same shape.
+  const admin = contactAgent
+
+  // Fetch translation for current locale (only for non-default locales)
+  const { data: translation } = locale !== "es"
+    ? await supabase
+        .from("property_translations")
+        .select("title, description, public_address, seo_title, seo_description, status")
+        .eq("property_id", property.id!)
+        .eq("locale", locale)
+        .in("status", ["auto_translated", "reviewed"])
+        .single()
+    : { data: null }
+
+  // Resolved display values: translation → original fallback
+  const displayTitle   = (translation as { title?: string | null } | null)?.title   ?? property.title
+  const displayDesc    = (translation as { description?: string | null } | null)?.description ?? property.description
+  const displayAddress = (translation as { public_address?: string | null } | null)?.public_address ?? property.display_address
+
+  const t          = await getTranslations("properties")
+  const tPublic    = await getTranslations("publicProperty")
+  const tListing   = await getTranslations("properties.listingTypes")
+
+  // Merge property + project photos. Property photos first (interior of the
+  // unit usually leads), then project photos (façade, amenities) appended.
+  // Cover photo is hoisted to position 0 so the gallery's hero tile shows it.
+  const merged = [
+    ...(photos        ?? []),
+    ...(projectPhotos ?? []),
+  ]
+  const coverIdx     = merged.findIndex((p) => p.is_cover)
+  const mergedPhotos = coverIdx > 0
+    ? [merged[coverIdx], ...merged.slice(0, coverIdx), ...merged.slice(coverIdx + 1)]
+    : merged
+
+  const parking = propExtra?.parking_spaces ?? null
+  const floor   = property.floor ?? propExtra?.floor ?? null
+
+  // Similar listings — keeps visitors moving when this one isn't
+  // quite right. Tier-based scoring (intent + type + zone + price +
+  // bedrooms). Returns at most 6, plus their cover photos.
+  const { properties: similar, coverByProperty: similarCovers } = await getSimilarProperties({
+    id:              property.id ?? "",
+    listing_type:    property.listing_type,
+    property_type:   property.property_type,
+    price:           property.price == null ? null : Number(property.price),
+    currency:        property.currency,
+    bedrooms:        property.bedrooms,
+    display_address: property.display_address,
+  })
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major) space-y-(--spacing-section)">
+
+      {/* Fires property_viewed + deep_engagement after a short delay */}
+      <PropertyViewTracker propertyId={property.id ?? ""} variant="branded" />
+
+      {/* ── Photo gallery ─────────────────────────────────── */}
+      <LightboxProvider
+        photos={mergedPhotos.map((p) => ({ url: p.url, caption: p.caption }))}
+      >
+        <ClickOnceTracker
+          propertyId={property.id ?? ""}
+          eventType="gallery_opened"
+          source="branded"
+        >
+          <div className="relative">
+            <PropertyGallery
+              photos={mergedPhotos}
+              alt={displayTitle ?? ""}
+              heroViewTransitionName={property.slug ? `cover-${property.slug}` : undefined}
+            />
+            {property.is_featured && (
+              <Badge className="absolute top-3 left-3 z-10">{t("featured")}</Badge>
+            )}
+          </div>
+        </ClickOnceTracker>
+      </LightboxProvider>
+
+      {/* ── Body — 2-col split (left content, right sticky contact) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-(--spacing-section) lg:gap-12 items-start">
+
+        {/* ── LEFT — listing content ────────────────────────── */}
+        <div className="min-w-0 space-y-(--spacing-section)">
+
+          {/* Title row */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-(--spacing-cluster)">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge
+                  className={
+                    property.listing_type === "rent"
+                      ? "bg-info text-info-foreground text-[11px] uppercase tracking-wider"
+                      : "bg-foreground text-background text-[11px] uppercase tracking-wider"
+                  }
+                >
+                  {tListing(property.listing_type ?? "sale")}
+                </Badge>
+                {property.listing_type === "rent" && property.is_furnished && (
+                  <Badge className="bg-primary text-primary-foreground text-[11px] uppercase tracking-wider">
+                    {t("furnished") /* fallback to filterBar key if missing */}
+                  </Badge>
+                )}
+                <Badge variant="secondary">
+                  {t(`types.${property.property_type}` as Parameters<typeof t>[0])}
+                </Badge>
+              </div>
+              <h1
+                className="font-heading font-semibold leading-[1.08] tracking-tight"
+                style={{ fontSize: "clamp(1.75rem, 3.5vw, 2.75rem)" }}
+              >
+                {displayTitle}
+              </h1>
+              {displayAddress && (
+                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                  <span className="flex items-center gap-1 min-w-0">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{displayAddress}</span>
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 flex flex-col items-end gap-2">
+              <p className="text-3xl font-heading font-bold text-foreground font-numeric leading-none">
+                {formatListingPrice(property.price!, property.currency, property.listing_type)}
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground align-baseline">
+                  {property.currency}
+                </span>
+              </p>
+              <LegalDisclaimer variant="price" className="text-right" />
+              <PublicShareButton
+                path={`/p/${property.slug ?? ""}`}
+                title={displayTitle ?? ""}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          {/* Quick specs row — inline icon strip */}
+          <div className="flex flex-wrap gap-x-6 gap-y-(--spacing-tight) py-(--spacing-cluster) border-y">
+            {property.bedrooms != null && (
+              <SpecChip
+                icon={<BedIcon className="h-4 w-4" />}
+                label={`${property.bedrooms} ${property.bedrooms !== 1 ? t("bedsPlural") : t("beds")}`}
+              />
+            )}
+            {property.bathrooms != null && (
+              <SpecChip
+                icon={<BathIcon className="h-4 w-4" />}
+                label={`${property.bathrooms} ${property.bathrooms !== 1 ? t("bathsPlural") : t("baths")}`}
+              />
+            )}
+            {property.area_sqm != null && (
+              <SpecChip
+                icon={<Maximize2 className="h-4 w-4" />}
+                label={`${property.area_sqm} m²`}
+              />
+            )}
+            {parking != null && (
+              <SpecChip
+                icon={<Car className="h-4 w-4" />}
+                label={`${parking} ${t("parkingCount")}`}
+              />
+            )}
+          </div>
+
+          {/* Detalles adicionales — 2-col label/value grid (no card shell — already inside page) */}
+          <section className="space-y-(--spacing-cluster)">
+            <h2 className="text-lg font-heading font-semibold">{t("areasAndLot")}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+              <DetailRow
+                label={t("tableStatus")}
+                value={t(`publicStatuses.${property.status}` as Parameters<typeof t>[0]) ?? property.status!}
+              />
+              {displayAddress && (
+                <DetailRow label={t("tableLocation")} value={displayAddress} />
+              )}
+              {property.area_sqm != null && (
+                <DetailRow label={t("tableLivingSpace")} value={`${property.area_sqm.toLocaleString()} m²`} />
+              )}
+              {floor != null && (
+                <DetailRow label={t("tableFloor")} value={`${floor}`} />
+              )}
+              {parking != null && (
+                <DetailRow label={t("tableParking")} value={`${parking}`} />
+              )}
+              <DetailRow
+                label={t("tablePropertyId")}
+                value={property.id?.slice(0, 8).toUpperCase() ?? "—"}
+              />
+            </div>
+          </section>
+
+          {/* Amenidades — shared component, same on /projects/[slug] */}
+          <AmenitiesList amenities={amenities} heading={t("amenities")} />
+
+          {/* Ubicación + map */}
+          {property.display_lat != null && property.display_lng != null && (
+            <section className="space-y-(--spacing-cluster)">
+              <h2 className="text-lg font-heading font-semibold">{t("tableLocation")}</h2>
+              <ClickOnceTracker
+                propertyId={property.id ?? ""}
+                eventType="map_opened"
+                source="branded"
+              >
+                <PropertyLocationMap
+                  lat={Number(property.display_lat)}
+                  lng={Number(property.display_lng)}
+                  locationMode={propExtra?.location_mode ?? "approximate"}
+                  address={displayAddress}
+                />
+              </ClickOnceTracker>
+              {propExtra?.location_mode === "approximate" && (
+                <LegalDisclaimer variant="approximate-location" tone="note" />
+              )}
+            </section>
+          )}
+
+          {/* Sale-only disclaimers (closing costs + documentation) */}
+          {property.listing_type === "sale" && (
+            <div className="space-y-(--spacing-tight)">
+              <LegalDisclaimer variant="closing-costs" tone="note" />
+              <LegalDisclaimer variant="documentation" tone="note" />
+            </div>
+          )}
+
+          {/* Descripción — shared component */}
+          <HtmlDescription html={displayDesc} heading={t("description")} />
+
+          {/* Publicado por — inline editorial row, no nested card wrapper. */}
+          {admin && (
+            <section className="space-y-(--spacing-block) pt-(--spacing-block) border-t">
+              <h2 className="text-lg font-heading font-semibold">{tPublic("publishedBy")}</h2>
+              <Link
+                href={`/agents/${admin.slug}`}
+                className="group flex items-center gap-(--spacing-block) hover:[&_p:first-of-type]:underline underline-offset-4 decoration-foreground/30"
+              >
+                {admin.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={admin.avatar_url}
+                    alt={admin.full_name}
+                    className="h-14 w-14 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="h-14 w-14 rounded-full bg-primary/15 text-foreground flex items-center justify-center font-heading font-semibold text-base shrink-0">
+                    {admin.full_name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-heading font-semibold truncate">
+                    {admin.full_name}
+                  </p>
+                  {admin.bio && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{admin.bio}</p>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0 group-hover:text-foreground transition-colors">
+                  {tPublic("viewProfile")}
+                </span>
+              </Link>
+            </section>
+          )}
+        </div>
+
+        {/* ── RIGHT — sticky contact sidebar (desktop only) ── */}
+        {admin && (
+          <PropertyContactSidebar
+            propertyId={property.id ?? ""}
+            agent={admin}
+            trackingSource="branded"
+            form={
+              <TourForm
+                propertyId={property.id!}
+                propertyName={property.title!}
+                propertySlug={property.slug!}
+                capturedBy={propExtra?.created_by ?? null}
+                listingType={property.listing_type ?? null}
+              />
+            }
+          />
+        )}
+      </div>
+
+      {/* ── Similar properties ───────────────────────────────────
+              Same intent (sale/rent) and ideally same type + zone.
+              Spans the full page width so it gets visual breathing
+              room beneath the 2-col body. Hidden when there's nothing
+              to recommend. */}
+      {similar.length > 0 && (
+        <section className="space-y-(--spacing-block) pt-(--spacing-section) border-t">
+          <header className="space-y-(--spacing-tight)">
+            <h2
+              className="font-heading font-bold tracking-tight leading-[1.05]"
+              style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)" }}
+            >
+              {tPublic("similarHeadline")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {tPublic("similarSubtitle")}
+            </p>
+          </header>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-(--spacing-block) sm:gap-(--spacing-section)">
+            {similar.map((p) => (
+              <MarketplaceCard
+                key={p.id}
+                property={p}
+                coverUrl={p.id ? similarCovers[p.id] : undefined}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Mobile sticky bottom bar (replaces sidebar on <lg) ── */}
+      {admin && (
+        <MobileContactSticky
+          phone={admin.phone}
+          email={admin.email}
+          ctaLabel={t("scheduleTour")}
+          modalTitle={t("scheduleTour")}
+          modalDescription={t("scheduleTourDesc")}
+        >
+          <TourForm
+            propertyId={property.id!}
+            propertyName={property.title!}
+            propertySlug={property.slug!}
+            capturedBy={propExtra?.created_by ?? null}
+            listingType={property.listing_type ?? null}
+          />
+        </MobileContactSticky>
+      )}
+    </div>
+  )
+}
+
+function SpecChip({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-muted-foreground">{icon}</span>
+      <span className="font-medium font-numeric">{label}</span>
+    </div>
+  )
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-baseline gap-3 py-2 text-sm border-b border-dashed last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-right truncate">{value}</span>
+    </div>
+  )
+}

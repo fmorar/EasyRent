@@ -1,0 +1,57 @@
+# Supabase project config — committed to source so any team member can
+# rehydrate the project's settings via `supabase config push`. The auth
+# block is what password recovery cares about.
+#
+# To apply:
+#   supabase login                       # one-time, opens browser
+#   supabase link --project-ref ykkzvzoiwslncxdyylps
+#   supabase config push                 # syncs this file to the remote
+#
+# (`supabase` CLI ≥ v2.0 is required.)
+
+project_id = "ykkzvzoiwslncxdyylps"
+
+[auth]
+# `site_url` = the canonical URL of your app. gotrue rejects redirects
+# that don't match this OR an entry in `additional_redirect_urls`.
+# Switch to your production domain when you deploy.
+site_url = "http://localhost:3000"
+
+# Whitelist of allowed redirect destinations. Each entry can use:
+#   - exact URL match
+#   - `?**` wildcard for any query string
+#   - `**`  wildcard for any path
+#
+# Our /login/forgot form sends users through:
+#   {origin}/api/auth/callback?next=/login/reset
+# so we whitelist BOTH the bare path AND the `?**` variant.
+additional_redirect_urls = [
+  "http://localhost:3000/api/auth/callback",
+  "http://localhost:3000/api/auth/callback?**",
+]
+
+# JWT lifetime — 1h default. Refresh tokens are managed automatically
+# by `@supabase/ssr` via cookies.
+jwt_expiry = 3600
+
+[auth.email]
+# Don't auto-create accounts from /signup — invitation-only product.
+enable_signup = false
+# Force ink-confirmation for email changes (prevents account hijack via
+# stolen session swapping the email).
+double_confirm_changes = true
+# We DO want confirmation for new sign-ups (when invitation accepted)
+# so the user proves email ownership before getting a session.
+enable_confirmations = true
+# Throttle password-reset emails to one per minute per address — slows
+# down reset-spam but stays usable.
+max_frequency = "60s"
+# OTP defaults — recovery tokens expire in 1h.
+otp_length = 6
+otp_expiry = 3600
+
+# Recovery email subject. Body falls back to gotrue's default template
+# unless you point `content_path` at a custom HTML file. The template
+# uses `{{ .ConfirmationURL }}` to inject the redirectTo URL.
+[auth.email.template.recovery]
+subject = "Restablecé tu contraseña en easyrent"
