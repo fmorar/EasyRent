@@ -79,7 +79,19 @@
     "metricConversionHint":       "Leads / visitas en la misma semana.",
     "metricTopProperty":          "Top propiedad (7d)",
     "metricTopPropertyHint":      "{views} vistas esta semana. Click para abrirla.",
-    "metricTopPropertyEmpty":     "Sin visitas registradas todavía."
+    "metricTopPropertyEmpty":     "Sin visitas registradas todavía.",
+    "portfolioTitle":             "Mi cartera",
+    "portfolioTotalHint":         "Propiedades que gestionás (subidas + recibidas).",
+    "portfolioMine":              "Mías",
+    "portfolioMineHint":          "Las subiste vos.",
+    "portfolioReceived":          "Recibidas",
+    "portfolioReceivedHint":      "Otros agentes te las compartieron.",
+    "portfolioGiven":             "Compartidas",
+    "portfolioGivenHint":         "De las tuyas, las que compartiste a otros.",
+    "myMetricsTitle":             "Mi desempeño",
+    "myMetricsSubtitle":          "Métricas sobre las propiedades que gestionás (últimos 7-30 días).",
+    "metricMyPublic":             "Mis públicas",
+    "metricMyPublicHint":         "Propiedades tuyas visibles en el marketplace."
   },
   "marketplace": {
     "cta": {

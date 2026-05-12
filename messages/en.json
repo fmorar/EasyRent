@@ -79,7 +79,19 @@
     "metricConversionHint":       "Leads / views in the same week.",
     "metricTopProperty":          "Top property (7d)",
     "metricTopPropertyHint":      "{views} views this week. Click to open.",
-    "metricTopPropertyEmpty":     "No views recorded yet."
+    "metricTopPropertyEmpty":     "No views recorded yet.",
+    "portfolioTitle":             "My portfolio",
+    "portfolioTotalHint":         "Properties you manage (uploaded + received).",
+    "portfolioMine":              "Mine",
+    "portfolioMineHint":          "You uploaded these.",
+    "portfolioReceived":          "Received",
+    "portfolioReceivedHint":      "Other agents shared these with you.",
+    "portfolioGiven":             "Given",
+    "portfolioGivenHint":         "Yours that you've shared with others.",
+    "myMetricsTitle":             "My performance",
+    "myMetricsSubtitle":          "Metrics on the properties you manage (last 7-30 days).",
+    "metricMyPublic":             "My public",
+    "metricMyPublicHint":         "Your properties visible in the marketplace."
   },
   "marketplace": {
     "cta": {
