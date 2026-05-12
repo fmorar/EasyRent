@@ -58,21 +58,23 @@ export function UnlinkAgentButton({ agentId, agentName, agentEmail }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>¿Desvincular a {agentName}?</DialogTitle>
-            <DialogDescription className="space-y-2 pt-2">
-              <span className="block">
-                Quitás a <strong className="text-foreground">{agentEmail}</strong> de tu red.
-                Su cuenta y las propiedades que él subió quedan intactas.
-              </span>
-              <span className="block">
-                Lo que sí cambia:
-              </span>
-              <ul className="list-disc pl-4 space-y-1 text-xs">
-                <li>Las propiedades / proyectos / reportes que vos le compartiste dejan de ser visibles para él.</li>
-                <li>Lo que él te compartió a vos también deja de ser visible.</li>
-                <li>No vas a poder compartirle nada nuevo a menos que lo invités otra vez.</li>
-              </ul>
+            <DialogDescription>
+              Quitás a <strong className="text-foreground">{agentEmail}</strong> de tu red.
+              Su cuenta y las propiedades que él subió quedan intactas.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Consequences — rendered as a sibling of the header instead
+              of inside DialogDescription, since the description is a
+              <p> and a <ul> inside a <p> trips React's hydration check. */}
+          <div className="text-sm text-muted-foreground space-y-2 pt-2">
+            <p>Lo que sí cambia:</p>
+            <ul className="list-disc pl-5 space-y-1 text-xs">
+              <li>Las propiedades / proyectos / reportes que vos le compartiste dejan de ser visibles para él.</li>
+              <li>Lo que él te compartió a vos también deja de ser visible.</li>
+              <li>No vas a poder compartirle nada nuevo a menos que lo invités otra vez.</li>
+            </ul>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
               Cancelar
