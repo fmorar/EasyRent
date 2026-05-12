@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table"
 import { UserPlusIcon } from "@heroicons/react/24/outline"
 import { RevokeInvitationButton } from "@/components/agent/revoke-invitation-button"
+import { ResendInvitationButton } from "@/components/agent/resend-invitation-button"
 import { StatTile } from "@/components/shared/stat-tile"
 import type { Invitation } from "@/types"
 
@@ -144,10 +145,16 @@ export default async function InvitationsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     {inv.effectiveStatus === "pending" && (
-                      <RevokeInvitationButton
-                        invitationId={inv.id}
-                        email={inv.email}
-                      />
+                      <div className="flex items-center justify-end gap-1">
+                        <ResendInvitationButton
+                          invitationId={inv.id}
+                          email={inv.email}
+                        />
+                        <RevokeInvitationButton
+                          invitationId={inv.id}
+                          email={inv.email}
+                        />
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>

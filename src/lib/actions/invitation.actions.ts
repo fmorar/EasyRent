@@ -5,7 +5,19 @@ import { createClient } from "@/lib/supabase/server"
 import { requireAuth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { slugify } from "@/lib/utils"
+import { sendAgentInvitationEmail } from "@/lib/email/send-agent-invitation"
 import type { ActionResult } from "@/types"
+
+function roleLabel(role: "agent" | "owner_admin"): string {
+  return role === "owner_admin" ? "Administrador/a" : "Agente"
+}
+
+function inviteUrl(token: string): string {
+  // Falls back to localhost so dev sends a working link even when
+  // NEXT_PUBLIC_APP_URL is unset.
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  return `${base.replace(/\/$/, "")}/invite/${token}`
+}
 
 interface InviteInput {
   email:  string
@@ -16,7 +28,7 @@ interface InviteInput {
 
 export async function inviteAgent(
   input: InviteInput
-): Promise<ActionResult<{ token: string }>> {
+): Promise<ActionResult<{ token: string; emailSent: boolean; emailError?: string }>> {
   const { profile } = await requireAuth()
   const supabase    = await createClient()
   const admin       = createAdminClient()
@@ -34,24 +46,40 @@ export async function inviteAgent(
     return { success: false, error: "An active invitation already exists for this email" }
   }
 
+  const role = input.role ?? "agent"
   const { data: invitation, error } = await admin
     .from("invitations")
     .insert({
       email:       input.email,
       invited_by:  profile.id,
-      role:        input.role  ?? "agent",
+      role,
       zones:       input.zones ?? [],
     })
-    .select("token")
+    .select("token, expires_at")
     .single()
 
   if (error) return { success: false, error: error.message }
 
-  // TODO: Send invitation email via your email provider (Resend, Postmark, etc.)
-  // The invite URL is: `${process.env.NEXT_PUBLIC_APP_URL}/invite/${invitation.token}`
+  // Send the invitation email — non-blocking on failure so the admin
+  // can still grab the link and resend manually from the table.
+  const send = await sendAgentInvitationEmail({
+    to:          input.email,
+    inviterName: profile.full_name,
+    roleLabel:   roleLabel(role),
+    acceptUrl:   inviteUrl(invitation.token),
+    expiresAt:   invitation.expires_at,
+  })
 
   revalidatePath("/agents")
-  return { success: true, data: { token: invitation.token } }
+  revalidatePath("/invitations")
+  return {
+    success: true,
+    data: {
+      token:      invitation.token,
+      emailSent:  send.sent,
+      emailError: send.error,
+    },
+  }
 }
 
 interface AcceptInput {
@@ -123,4 +151,55 @@ export async function revokeInvitation(
 
   revalidatePath("/agents")
   return { success: true, data: undefined }
+}
+
+/**
+ * Re-send the invitation email for an existing pending invitation. Used
+ * from the admin invitations table when the first send failed or the
+ * recipient lost the original message. Does not touch the DB row.
+ */
+export async function resendInvitation(
+  invitationId: string
+): Promise<ActionResult<{ emailSent: boolean; emailError?: string }>> {
+  const { profile } = await requireAuth()
+  const admin = createAdminClient()
+
+  const { data: invitation, error } = await admin
+    .from("invitations")
+    .select(`
+      email, role, status, token, expires_at,
+      inviter:profiles!invitations_invited_by_fkey(full_name)
+    `)
+    .eq("id", invitationId)
+    .single<{
+      email:      string
+      role:       "agent" | "owner_admin"
+      status:     string
+      token:      string
+      expires_at: string
+      inviter:    { full_name: string } | null
+    }>()
+
+  if (error || !invitation) {
+    return { success: false, error: "Invitación no encontrada" }
+  }
+  if (invitation.status !== "pending") {
+    return { success: false, error: "Solo se pueden reenviar invitaciones pendientes" }
+  }
+  if (new Date(invitation.expires_at) < new Date()) {
+    return { success: false, error: "Esta invitación ya venció. Generá una nueva." }
+  }
+
+  const send = await sendAgentInvitationEmail({
+    to:          invitation.email,
+    inviterName: invitation.inviter?.full_name ?? profile.full_name,
+    roleLabel:   roleLabel(invitation.role),
+    acceptUrl:   inviteUrl(invitation.token),
+    expiresAt:   invitation.expires_at,
+  })
+
+  return {
+    success: true,
+    data: { emailSent: send.sent, emailError: send.error },
+  }
 }

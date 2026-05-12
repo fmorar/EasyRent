@@ -18,6 +18,8 @@ import {
   ClipboardIcon,
   CheckCircleIcon,
   EnvelopeIcon,
+  PaperAirplaneIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline"
 import { inviteAgent } from "@/lib/actions/invitation.actions"
 import { listCustomZones, createCustomZone, type CustomZoneRow } from "@/lib/actions/zones.actions"
@@ -38,6 +40,7 @@ export function InviteAgentForm({ isAdmin, appUrl }: Props) {
   const [role,  setRole]  = useState<"agent" | "owner_admin">("agent")
   const [zones, setZones] = useState<string[]>([])
   const [token, setToken] = useState<string | null>(null)
+  const [emailStatus, setEmailStatus] = useState<{ sent: boolean; error?: string } | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -89,7 +92,12 @@ export function InviteAgentForm({ isAdmin, appUrl }: Props) {
         return
       }
       setToken(result.data.token)
-      toast.success(t("createdToast"))
+      setEmailStatus({ sent: result.data.emailSent, error: result.data.emailError })
+      if (result.data.emailSent) {
+        toast.success(t("createdToastWithEmail"))
+      } else {
+        toast.success(t("createdToastNoEmail"))
+      }
     })
   }
 
@@ -105,6 +113,7 @@ export function InviteAgentForm({ isAdmin, appUrl }: Props) {
     setEmail("")
     setZones([])
     setToken(null)
+    setEmailStatus(null)
     setCopied(false)
     setServerError(null)
   }
@@ -134,6 +143,31 @@ export function InviteAgentForm({ isAdmin, appUrl }: Props) {
             )}
           </div>
         </div>
+
+        {/* Email status — sent ✓ or failed (copy link manually) */}
+        {emailStatus && (
+          emailStatus.sent ? (
+            <div className="flex items-start gap-2 rounded-lg border border-success/20 bg-success-soft/40 p-3">
+              <PaperAirplaneIcon className="h-4 w-4 text-success shrink-0 mt-0.5" />
+              <div className="text-xs leading-relaxed">
+                <p className="font-medium text-foreground">{t("emailSentTitle")}</p>
+                <p className="text-muted-foreground mt-0.5">
+                  {t("emailSentBody", { email })}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft/40 p-3">
+              <ExclamationTriangleIcon className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+              <div className="text-xs leading-relaxed">
+                <p className="font-medium text-foreground">{t("emailFailedTitle")}</p>
+                <p className="text-muted-foreground mt-0.5">
+                  {t("emailFailedBody")}
+                </p>
+              </div>
+            </div>
+          )
+        )}
 
         <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-2">
           <code className="flex-1 text-xs font-mono truncate px-2">
