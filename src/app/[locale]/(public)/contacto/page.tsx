@@ -21,12 +21,8 @@ import { getTranslations } from "next-intl/server"
 import type { Metadata } from "next"
 import { OwnerLeadForm } from "@/components/contact/owner-lead-form"
 import { PublicFooter } from "@/components/layout/public-footer"
-import {
-  ClockIcon,
-  ChartBarSquareIcon,
-  Squares2X2Icon,
-  ChatBubbleLeftRightIcon,
-} from "@heroicons/react/24/solid"
+import { CheckCircleIcon } from "@heroicons/react/24/outline"
+import { EnvelopeIcon, PhoneIcon } from "@heroicons/react/24/outline"
 
 export const revalidate = 600
 
@@ -54,82 +50,61 @@ export default async function ContactoPage() {
 
   return (
     <div className="bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-major) lg:py-(--spacing-massive) space-y-(--spacing-major)">
+      {/* Outer rhythm:
+            • Vertical: explicit `pt-20 sm:pt-24 lg:pt-32` (80/96/128px)
+              keeps the centered hero from kissing the public header
+              even on mobile — the previous `--spacing-major` (64px)
+              looked cramped right under the nav.
+            • Horizontal: generous gutters at every breakpoint so
+              content never brushes the edge.
+            • Section spacing: massive between bands (96px) so the
+              divider rows feel intentional. */}
+      <div className="max-w-6xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 pt-20 sm:pt-24 lg:pt-32 pb-(--spacing-major) space-y-8">
 
-        {/* ── Hero + form, 2-col on desktop. */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-(--spacing-section) lg:gap-(--spacing-major) items-start">
-          {/* Left — pitch + CTA */}
-          <div className="space-y-(--spacing-block)">
-            <h1
-              className="font-heading font-bold tracking-tight leading-[1.02] text-foreground"
-              style={{ fontSize: "clamp(2.5rem, 5.5vw, 4.5rem)" }}
-            >
-              {t("heroTitle")}{" "}
-              <span className="text-foreground/40">{t("heroTitleAccent")}</span>
-            </h1>
-            <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
-              {t("heroLead")}
-            </p>
-            <div className="pt-(--spacing-tight)">
-              <a
-                href="#cuentanos"
-                className="inline-flex items-center justify-center h-11 px-6 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors duration-(--duration-state) ease-(--ease-out-quart)"
-              >
-                {t("heroCta")}
-              </a>
-            </div>
-          </div>
+        {/* ── Centered hero ───────────────────────────────────────
+                Pattern from the design reference: small eyebrow tag,
+                big bold h1, narrower lead — all centered. Keeps the
+                visitor's eye anchored before they scan to the form. */}
+        <header className="text-center space-y-(--spacing-block) max-w-2xl mx-auto">
+          <p className="text-xs uppercase tracking-[0.22em] font-semibold text-foreground">
+            {t("eyebrow")}
+          </p>
+          <h1
+            className="font-heading font-bold tracking-tight leading-[1.05] text-foreground"
+            style={{ fontSize: "clamp(2.25rem, 4.5vw, 3.75rem)" }}
+          >
+            {t("heroTitle")}
+          </h1>
+          <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto">
+            {t("heroLead")}
+          </p>
+        </header>
 
-          {/* Right — form */}
-          <div id="cuentanos" className="lg:pt-(--spacing-tight)">
+        {/* ── Form (left) + Benefits + Contact (right) ──────────── */}
+        <div id="cuentanos" className="grid grid-cols-1 lg:grid-cols-2 gap-(--spacing-section) lg:gap-(--spacing-major) items-start">
+
+          {/* Left — form */}
+          <div className="min-w-0">
             <OwnerLeadForm />
           </div>
-        </div>
 
-        {/* ── Testimonial row — two short quotes from real owners. */}
-        <div className="border-t pt-(--spacing-block)">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-(--spacing-block) lg:gap-(--spacing-section)">
-            <Quote
-              initials="MC"
-              name={t("quote1Name")}
-              meta={t("quote1Meta")}
-              body={t("quote1Body")}
-              accent="primary"
-            />
-            <Quote
-              initials="JR"
-              name={t("quote2Name")}
-              meta={t("quote2Meta")}
-              body={t("quote2Body")}
-              accent="editorial"
-            />
-          </div>
-        </div>
-
-        {/* ── 4-up feature grid — icon + title + small body. */}
-        <div className="border-t pt-(--spacing-section)">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-(--spacing-block) lg:gap-(--spacing-section)">
-            <Feature
-              icon={<ClockIcon className="h-5 w-5" />}
-              title={t("feat1Title")}
-              body={t("feat1Body")}
-            />
-            <Feature
-              icon={<ChartBarSquareIcon className="h-5 w-5" />}
-              title={t("feat2Title")}
-              body={t("feat2Body")}
-            />
-            <Feature
-              icon={<Squares2X2Icon className="h-5 w-5" />}
-              title={t("feat3Title")}
-              body={t("feat3Body")}
-            />
-            <Feature
-              icon={<ChatBubbleLeftRightIcon className="h-5 w-5" />}
-              title={t("feat4Title")}
-              body={t("feat4Body")}
-            />
-          </div>
+          {/* Right — benefits checklist only. Direct-contact chips
+              and the testimonial used to live here too but the page
+              read busy with three stacked blocks; the form already
+              gives the agent every channel they need to reach us. */}
+          <aside className="min-w-0">
+            <section className="space-y-(--spacing-block)">
+              <h2 className="text-base font-heading font-semibold tracking-tight">
+                {t("benefitsHeading")}
+              </h2>
+              <ul className="space-y-(--spacing-block)">
+                <BenefitItem text={t("feat1Title")} body={t("feat1Body")} />
+                <BenefitItem text={t("feat2Title")} body={t("feat2Body")} />
+                <BenefitItem text={t("feat3Title")} body={t("feat3Body")} />
+                <BenefitItem text={t("feat4Title")} body={t("feat4Body")} />
+              </ul>
+            </section>
+          </aside>
         </div>
       </div>
 
@@ -141,64 +116,91 @@ export default async function ContactoPage() {
 // ── Pieces ──────────────────────────────────────────────────────
 
 /**
- * Small testimonial card — avatar-style initials box on the left,
- * italic body on the right. The accent color rotates per instance.
+ * One row of the benefits checklist on the right rail. Outlined
+ * check icon + title (semibold) + supporting body underneath.
+ * Mirrors the "Improve usability / Engage users / …" list in the
+ * design reference.
+ */
+function BenefitItem({
+  text, body,
+}: {
+  text: string
+  body: string
+}) {
+  return (
+    <li className="flex items-start gap-(--spacing-cluster)">
+      <CheckCircleIcon className="h-5 w-5 shrink-0 text-foreground mt-0.5" />
+      <div className="space-y-(--spacing-tight) min-w-0">
+        <p className="text-sm font-medium leading-snug text-foreground">{text}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{body}</p>
+      </div>
+    </li>
+  )
+}
+
+/**
+ * Compact contact tile — icon in a rounded circle + label + value.
+ * Renders as a link so phones jump to WhatsApp / dialers and emails
+ * open the OS mail client.
+ */
+function ContactChip({
+  icon, label, value, href,
+}: {
+  icon:  React.ReactNode
+  label: string
+  value: string
+  href:  string
+}) {
+  return (
+    <a
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+      className="flex items-center gap-(--spacing-cluster) group"
+    >
+      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-card text-foreground group-hover:bg-muted transition-colors">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="text-sm font-numeric font-medium truncate group-hover:underline decoration-foreground/30 underline-offset-4">
+          {value}
+        </p>
+      </div>
+    </a>
+  )
+}
+
+/**
+ * Single testimonial — avatar initials box on the left, italic body
+ * on the right. Used inline in the right rail; the homepage tone is
+ * "real client said this", not a sales pitch.
  */
 function Quote({
-  initials, name, meta, body, accent,
+  initials, name, meta, body,
 }: {
   initials: string
   name:     string
   meta:     string
   body:     string
-  accent:   "primary" | "editorial"
 }) {
   return (
-    <figure className="flex items-start gap-(--spacing-cluster)">
-      <div
-        className={
-          "shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-xs font-numeric font-semibold " +
-          (accent === "primary"
-            ? "bg-primary text-foreground"
-            : "bg-editorial-soft text-editorial")
-        }
-      >
+    <figure className="flex items-start gap-(--spacing-block)">
+      <div className="shrink-0 h-12 w-12 rounded-full flex items-center justify-center text-sm font-numeric font-semibold bg-primary text-foreground">
         {initials}
       </div>
-      <div className="space-y-1 min-w-0">
+      <div className="space-y-(--spacing-tight) min-w-0">
         <p className="text-sm italic text-foreground/80 leading-relaxed">
           “{body}”
         </p>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           <span className="text-foreground font-medium">{name}</span>
           {" · "}
           {meta}
         </p>
       </div>
     </figure>
-  )
-}
-
-/**
- * Bottom-row feature tile — icon stacked above title + body. Tight,
- * scannable; no card chrome (the outer card holds the whole block).
- */
-function Feature({
-  icon, title, body,
-}: {
-  icon: React.ReactNode
-  title: string
-  body:  string
-}) {
-  return (
-    <div className="space-y-(--spacing-cluster)">
-      <span className="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-primary text-foreground">
-        {icon}
-      </span>
-      <div className="space-y-1">
-        <p className="text-sm font-heading font-semibold leading-snug">{title}</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">{body}</p>
-      </div>
-    </div>
   )
 }

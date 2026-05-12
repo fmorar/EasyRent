@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { CheckCircleIcon } from "@heroicons/react/24/outline"
 import { capturePublicLead } from "@/lib/actions/lead.actions"
+import { CountryCodeSelect } from "@/components/shared/country-code-select"
 import { cn } from "@/lib/utils"
 
 type ContactPref = "email" | "phone" | "both"
@@ -14,13 +15,14 @@ interface Props {
 }
 
 export function AgentContactForm({ agentId, agentName }: Props) {
-  const [first,   setFirst]   = useState("")
-  const [last,    setLast]    = useState("")
-  const [contact, setContact] = useState<ContactPref>("email")
-  const [email,   setEmail]   = useState("")
-  const [phone,   setPhone]   = useState("")
-  const [message, setMessage] = useState("")
-  const [done,    setDone]    = useState(false)
+  const [first,    setFirst]    = useState("")
+  const [last,     setLast]     = useState("")
+  const [contact,  setContact]  = useState<ContactPref>("email")
+  const [email,    setEmail]    = useState("")
+  const [phone,    setPhone]    = useState("")
+  const [dialCode, setDialCode] = useState("+506")
+  const [message,  setMessage]  = useState("")
+  const [done,     setDone]     = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const needsEmail = contact === "email" || contact === "both"
@@ -42,11 +44,17 @@ export function AgentContactForm({ agentId, agentName }: Props) {
     }
 
     const fullName = `${first.trim()} ${last.trim()}`
+    // Compose phone with the chosen country code; respect any "+" the
+    // visitor typed themselves (already international).
+    const phoneTrim    = phone.trim()
+    const composedPhone = !needsPhone || !phoneTrim
+      ? undefined
+      : phoneTrim.startsWith("+") ? phoneTrim : `${dialCode} ${phoneTrim}`
     startTransition(async () => {
       const result = await capturePublicLead({
         full_name:      fullName,
         email:          needsEmail ? email : undefined,
-        phone:          needsPhone ? phone : undefined,
+        phone:          composedPhone,
         message:        message || undefined,
         source:         "agent_profile",
         source_context: `Agent: ${agentName}`,
@@ -133,14 +141,24 @@ export function AgentContactForm({ agentId, agentName }: Props) {
 
       {needsPhone && (
         <FormField label="Phone" required>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+506 8888 8888"
-            disabled={isPending}
-            className="w-full rounded-full border bg-background px-4 h-11 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+          <div className="flex items-stretch gap-1.5">
+            <CountryCodeSelect
+              value={dialCode}
+              onChange={(d) => setDialCode(d)}
+              disabled={isPending}
+              className="h-11 rounded-full"
+            />
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel-national"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="8888 8888"
+              disabled={isPending}
+              className="flex-1 min-w-0 rounded-full border bg-background px-4 h-11 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </FormField>
       )}
 

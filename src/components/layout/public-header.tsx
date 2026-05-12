@@ -3,8 +3,6 @@
 import { useTranslations } from "next-intl"
 import { Link, usePathname } from "@/i18n/navigation"
 import {
-  HomeIcon,
-  BuildingOffice2Icon,
   ChevronDownIcon,
   LockClosedIcon,
   ArrowRightIcon,
@@ -52,7 +50,6 @@ export function PublicHeader({ projects, isSignedIn = false }: Props) {
   // Active matchers — kept simple. A pathname like "/marketplace/x" still
   // counts as marketplace; "/projects/foo" still counts as projects.
   const isHome     = pathname === "/" || pathname === ""
-  const isMarket   = pathname.startsWith("/marketplace")
   const isProjects = pathname.startsWith("/projects")
   const isContact  = pathname.startsWith("/contacto")
   const isBlog     = pathname.startsWith("/blog")
@@ -77,17 +74,13 @@ export function PublicHeader({ projects, isSignedIn = false }: Props) {
           <PillLink
             href="/"
             active={isHome}
-            icon={<HomeIcon className="h-4 w-4" />}
           >
             Inicio
           </PillLink>
-          <PillLink
-            href="/marketplace"
-            active={isMarket}
-            icon={<BuildingOffice2Icon className="h-4 w-4" />}
-          >
-            {t("marketplace")}
-          </PillLink>
+          {/* The "Marketplace" pill used to live here. We removed it
+              because the "Explorar propiedades" CTA on the right
+              already routes to /marketplace — having both was a
+              redundant choice for the visitor. */}
           {projects.length === 1 && (
             <PillLink
               href={`/projects/${projects[0].slug}`}

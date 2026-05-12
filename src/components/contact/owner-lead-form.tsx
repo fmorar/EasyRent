@@ -20,6 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CountryCodeSelect } from "@/components/shared/country-code-select"
 
 const INTENT_OPTIONS = [
   { value: "sale", label: "Vender mi propiedad" },
@@ -63,6 +64,10 @@ export function OwnerLeadForm() {
   const [done,        setDone]    = useState(false)
   const [error,       setError]   = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  // Country dial code lives outside RHF — we concat it with the phone
+  // input on submit. Default to Costa Rica since that's where the
+  // platform operates.
+  const [dialCode, setDialCode] = useState("+506")
 
   const {
     register,
@@ -78,12 +83,22 @@ export function OwnerLeadForm() {
   const intent       = watch("intent")
   const propertyType = watch("property_type")
 
+  /** Compose the final phone with the chosen country code. If the
+   *  user already typed a "+", we trust their input as-is — they
+   *  probably know what they're doing. */
+  function composedPhone(raw: string): string {
+    const trimmed = raw.trim()
+    if (!trimmed) return ""
+    if (trimmed.startsWith("+")) return trimmed
+    return `${dialCode} ${trimmed}`.trim()
+  }
+
   function onSubmit(values: FormValues) {
     setError(null)
     startTransition(async () => {
       const result = await submitOwnerLead({
         full_name:      values.full_name,
-        phone:          values.phone,
+        phone:          composedPhone(values.phone),
         email:          values.email || undefined,
         intent:         values.intent,
         property_type:  values.property_type,
@@ -119,7 +134,7 @@ export function OwnerLeadForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-(--spacing-cluster)" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-(--spacing-block)" noValidate>
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -137,13 +152,26 @@ export function OwnerLeadForm() {
           />
         </Field>
         <Field id="phone" label="WhatsApp" error={errors.phone?.message}>
-          <Input
-            id="phone"
-            type="tel"
-            autoComplete="tel"
-            placeholder="+506 0000 0000"
-            {...register("phone")}
-          />
+          {/* Two-control input: a searchable country-code combobox
+              on the left + a digits-only text input on the right.
+              We compose them at submit time so the schema still
+              sees one `phone` string. */}
+          <div className="flex items-stretch gap-1.5">
+            <CountryCodeSelect
+              value={dialCode}
+              onChange={(d) => setDialCode(d)}
+              disabled={pending}
+            />
+            <Input
+              id="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel-national"
+              placeholder="0000 0000"
+              className="flex-1 min-w-0"
+              {...register("phone")}
+            />
+          </div>
         </Field>
       </div>
 

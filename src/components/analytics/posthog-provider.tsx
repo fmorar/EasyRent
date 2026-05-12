@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { Suspense, useEffect } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import posthog from "posthog-js"
 import { PostHogProvider as Provider } from "posthog-js/react"
@@ -50,7 +50,16 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  return <Provider client={posthog}>{children}<PageviewTracker /></Provider>
+  return (
+    <Provider client={posthog}>
+      {children}
+      {/* useSearchParams() requires a Suspense boundary in Next.js 16
+          for pages that opt into static generation (notably /_not-found). */}
+      <Suspense fallback={null}>
+        <PageviewTracker />
+      </Suspense>
+    </Provider>
+  )
 }
 
 // PostHog won't auto-fire pageviews on App Router navigations — we hook

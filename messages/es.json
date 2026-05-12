@@ -292,10 +292,16 @@
     "colUpdated":      "Actualizado"
   },
   "contactOwner": {
+    "eyebrow":         "Captación de propiedades",
     "heroTitle":       "Vendé o alquilá tu propiedad",
     "heroTitleAccent": "con un equipo que conoce el mercado.",
-    "heroLead":        "Publicamos tu propiedad en los portales correctos, con fotografía profesional, comparables del mercado y atención directa a cada lead. Te contactamos en menos de 24 horas para coordinar una valoración sin compromiso.",
+    "heroLead":        "Llená el formulario y te contactamos en menos de 24 horas para coordinar una valoración sin compromiso.",
     "heroCta":         "Solicitar valoración",
+    "benefitsHeading":     "Lo que recibís con nosotros",
+    "alsoContactHeading":  "También podés contactarnos por",
+    "emailLabel":          "Correo",
+    "phoneLabel":          "Teléfono / WhatsApp",
+    "testimonialsHeading": "Lo que dicen los dueños",
     "quote1Name":      "María Castro",
     "quote1Meta":      "Vendió su apartamento en Escazú",
     "quote1Body":      "Recibí la valoración con comparables en 24 horas. Cerramos venta en 6 semanas, al precio sugerido.",

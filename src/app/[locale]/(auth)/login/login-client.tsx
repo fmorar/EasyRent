@@ -20,6 +20,7 @@ import {
   HomeIcon,
 } from "@heroicons/react/24/outline"
 import { EasyrentLogo } from "@/components/shared/easyrent-logo"
+import { AuthFeatureShowcase } from "@/components/auth/auth-feature-showcase"
 
 const loginSchema = z.object({
   email:    z.string().email("Ingresá un correo válido"),
@@ -74,56 +75,14 @@ export function LoginClient({ heroImageUrl }: Props) {
     router.refresh()
   }
 
+  // `heroImageUrl` is no longer used — the right side is now the
+  // animated feature showcase (`<AuthFeatureShowcase>`). We accept
+  // the prop for backwards compatibility so callers don't break.
+  void heroImageUrl
+
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-2">
-      {/* ── LEFT · hero photo ──────────────────────────────────── */}
-      <aside
-        className="relative isolate overflow-hidden hidden lg:block"
-        aria-hidden
-      >
-        <div className="absolute inset-0 -z-10">
-          {heroImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={heroImageUrl}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="h-full w-full bg-hero-fallback" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/70" />
-        </div>
-
-        {/* Top — brand */}
-        <div className="absolute top-8 left-8 right-8 flex items-center gap-3 z-10">
-          <span className="h-10 w-10 rounded-full bg-white/95 ring-2 ring-white/30 flex items-center justify-center shadow-sm shrink-0">
-            <HomeIcon className="h-5 w-5 text-foreground" />
-          </span>
-          <EasyrentLogo className="h-5 w-auto text-white" />
-        </div>
-
-        {/* Bottom — tagline */}
-        <div className="absolute bottom-10 sm:bottom-14 left-8 sm:left-12 right-8 sm:right-12 space-y-3 z-10">
-          <h2 className="text-3xl xl:text-4xl font-heading font-bold leading-tight text-white">
-            Encontrá tu próximo hogar
-          </h2>
-          <p className="text-sm text-white/80 max-w-md leading-relaxed">
-            Coordiná visitas en pocos clicks. Documentación verificada antes de cada cita.
-          </p>
-
-          {/* Decorative dots — visual indicator only, not a real
-              carousel for MVP. Swap for a real slider when the team
-              has more brand assets. */}
-          <div className="flex items-center gap-1.5 pt-(--spacing-tight)">
-            <span className="h-1 w-8 rounded-full bg-white" />
-            <span className="h-1 w-2 rounded-full bg-white/40" />
-            <span className="h-1 w-2 rounded-full bg-white/40" />
-          </div>
-        </div>
-      </aside>
-
-      {/* ── RIGHT · form ───────────────────────────────────────── */}
+      {/* ── LEFT · form ────────────────────────────────────────── */}
       <main className="relative flex flex-col px-6 py-8 sm:px-10 sm:py-10 lg:px-16 lg:py-12 min-h-screen">
         {/* Top row: back-to-home + (mobile-only) brand */}
         <header className="flex items-center justify-between mb-(--spacing-block) lg:mb-(--spacing-section)">
@@ -134,7 +93,7 @@ export function LoginClient({ heroImageUrl }: Props) {
             <ArrowLeftIcon className="h-3.5 w-3.5" />
             Volver al inicio
           </Link>
-          {/* Mobile-only brand (the photo aside is hidden < lg) */}
+          {/* Mobile-only brand (the showcase aside is hidden < lg) */}
           <span className="lg:hidden flex items-center gap-2">
             <span className="h-7 w-7 rounded-full bg-foreground text-background flex items-center justify-center">
               <HomeIcon className="h-3.5 w-3.5" />
@@ -143,7 +102,23 @@ export function LoginClient({ heroImageUrl }: Props) {
           </span>
         </header>
 
-        <div className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto lg:mx-0">
+        {/* The brand wordmark used to live here, but pulling it out
+            of the centered cluster left it floating alone at the top
+            and threw off the column's vertical balance. We now mount
+            it INSIDE the centered flex-1 below so the brand, title,
+            form and footer note are one balanced vertical group. */}
+
+        <div className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto">
+          {/* Brand wordmark — desktop only, lives INSIDE the centered
+              cluster so brand, title, form and footer note share the
+              same vertical group and the column balances around it. */}
+          <div className="hidden lg:flex items-center gap-3 mb-(--spacing-section)">
+            <span className="h-10 w-10 rounded-xl bg-foreground text-background flex items-center justify-center">
+              <HomeIcon className="h-5 w-5" />
+            </span>
+            <EasyrentLogo className="h-5 w-auto text-foreground" />
+          </div>
+
           <div className="space-y-(--spacing-tight) mb-(--spacing-block)">
             <h1 className="text-3xl sm:text-4xl font-heading font-bold tracking-tight">
               ¡Bienvenido de vuelta!
@@ -242,6 +217,14 @@ export function LoginClient({ heroImageUrl }: Props) {
           </p>
         </div>
       </main>
+
+      {/* ── RIGHT · animated feature showcase (hidden < lg) ─────── */}
+      <aside
+        className="relative hidden lg:block isolate overflow-hidden"
+        aria-hidden
+      >
+        <AuthFeatureShowcase />
+      </aside>
     </div>
   )
 }

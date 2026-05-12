@@ -4,12 +4,15 @@ import {
   HomeIcon,
 } from "@heroicons/react/24/outline"
 import { EasyrentLogo } from "@/components/shared/easyrent-logo"
+import { AuthFeatureShowcase } from "@/components/auth/auth-feature-showcase"
 
 interface Props {
-  /** URL of the placeholder hero photo. Server passes this in from
-   *  the most recent marketplace cover; null falls back to a gradient. */
-  heroImageUrl: string | null
-  /** The form / content panel rendered on the right side. Keep it
+  /** Kept for backwards compatibility — the right-side showcase no
+   *  longer uses a hero photo, so this prop is ignored. Callers can
+   *  safely keep passing it; we'll remove the prop after migrating
+   *  every page. */
+  heroImageUrl?: string | null
+  /** The form / content panel rendered on the LEFT side. Keep it
    *  focused — single H1 + form + small footer note. */
   children:     React.ReactNode
   /** Optional override for the back-link label. */
@@ -20,61 +23,23 @@ interface Props {
  * Shared split-screen shell for `/login`, `/login/forgot`, `/login/reset`.
  *
  *   ┌──────────── lg+ ────────────┐
- *   │ Hero photo (dark)  │ Form    │
- *   │ Brand top-left     │ panel   │
- *   │ Tagline bottom     │         │
- *   └────────────────────┴─────────┘
+ *   │ Form panel     │ Showcase   │
+ *   │ (white bg)     │ (tinted +  │
+ *   │ Brand top      │ animated   │
+ *   │                │ mockups)   │
+ *   └────────────────┴────────────┘
  *
- * On mobile the hero side is hidden; the form panel takes the whole
- * viewport and shows a compact mobile brand pill in the top-right.
+ * On mobile the showcase is hidden; the form takes the whole viewport
+ * and shows a compact brand pill at the top.
+ *
+ * The orientation is form-LEFT, showcase-RIGHT to match the
+ * reference design (Aivox login). Previous versions of this shell
+ * had it flipped — callers don't need to change anything.
  */
-export function AuthShell({ heroImageUrl, children, backLabel = "Volver al inicio" }: Props) {
+export function AuthShell({ children, backLabel = "Volver al inicio" }: Props) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-2">
-      {/* ── LEFT · hero photo (hidden < lg) ─────────────────────── */}
-      <aside
-        className="relative isolate overflow-hidden hidden lg:block"
-        aria-hidden
-      >
-        <div className="absolute inset-0 -z-10">
-          {heroImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={heroImageUrl}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="h-full w-full bg-hero-fallback" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/70" />
-        </div>
-
-        {/* Top — brand */}
-        <div className="absolute top-8 left-8 right-8 flex items-center gap-3 z-10">
-          <span className="h-10 w-10 rounded-full bg-white/95 ring-2 ring-white/30 flex items-center justify-center shadow-sm shrink-0">
-            <HomeIcon className="h-5 w-5 text-foreground" />
-          </span>
-          <EasyrentLogo className="h-5 w-auto text-white" />
-        </div>
-
-        {/* Bottom — tagline cluster */}
-        <div className="absolute bottom-10 sm:bottom-14 left-8 sm:left-12 right-8 sm:right-12 space-y-3 z-10">
-          <h2 className="text-3xl xl:text-4xl font-heading font-bold leading-tight text-white">
-            Encontrá tu próximo hogar
-          </h2>
-          <p className="text-sm text-white/80 max-w-md leading-relaxed">
-            Coordiná visitas en pocos clicks. Documentación verificada antes de cada cita.
-          </p>
-          <div className="flex items-center gap-1.5 pt-(--spacing-tight)">
-            <span className="h-1 w-8 rounded-full bg-white" />
-            <span className="h-1 w-2 rounded-full bg-white/40" />
-            <span className="h-1 w-2 rounded-full bg-white/40" />
-          </div>
-        </div>
-      </aside>
-
-      {/* ── RIGHT · form panel ──────────────────────────────────── */}
+      {/* ── LEFT · form panel ──────────────────────────────────── */}
       <main className="relative flex flex-col px-6 py-8 sm:px-10 sm:py-10 lg:px-16 lg:py-12 min-h-screen">
         {/* Top row: back link + (mobile-only) brand */}
         <header className="flex items-center justify-between mb-(--spacing-block) lg:mb-(--spacing-section)">
@@ -93,10 +58,27 @@ export function AuthShell({ heroImageUrl, children, backLabel = "Volver al inici
           </span>
         </header>
 
-        <div className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto lg:mx-0">
+        <div className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto">
+          {/* Brand wordmark — inside the centered cluster so the
+              column reads as one balanced vertical group. */}
+          <div className="hidden lg:flex items-center gap-3 mb-(--spacing-section)">
+            <span className="h-10 w-10 rounded-xl bg-foreground text-background flex items-center justify-center">
+              <HomeIcon className="h-5 w-5" />
+            </span>
+            <EasyrentLogo className="h-5 w-auto text-foreground" />
+          </div>
+
           {children}
         </div>
       </main>
+
+      {/* ── RIGHT · animated showcase (hidden < lg) ────────────── */}
+      <aside
+        className="relative hidden lg:block isolate overflow-hidden"
+        aria-hidden
+      >
+        <AuthFeatureShowcase />
+      </aside>
     </div>
   )
 }

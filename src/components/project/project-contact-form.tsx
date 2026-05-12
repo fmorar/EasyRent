@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { CheckCircleIcon } from "@heroicons/react/24/outline"
 import { capturePublicLead } from "@/lib/actions/lead.actions"
+import { CountryCodeSelect } from "@/components/shared/country-code-select"
 
 interface AgentInfo {
   id:         string
@@ -23,11 +24,12 @@ interface Props {
 }
 
 export function ProjectContactForm({ projectId, projectTitle, agent }: Props) {
-  const [name,    setName]    = useState("")
-  const [email,   setEmail]   = useState("")
-  const [phone,   setPhone]   = useState("")
-  const [message, setMessage] = useState("")
-  const [done,    setDone]    = useState(false)
+  const [name,     setName]     = useState("")
+  const [email,    setEmail]    = useState("")
+  const [phone,    setPhone]    = useState("")
+  const [dialCode, setDialCode] = useState("+506")
+  const [message,  setMessage]  = useState("")
+  const [done,     setDone]     = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const initials = (agent.full_name ?? "RE")
@@ -39,11 +41,17 @@ export function ProjectContactForm({ projectId, projectTitle, agent }: Props) {
       toast.error("Nombre y al menos un contacto (correo o teléfono) son requeridos.")
       return
     }
+    // Compose phone with the chosen country code unless the visitor
+    // typed a "+" themselves (already international).
+    const phoneTrim     = phone.trim()
+    const composedPhone = !phoneTrim
+      ? undefined
+      : phoneTrim.startsWith("+") ? phoneTrim : `${dialCode} ${phoneTrim}`
     startTransition(async () => {
       const result = await capturePublicLead({
         full_name:      name,
         email:          email || undefined,
-        phone:          phone || undefined,
+        phone:          composedPhone,
         message:        message || undefined,
         source:         "project_page",
         source_context: `Proyecto: ${projectTitle}`,
@@ -105,13 +113,23 @@ export function ProjectContactForm({ projectId, projectTitle, agent }: Props) {
           disabled={isPending}
         />
       </div>
-      <Input
-        type="tel"
-        placeholder="Teléfono"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        disabled={isPending}
-      />
+      <div className="flex items-stretch gap-1.5">
+        <CountryCodeSelect
+          value={dialCode}
+          onChange={(d) => setDialCode(d)}
+          disabled={isPending}
+        />
+        <Input
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel-national"
+          placeholder="Teléfono"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          disabled={isPending}
+          className="flex-1 min-w-0"
+        />
+      </div>
       <Textarea
         placeholder={`Hola, me interesa el proyecto "${projectTitle}"…`}
         rows={3}

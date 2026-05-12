@@ -9,6 +9,7 @@ import { capturePublicLead } from "@/lib/actions/lead.actions"
 import { LegalDisclaimer } from "@/components/shared/legal-disclaimer"
 import { trackEvent } from "@/lib/analytics/track"
 import { LeadChipSelect } from "@/components/property/lead-chip-select"
+import { CountryCodeSelect } from "@/components/shared/country-code-select"
 import type {
   LeadInquiryType, LeadMoveInWindow, LeadPetsStatus, LeadBudgetRange,
 } from "@/types"
@@ -34,6 +35,9 @@ export function TourForm({
   const t = useTranslations("properties")
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [errorMsg, setErrorMsg] = useState("")
+  // Country dial code for the phone input — composed with the digits
+  // on submit. Default to Costa Rica.
+  const [dialCode, setDialCode] = useState("+506")
 
   // Enrichment chip state
   const [inquiry,    setInquiry]    = useState<LeadInquiryType  | null>(null)
@@ -62,10 +66,17 @@ export function TourForm({
     setStatus("loading")
 
     const fd = new FormData(e.currentTarget)
+    // Compose the final phone with the selected country code unless
+    // the visitor typed a "+" themselves (already international).
+    const rawPhone = (fd.get("phone") as string).trim()
+    const composedPhone = !rawPhone
+      ? undefined
+      : rawPhone.startsWith("+") ? rawPhone : `${dialCode} ${rawPhone}`
+
     const result = await capturePublicLead({
       full_name:      (fd.get("full_name") as string).trim(),
       email:          (fd.get("email") as string).trim() || undefined,
-      phone:          (fd.get("phone") as string).trim() || undefined,
+      phone:          composedPhone,
       message:        (fd.get("message") as string).trim() || undefined,
       source:         "marketplace",
       source_context: propertySlug,
@@ -154,8 +165,23 @@ export function TourForm({
              className="text-sm h-9" disabled={status === "loading"} />
       <Input name="email"     type="email" placeholder={t("emailPlaceholder")}
              className="text-sm h-9" disabled={status === "loading"} />
-      <Input name="phone"     type="tel"   placeholder={t("phonePlaceholder")}
-             className="text-sm h-9" disabled={status === "loading"} />
+      <div className="flex items-stretch gap-1.5">
+        <CountryCodeSelect
+          value={dialCode}
+          onChange={(d) => setDialCode(d)}
+          disabled={status === "loading"}
+          className="h-9 text-sm"
+        />
+        <Input
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel-national"
+          placeholder={t("phonePlaceholder")}
+          className="text-sm h-9 flex-1 min-w-0"
+          disabled={status === "loading"}
+        />
+      </div>
       <Textarea name="message" placeholder={t("messagePlaceholder")} rows={2}
                 className="text-sm resize-none" disabled={status === "loading"} />
 

@@ -292,10 +292,16 @@
     "colUpdated":      "Updated"
   },
   "contactOwner": {
+    "eyebrow":         "For owners",
     "heroTitle":       "List your property",
     "heroTitleAccent": "with a team that knows the market.",
-    "heroLead":        "We publish your property on the right portals with professional photography, fresh comparables and direct attention to every lead. We'll contact you within 24 hours for a no-commitment valuation.",
+    "heroLead":        "Fill out the form and we'll reach out within 24 hours to schedule a no-commitment valuation.",
     "heroCta":         "Request valuation",
+    "benefitsHeading":     "What you get with us",
+    "alsoContactHeading":  "You can also reach us via",
+    "emailLabel":          "Email",
+    "phoneLabel":          "Phone / WhatsApp",
+    "testimonialsHeading": "What owners say",
     "quote1Name":      "María Castro",
     "quote1Meta":      "Sold her apartment in Escazú",
     "quote1Body":      "I got the valuation with comparables in 24 hours. We closed in 6 weeks at the suggested price.",
