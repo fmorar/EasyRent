@@ -601,19 +601,26 @@
     "generate": "Generar contrato"
   },
   "agents": {
-    "title": "Agentes",
-    "subtitle": "Gestioná tu equipo e invitaciones pendientes",
+    "title": "Personas",
+    "subtitle": "Tu red: miembros activos e invitaciones que enviaste.",
     "invite": "Invitar agente",
     "active": "Agentes activos",
     "pendingInvitations": "Invitaciones pendientes",
     "noAgents": "Todavía no hay agentes. Invitá a alguien para empezar.",
+    "empty": "Todavía no hay nadie en tu red. Invitá a alguien para empezar.",
     "invitedBy": "Invitado por",
     "joined": "Se unió",
     "viewProfile": "Ver perfil público",
+    "statActive":   "Activos",
+    "statPending":  "Pendientes",
+    "statInactive": "Inactivas",
+    "statusActive": "Activo",
+    "tablePerson":  "Persona",
     "tableAgent":   "Agente",
     "tableEmail":   "Correo",
     "tableStatus":  "Estado",
     "tableExpires": "Expira",
+    "tableDate":    "Fecha",
     "tableRole":    "Rol"
   },
   "shares": {

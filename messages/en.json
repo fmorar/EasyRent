@@ -601,19 +601,26 @@
     "generate": "Generate contract"
   },
   "agents": {
-    "title": "Agents",
-    "subtitle": "Manage your team and pending invitations",
+    "title": "People",
+    "subtitle": "Your network: active members and pending invitations you sent.",
     "invite": "Invite agent",
     "active": "Active agents",
     "pendingInvitations": "Pending invitations",
     "noAgents": "No agents yet. Invite someone to get started.",
+    "empty": "Nobody in your network yet. Invite someone to get started.",
     "invitedBy": "Invited by",
     "joined": "Joined",
     "viewProfile": "View public profile",
+    "statActive":   "Active",
+    "statPending":  "Pending",
+    "statInactive": "Inactive",
+    "statusActive": "Active",
+    "tablePerson":  "Person",
     "tableAgent":   "Agent",
     "tableEmail":   "Email",
     "tableStatus":  "Status",
     "tableExpires": "Expires",
+    "tableDate":    "Date",
     "tableRole":    "Role"
   },
   "shares": {

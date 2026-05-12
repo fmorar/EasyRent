@@ -248,3 +248,105 @@ export async function resendInvitation(
     data: { emailSent: send.sent, emailError: send.error },
   }
 }
+
+/**
+ * Unlink an agent the current user previously invited. Removes the
+ * downstream relationship without deleting the agent's account or the
+ * properties they own.
+ *
+ * After unlinking:
+ *   • Property shares between me and the agent (in BOTH directions) are
+ *     revoked so neither party can see the other's shared inventory.
+ *   • Project shares from my projects to the agent and from the agent's
+ *     projects to me are removed.
+ *   • profiles.invited_by on the agent is cleared so they stop showing
+ *     in my network surfaces (sharing pickers, /agents table).
+ *   • The agent keeps their own properties / contracts / reports.
+ *
+ * Only the original inviter can unlink. We never let an arbitrary user
+ * break someone else's relationship.
+ */
+export async function unlinkAgent(
+  agentId: string,
+): Promise<ActionResult<{ revokedShares: number }>> {
+  const { profile } = await requireAuth()
+  const admin       = createAdminClient()
+
+  if (agentId === profile.id) {
+    return { success: false, error: "No podés desvincularte a vos mismo." }
+  }
+
+  // Permission check: only the inviter can unlink.
+  const { data: agent, error: agentErr } = await admin
+    .from("profiles")
+    .select("id, invited_by, email")
+    .eq("id", agentId)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (agentErr || !agent) {
+    return { success: false, error: "Agente no encontrado." }
+  }
+  if (agent.invited_by !== profile.id) {
+    return {
+      success: false,
+      error: "Solo quien invitó al agente puede desvincularlo.",
+    }
+  }
+
+  // 1) Property shares — revoke in both directions. We use update +
+  //    status='revoked' rather than delete so the audit trail survives.
+  const nowIso = new Date().toISOString()
+  const { error: pShareErr, count: pRevoked } = await admin
+    .from("property_shares")
+    .update({ status: "revoked", updated_at: nowIso }, { count: "exact" })
+    .or(`and(shared_by.eq.${profile.id},shared_with.eq.${agentId}),and(shared_by.eq.${agentId},shared_with.eq.${profile.id})`)
+    .neq("status", "revoked")
+    .is("deleted_at", null)
+
+  if (pShareErr) return { success: false, error: pShareErr.message }
+
+  // 2) Project shares — schema has (project_id, shared_with), no
+  //    explicit shared_by, so we filter by project ownership.
+  const { data: myProjectIds } = await admin
+    .from("projects")
+    .select("id")
+    .eq("created_by", profile.id)
+    .is("deleted_at", null)
+  const { data: agentProjectIds } = await admin
+    .from("projects")
+    .select("id")
+    .eq("created_by", agentId)
+    .is("deleted_at", null)
+
+  const myProjIds    = (myProjectIds   ?? []).map((r) => r.id)
+  const agentProjIds = (agentProjectIds ?? []).map((r) => r.id)
+
+  if (myProjIds.length > 0) {
+    await admin
+      .from("project_shares")
+      .delete()
+      .in("project_id", myProjIds)
+      .eq("shared_with", agentId)
+  }
+  if (agentProjIds.length > 0) {
+    await admin
+      .from("project_shares")
+      .delete()
+      .in("project_id", agentProjIds)
+      .eq("shared_with", profile.id)
+  }
+
+  // 3) Break the network membership.
+  const { error: profErr } = await admin
+    .from("profiles")
+    .update({ invited_by: null })
+    .eq("id", agentId)
+
+  if (profErr) return { success: false, error: profErr.message }
+
+  revalidatePath("/agents")
+  revalidatePath("/properties")
+  revalidatePath("/projects")
+  return { success: true, data: { revokedShares: pRevoked ?? 0 } }
+}
