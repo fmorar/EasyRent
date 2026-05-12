@@ -1,7 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+// next-intl's usePathname strips the locale prefix, so `pathname` here
+// is "/dashboard" not "/es/dashboard" — that's what the NAV items
+// compare against, otherwise the active rail never matches.
+import { usePathname, useRouter } from "@/i18n/navigation"
 import { useTranslations } from "next-intl"
 import {
   Squares2X2Icon as LayoutDashboard,
@@ -111,27 +114,44 @@ export function AppSidebar({ role, fullName, email, slug, avatarUrl }: AppSideba
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link href="/dashboard" />}
-              size="lg"
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <Building2 className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <EasyrentLogo className="h-3.5 w-auto text-foreground" />
-                <span className="truncate text-xs text-muted-foreground capitalize mt-0.5">
-                  {role === "super_admin" ? t("roleSuperAdmin")
-                    : role === "owner_admin" ? t("roleAdmin")
-                    : t("roleAgent")}
-                </span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {/* Brand lockup: icon · wordmark · role label.
+            Not wrapped in SidebarMenuButton on purpose — that wrapper
+            applies `[&_svg]:size-4` which shrinks every nested SVG to
+            16px, and the Tailwind `!` postfix doesn't cleanly outrank
+            its cascade. Using a plain Link sidesteps the rule. */}
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+        >
+          <svg
+            viewBox="0 0 64 64"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            aria-hidden
+            className="size-8 shrink-0 text-foreground"
+          >
+            <circle cx="22" cy="24" r="7" fill="currentColor" />
+            <circle cx="42" cy="24" r="7" fill="currentColor" />
+            <path
+              d="M14 36 Q32 56 50 36"
+              stroke="currentColor"
+              strokeWidth="6"
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="flex-1 min-w-0 flex flex-col items-start justify-center gap-0.5 group-data-[collapsible=icon]:hidden">
+            {/* Wordmark — h-5 keeps it visually balanced against the
+                32px smiley without overpowering it. The svg's intrinsic
+                aspect ratio (~4:1) makes it ~80px wide at this height. */}
+            <EasyrentLogo className="h-5 w-auto text-foreground block" />
+            {/* Role tag — small caps so it reads as a label, not a name. */}
+            <span className="block text-[10px] font-medium tracking-[0.12em] uppercase text-muted-foreground truncate">
+              {role === "super_admin" ? t("roleSuperAdmin")
+                : role === "owner_admin" ? t("roleAdmin")
+                : t("roleAgent")}
+            </span>
+          </div>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>
@@ -141,12 +161,23 @@ export function AppSidebar({ role, fullName, email, slug, avatarUrl }: AppSideba
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_MAIN.map((item) => {
-                const label = tNav(item.labelKey as Parameters<typeof tNav>[0])
+                const label  = tNav(item.labelKey as Parameters<typeof tNav>[0])
+                const active = isActive(item.href)
                 return (
-                  <SidebarMenuItem key={item.href}>
+                  <SidebarMenuItem key={item.href} className="relative">
+                    {/* Active indicator — primary-coloured rail anchored
+                        to the item's left edge so the user always knows
+                        which page they're on. Hidden when sidebar is
+                        collapsed to icon-only mode (group-data check). */}
+                    {active && (
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-primary group-data-[collapsible=icon]:hidden"
+                      />
+                    )}
                     <SidebarMenuButton
                       render={<Link href={item.href} />}
-                      isActive={isActive(item.href)}
+                      isActive={active}
                       tooltip={label}
                     >
                       <item.icon />
@@ -171,12 +202,19 @@ export function AppSidebar({ role, fullName, email, slug, avatarUrl }: AppSideba
             <SidebarGroupContent>
               <SidebarMenu>
                 {NAV_ADMIN.map((item) => {
-                  const label = tNav(item.labelKey as Parameters<typeof tNav>[0])
+                  const label  = tNav(item.labelKey as Parameters<typeof tNav>[0])
+                  const active = isActive(item.href)
                   return (
-                    <SidebarMenuItem key={item.href}>
+                    <SidebarMenuItem key={item.href} className="relative">
+                      {active && (
+                        <span
+                          aria-hidden
+                          className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-primary group-data-[collapsible=icon]:hidden"
+                        />
+                      )}
                       <SidebarMenuButton
                         render={<Link href={item.href} />}
-                        isActive={isActive(item.href)}
+                        isActive={active}
                         tooltip={label}
                       >
                         <item.icon />
