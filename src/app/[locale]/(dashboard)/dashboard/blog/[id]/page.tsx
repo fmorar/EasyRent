@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { BlogPostForm } from "@/components/blog/blog-post-form"
@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default async function EditBlogPostPage({ params }: Props) {
-  await requireAuth()
+  await requireAdmin()
   const { id } = await params
   const supabase = await createClient()
 

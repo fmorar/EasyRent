@@ -56,12 +56,14 @@ const NAV_MAIN: NavItem[] = [
   // invites peers — so it lives in the main nav, not gated to admins.
   // The page scopes its tables to the viewer.
   { href: "/agents",     labelKey: "agents",      icon: Users,          adminOnly: false },
-  { href: "/dashboard/blog", labelKey: "blog",   icon: NewsIcon,        adminOnly: false },
 ]
 
 const NAV_ADMIN: NavItem[] = [
   { href: "/owner-prospector", labelKey: "ownerProspector", icon: SearchIcon, adminOnly: true },
-  { href: "/shares",      labelKey: "shareRequests",icon: Share2,   adminOnly: true },
+  { href: "/shares",      labelKey: "shareRequests", icon: Share2,  adminOnly: true },
+  // Blog is editorial — only the platform admins (owner_admin +
+  // super_admin) curate it. Agents don't see the menu item.
+  { href: "/dashboard/blog", labelKey: "blog",  icon: NewsIcon,    adminOnly: true },
 ]
 
 // Settings used to live as a standalone entry at the bottom of the

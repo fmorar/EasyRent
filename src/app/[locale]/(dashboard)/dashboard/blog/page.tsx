@@ -3,7 +3,7 @@
 // their own); we just sort by most recent activity.
 
 import Link from "next/link"
-import { requireAuth } from "@/lib/auth"
+import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { getTranslations } from "next-intl/server"
 import { buttonVariants } from "@/components/ui/button"
@@ -25,7 +25,7 @@ const STATUS_BADGE: Record<BlogPost["status"], "default" | "secondary" | "outlin
 }
 
 export default async function AdminBlogPage() {
-  await requireAuth()
+  await requireAdmin()
   const supabase = await createClient()
   const t        = await getTranslations("dashboardBlog")
 
