@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { createClient } from "@/lib/supabase/server"
 import { getTranslations } from "next-intl/server"
 import Link from "next/link"
@@ -12,7 +13,7 @@ import type { Project } from "@/types"
 export default async function ProjectsPage() {
   const { profile } = await requireAuth()
   const supabase    = await createClient()
-  const isAdmin     = profile.role === "owner_admin"
+  const isAdmin     = isAdminRole(profile.role)
   const t           = await getTranslations("projects")
 
   // Same scoping logic as /properties: show only projects the user created

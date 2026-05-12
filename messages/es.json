@@ -9,6 +9,7 @@
   "sidebar": {
     "platformLabel":   "Plataforma",
     "managementLabel": "Administración",
+    "roleSuperAdmin":  "Super admin",
     "roleAdmin":       "Admin",
     "roleAgent":       "Agente",
     "publicProfile":   "Perfil público",
@@ -636,6 +637,7 @@
     "subtitle":       "Mandale un link único para que cree su cuenta y se una a tu red. Los agentes que invités pasan a formar parte de tu red y vas a poder compartir forks de proyectos con ellos.",
     "recentInvites":  "Mis invitaciones recientes",
     "roleLabel":      "Rol:",
+    "roleSuperAdmin": "Super admin",
     "roleAdmin":      "Admin",
     "roleAgent":      "Agente"
   },
@@ -690,6 +692,7 @@
     "tableExpires":   "Expira",
     "tableActions":   "Acciones",
     "empty":          "Todavía no hay invitaciones. Creá la primera con el botón de arriba.",
+    "roleSuperAdmin": "Super admin",
     "roleAdmin":      "Admin",
     "roleAgent":      "Agente",
     "statusPending":  "Pendiente",

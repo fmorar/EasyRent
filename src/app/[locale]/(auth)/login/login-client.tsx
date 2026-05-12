@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Alert } from "@/components/ui/alert"
 import {
   ArrowLeftIcon,
+  ArrowPathIcon,
   EyeIcon,
   EyeSlashIcon,
   HomeIcon,
@@ -207,7 +208,14 @@ export function LoginClient({ heroImageUrl }: Props) {
               disabled={isSubmitting}
               aria-busy={isSubmitting}
             >
-              {isSubmitting ? "Ingresando…" : "Iniciar sesión"}
+              {isSubmitting ? (
+                <>
+                  <ArrowPathIcon className="h-4 w-4 mr-2 animate-spin" aria-hidden />
+                  Ingresando…
+                </>
+              ) : (
+                "Iniciar sesión"
+              )}
             </Button>
           </form>
 

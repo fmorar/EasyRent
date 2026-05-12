@@ -168,7 +168,9 @@ export default async function AgentsPage() {
                       <TableCell className="text-sm">{m.email}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {m.role === "owner_admin" ? tInv("roleAdmin") : tInv("roleAgent")}
+                          {m.role === "super_admin" ? tInv("roleSuperAdmin")
+                            : m.role === "owner_admin" ? tInv("roleAdmin")
+                            : tInv("roleAgent")}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -227,7 +229,9 @@ export default async function AgentsPage() {
                     <TableCell className="font-medium text-sm">{inv.email}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {inv.role === "owner_admin" ? tInv("roleAdmin") : tInv("roleAgent")}
+                        {inv.role === "super_admin" ? tInv("roleSuperAdmin")
+                          : inv.role === "owner_admin" ? tInv("roleAdmin")
+                          : tInv("roleAgent")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">

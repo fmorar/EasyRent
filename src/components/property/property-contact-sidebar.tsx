@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { trackEvent } from "@/lib/analytics/track"
+import { isAdminRole } from "@/lib/roles"
 import type { ReactNode } from "react"
 import type { Profile } from "@/types"
 
@@ -45,7 +46,7 @@ export function PropertyContactSidebar({
   const t          = useTranslations("publicProperty")
   const initials   = agent.full_name
     .split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
-  const isAdmin    = agent.role === "owner_admin"
+  const isAdmin    = isAdminRole(agent.role)
   const phoneRaw   = agent.phone?.replace(/\D/g, "") ?? ""
   const eyebrowText = eyebrow ?? t("sendInquiry")
 

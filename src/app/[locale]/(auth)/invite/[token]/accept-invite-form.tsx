@@ -114,7 +114,11 @@ export default function AcceptInviteForm({
   const strengthMeta    = STRENGTH_META[strength]
   const passwordsMatch  = confirmPassword.length > 0 && password === confirmPassword
 
-  const roleLabel = invitation.role === "owner_admin" ? "Administrador/a" : "Agente"
+  const roleLabel = invitation.role === "super_admin"
+    ? "Super admin"
+    : invitation.role === "owner_admin"
+      ? "Administrador/a"
+      : "Agente"
 
   async function onSubmit(values: AcceptForm) {
     setServerError(null)

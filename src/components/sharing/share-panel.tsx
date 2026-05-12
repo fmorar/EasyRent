@@ -481,9 +481,9 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
                                 {zoneLabels || agent.email || ""}
                               </p>
                             </div>
-                            {agent.role === "owner_admin" && (
+                            {(agent.role === "super_admin" || agent.role === "owner_admin") && (
                               <Badge variant="outline" className="text-[10px] shrink-0">
-                                Admin
+                                {agent.role === "super_admin" ? "Super admin" : "Admin"}
                               </Badge>
                             )}
                           </CommandItem>

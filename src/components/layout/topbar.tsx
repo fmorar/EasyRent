@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ArrowRightOnRectangleIcon as LogOut, Cog6ToothIcon as Settings, UserIcon as User } from "@heroicons/react/24/outline"
+import { isAdminRole, getRoleLabelEs } from "@/lib/roles"
 import type { Profile } from "@/types"
 
 interface TopbarProps {
@@ -50,10 +51,10 @@ export function Topbar({ profile }: TopbarProps) {
           </Avatar>
           <span className="hidden sm:block text-sm font-medium">{profile.full_name}</span>
           <Badge
-            variant={profile.role === "owner_admin" ? "default" : "secondary"}
+            variant={isAdminRole(profile.role) ? "default" : "secondary"}
             className="hidden sm:inline-flex text-xs"
           >
-            {profile.role === "owner_admin" ? "Admin" : "Agent"}
+            {getRoleLabelEs(profile.role)}
           </Badge>
         </DropdownMenuTrigger>
 

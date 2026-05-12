@@ -32,6 +32,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { EasyrentLogo } from "@/components/shared/easyrent-logo"
 import { createClient } from "@/lib/supabase/client"
+import { isAdminRole } from "@/lib/roles"
 import type { UserRole } from "@/types"
 
 interface NavItem {
@@ -85,7 +86,7 @@ export function AppSidebar({ role, fullName, email, slug, avatarUrl }: AppSideba
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createClient()
-  const isAdmin  = role === "owner_admin"
+  const isAdmin  = isAdminRole(role)
   const t        = useTranslations("sidebar")
   const tNav     = useTranslations("sidebar.nav")
 
@@ -123,7 +124,9 @@ export function AppSidebar({ role, fullName, email, slug, avatarUrl }: AppSideba
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <EasyrentLogo className="h-3.5 w-auto text-foreground" />
                 <span className="truncate text-xs text-muted-foreground capitalize mt-0.5">
-                  {role === "owner_admin" ? t("roleAdmin") : t("roleAgent")}
+                  {role === "super_admin" ? t("roleSuperAdmin")
+                    : role === "owner_admin" ? t("roleAdmin")
+                    : t("roleAgent")}
                 </span>
               </div>
             </SidebarMenuButton>

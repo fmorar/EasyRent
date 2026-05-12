@@ -9,6 +9,7 @@
   "sidebar": {
     "platformLabel":   "Platform",
     "managementLabel": "Management",
+    "roleSuperAdmin":  "Super admin",
     "roleAdmin":       "Admin",
     "roleAgent":       "Agent",
     "publicProfile":   "Public profile",
@@ -636,6 +637,7 @@
     "subtitle":       "Send them a unique link to create their account and join your network. Agents you invite become part of your downline and you'll be able to share project forks with them.",
     "recentInvites":  "My recent invitations",
     "roleLabel":      "Role:",
+    "roleSuperAdmin": "Super admin",
     "roleAdmin":      "Admin",
     "roleAgent":      "Agent"
   },
@@ -690,6 +692,7 @@
     "tableExpires":   "Expires",
     "tableActions":   "Actions",
     "empty":          "No invitations yet. Create the first one with the button above.",
+    "roleSuperAdmin": "Super admin",
     "roleAdmin":      "Admin",
     "roleAgent":      "Agent",
     "statusPending":  "Pending",

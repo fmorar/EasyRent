@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { createClient } from "@/lib/supabase/server"
 import { getTranslations } from "next-intl/server"
 import { Card, CardContent } from "@/components/ui/card"
@@ -29,7 +30,7 @@ import {
 export default async function DashboardPage() {
   const { profile } = await requireAuth()
   const supabase    = await createClient()
-  const isAdmin     = profile.role === "owner_admin"
+  const isAdmin     = isAdminRole(profile.role)
   const t           = await getTranslations("dashboard")
 
   // ── Per-user property scope ──────────────────────────────────────

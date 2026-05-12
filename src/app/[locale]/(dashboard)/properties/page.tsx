@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { createClient } from "@/lib/supabase/server"
 import { getTranslations } from "next-intl/server"
 import Link from "next/link"
@@ -11,7 +12,7 @@ import type { Property } from "@/types"
 export default async function PropertiesPage() {
   const { profile } = await requireAuth()
   const supabase    = await createClient()
-  const isAdmin     = profile.role === "owner_admin"
+  const isAdmin     = isAdminRole(profile.role)
   const t           = await getTranslations("properties")
 
   // Show only properties the user actually owns or was approved to access

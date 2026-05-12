@@ -76,7 +76,9 @@ export default async function AgentProfilePage({ params }: Props) {
     .toUpperCase()
 
   const listingsCount = properties?.length ?? 0
-  const roleLabel = agent.role === "owner_admin" ? "Agencia" : "Agente"
+  const roleLabel = agent.role === "owner_admin" || agent.role === "super_admin"
+    ? "Agencia"
+    : "Agente"
 
   // ── Editorial stats ──────────────────────────────────────────────
   // Real metrics come straight from the DB; the response-time cell

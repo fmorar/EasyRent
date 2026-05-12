@@ -157,7 +157,10 @@ export default async function LandingPage() {
     slug:       a.slug,
     avatar_url: a.avatar_url,
     bio:        a.bio,
-    role_label: a.role === "owner_admin" ? "Agencia" : "Agente",
+    // super_admin and owner_admin both surface as "Agencia" on the
+    // public listing — the agent vs agency distinction is the only
+    // thing the public cares about, the super tier is internal.
+    role_label: a.role === "owner_admin" || a.role === "super_admin" ? "Agencia" : "Agente",
   }))
 
   return (

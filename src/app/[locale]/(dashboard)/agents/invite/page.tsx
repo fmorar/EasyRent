@@ -84,7 +84,7 @@ export default async function InviteAgentPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{inv.email}</p>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <span>{t("roleLabel")} {inv.role === "owner_admin" ? t("roleAdmin") : t("roleAgent")}</span>
+                      <span>{t("roleLabel")} {inv.role === "super_admin" ? t("roleSuperAdmin") : inv.role === "owner_admin" ? t("roleAdmin") : t("roleAgent")}</span>
                       <span>·</span>
                       <span className="inline-flex items-center gap-1 font-numeric">
                         <ClockIcon className="h-3 w-3" />
