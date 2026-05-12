@@ -1,7 +1,12 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { Onborda, OnbordaProvider, useOnborda, type Step } from "onborda"
+import {
+  Onborda, OnbordaProvider, useOnborda,
+  type Step, type CardComponentProps,
+} from "onborda"
+import { Button } from "@/components/ui/button"
+import { XMarkIcon } from "@heroicons/react/24/outline"
 import { markTourCompleted } from "@/lib/actions/onboarding.actions"
 
 /**
@@ -111,12 +116,76 @@ export function AgentFirstPropertyTour({ shouldRun, children }: Props) {
         steps={[{ tour: TOUR_NAME, steps: STEPS }]}
         showOnborda
         shadowOpacity="0.6"
+        cardComponent={TourCard}
       >
         {/* Inner component uses the useOnborda hook to auto-start. */}
         <AutoStart shouldRun={shouldRun} />
         {children}
       </Onborda>
     </OnbordaProvider>
+  )
+}
+
+/**
+ * Branded card. Onborda doesn't ship a default card — without a
+ * cardComponent the whole tour renders nothing, which is what was
+ * breaking the first-property flow. This component is the visible
+ * surface: icon + title + content + progress + controls + arrow.
+ */
+function TourCard({
+  step, currentStep, totalSteps, nextStep, prevStep, arrow,
+}: CardComponentProps) {
+  const { closeOnborda } = useOnborda()
+  const isFirst = currentStep === 0
+  const isLast  = currentStep === totalSteps - 1
+
+  return (
+    <div className="w-[320px] rounded-2xl bg-card border shadow-2xl p-5 text-foreground">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {step.icon && (
+            <span className="text-2xl leading-none shrink-0">{step.icon}</span>
+          )}
+          <h3 className="text-base font-heading font-semibold leading-tight truncate">
+            {step.title}
+          </h3>
+        </div>
+        <button
+          type="button"
+          onClick={closeOnborda}
+          className="shrink-0 -m-1 p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
+          aria-label="Saltar tour"
+        >
+          <XMarkIcon className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="text-sm text-muted-foreground leading-relaxed mb-4">
+        {step.content}
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-muted-foreground font-numeric tabular-nums">
+          {currentStep + 1} / {totalSteps}
+        </span>
+        <div className="flex items-center gap-2">
+          {!isFirst && (
+            <Button type="button" size="sm" variant="outline" onClick={prevStep}>
+              Atrás
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={isLast ? closeOnborda : nextStep}
+          >
+            {isLast ? "Listo" : "Siguiente"}
+          </Button>
+        </div>
+      </div>
+
+      <span className="text-foreground">{arrow}</span>
+    </div>
   )
 }
 
