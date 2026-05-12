@@ -1388,6 +1388,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           slug: string
           status: Database["public"]["Enums"]["user_status"]
+          tour_completed_at: string | null
           updated_at: string
           zones: string[]
         }
@@ -1405,6 +1406,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           slug: string
           status?: Database["public"]["Enums"]["user_status"]
+          tour_completed_at?: string | null
           updated_at?: string
           zones?: string[]
         }
@@ -1422,6 +1424,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           slug?: string
           status?: Database["public"]["Enums"]["user_status"]
+          tour_completed_at?: string | null
           updated_at?: string
           zones?: string[]
         }

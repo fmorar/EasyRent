@@ -57,7 +57,11 @@ export default async function PropertiesPage() {
             {t("subtitleAgent")}
           </p>
         </div>
-        <Link href="/properties/new" className={buttonVariants()}>
+        <Link
+          href="/properties/new"
+          className={buttonVariants()}
+          data-tour="new-property-cta"
+        >
           <Plus className="h-4 w-4 mr-2" />
           {t("addProperty")}
         </Link>

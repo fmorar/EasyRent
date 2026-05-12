@@ -93,6 +93,7 @@ export function SaveFormButton({
         form={formId}
         disabled={isDisabled}
         size="sm"
+        data-tour="save-form"
       >
         {saving ? "Guardando…" : label}
       </Button>

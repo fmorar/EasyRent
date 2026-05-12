@@ -179,6 +179,12 @@ export function AppSidebar({ role, fullName, email, slug, avatarUrl }: AppSideba
                       render={<Link href={item.href} />}
                       isActive={active}
                       tooltip={label}
+                      // Stable selectors for the first-property tour.
+                      data-tour={
+                        item.href === "/properties" ? "sidebar-properties"
+                        : item.href === "/dashboard" ? "sidebar-dashboard"
+                        : undefined
+                      }
                     >
                       <item.icon />
                       <span className="flex-1">{label}</span>
