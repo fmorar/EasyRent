@@ -10,11 +10,26 @@ import { LegalDisclaimerBanner } from "@/components/contracts/legal-disclaimer-b
 import type { ContractListItem, ContractStatusLifecycle } from "@/types/contracts"
 
 export default async function ContractsPage() {
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
   const t        = await getTranslations("contracts")
 
-  // Fetch list — RLS filters down to contracts the user can see.
+  // Scope explicitly to the user's own contracts + contracts created on
+  // properties they shared (approved shares). Mirrors the /properties
+  // dashboard approach — we don't rely on RLS alone so a future broad
+  // policy can't accidentally leak inventory into this list.
+  const { data: sharedOutRows } = await supabase
+    .from("property_shares")
+    .select("property_id")
+    .eq("shared_by", profile.id)
+    .eq("status",    "approved")
+    .is("deleted_at", null)
+
+  const sharedOutIds = (sharedOutRows ?? []).map((r) => r.property_id)
+  const scope = sharedOutIds.length > 0
+    ? `created_by.eq.${profile.id},property_id.in.(${sharedOutIds.join(",")})`
+    : `created_by.eq.${profile.id}`
+
   const { data: rows } = await supabase
     .from("contracts")
     .select(`
@@ -23,6 +38,7 @@ export default async function ContractsPage() {
       property:properties(id, title),
       lead:leads(id, full_name)
     `)
+    .or(scope)
     .eq("contract_type", "rental")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
