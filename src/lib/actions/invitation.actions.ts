@@ -71,7 +71,6 @@ export async function inviteAgent(
   })
 
   revalidatePath("/agents")
-  revalidatePath("/invitations")
   return {
     success: true,
     data: {
@@ -125,9 +124,25 @@ export async function acceptInvitation(
 
   if (authError) return { success: false, error: authError.message }
 
-  // Sign in the new user automatically
-  // The client-side form will use signInWithPassword after this action succeeds.
+  // Mark the invitation as accepted so the admin list stops showing it
+  // as "pendiente" once the user actually completes the flow. We never
+  // fail the whole accept for this — the auth user already exists, and
+  // the admin can still see the user via /agents. Just log and move on.
+  const { error: updateErr } = await admin
+    .from("invitations")
+    .update({
+      status:      "accepted",
+      accepted_at: new Date().toISOString(),
+      accepted_by: authData.user.id,
+    })
+    .eq("id", invitation.id)
 
+  if (updateErr) {
+    console.error("[acceptInvitation] failed to mark invitation accepted:", updateErr)
+  }
+
+  // The client-side form runs signInWithPassword right after this returns
+  // so the new user lands on /dashboard already authenticated.
   return { success: true, data: { user_id: authData.user.id } }
 }
 

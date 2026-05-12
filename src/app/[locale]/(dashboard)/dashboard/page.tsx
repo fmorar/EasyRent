@@ -462,7 +462,7 @@ export default async function DashboardPage() {
         </Badge>
         {isAdmin && (
           <Badge variant="outline" className="cursor-pointer hover:bg-muted">
-            <Link href="/invitations" className="flex items-center gap-1.5 text-xs py-0.5">
+            <Link href="/agents" className="flex items-center gap-1.5 text-xs py-0.5">
               <Users className="h-3 w-3" />
               {t("inviteAgent")}
             </Link>

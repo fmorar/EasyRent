@@ -38,16 +38,18 @@ import type { UserRole } from "@/types"
 interface NavItem {
   href:      string
   /** Translation key under `sidebar.nav.*`. */
-  labelKey:  string
-  icon:      React.ElementType
-  adminOnly: boolean
+  labelKey:   string
+  icon:       React.ElementType
+  adminOnly:  boolean
+  /** Render a small "Pronto" badge — feature ships later. */
+  comingSoon?: boolean
 }
 
 const NAV_MAIN: NavItem[] = [
   { href: "/dashboard",  labelKey: "dashboard",  icon: LayoutDashboard, adminOnly: false },
   { href: "/properties", labelKey: "properties", icon: Building2,       adminOnly: false },
   { href: "/projects",   labelKey: "projects",   icon: FolderOpen,      adminOnly: false },
-  { href: "/leads",      labelKey: "leads",      icon: TrendingUp,      adminOnly: false },
+  { href: "/leads",      labelKey: "leads",      icon: TrendingUp,      adminOnly: false, comingSoon: true },
   { href: "/contracts",  labelKey: "contracts",  icon: FileText,        adminOnly: false },
   { href: "/market-analysis", labelKey: "marketAnalysis", icon: BarChart, adminOnly: false },
   { href: "/performance-reports", labelKey: "performanceReports", icon: ChartLine, adminOnly: false },
@@ -56,8 +58,9 @@ const NAV_MAIN: NavItem[] = [
 
 const NAV_ADMIN: NavItem[] = [
   { href: "/owner-prospector", labelKey: "ownerProspector", icon: SearchIcon, adminOnly: true },
+  // /invitations got merged into /agents — the page now shows active
+  // members + the full invitation log in one place.
   { href: "/agents",      labelKey: "agents",       icon: Users,    adminOnly: true },
-  { href: "/invitations", labelKey: "invitations",  icon: UserPlus, adminOnly: true },
   { href: "/shares",      labelKey: "shareRequests",icon: Share2,   adminOnly: true },
 ]
 
@@ -142,7 +145,12 @@ export function AppSidebar({ role, fullName, email, slug, avatarUrl }: AppSideba
                       tooltip={label}
                     >
                       <item.icon />
-                      <span>{label}</span>
+                      <span className="flex-1">{label}</span>
+                      {item.comingSoon && (
+                        <span className="text-[9px] uppercase tracking-[0.12em] font-medium text-muted-foreground border border-border rounded-full px-1.5 py-0.5 leading-none">
+                          Pronto
+                        </span>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )
