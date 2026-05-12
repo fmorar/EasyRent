@@ -2700,7 +2700,7 @@ export type Database = {
         | "office"
         | "warehouse"
       share_status: "pending" | "approved" | "rejected" | "revoked"
-      user_role: "owner_admin" | "agent"
+      user_role: "owner_admin" | "agent" | "super_admin"
       user_status: "active" | "inactive" | "suspended"
     }
     CompositeTypes: {
@@ -2977,7 +2977,7 @@ export const Constants = {
         "warehouse",
       ],
       share_status: ["pending", "approved", "rejected", "revoked"],
-      user_role: ["owner_admin", "agent"],
+      user_role: ["owner_admin", "agent", "super_admin"],
       user_status: ["active", "inactive", "suspended"],
     },
   },

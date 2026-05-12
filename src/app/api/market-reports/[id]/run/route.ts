@@ -36,10 +36,10 @@ interface Params { params: Promise<{ id: string }> }
 
 export async function POST(_req: Request, { params }: Params) {
   const { id } = await params
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
 
-  // ── Load report + verify ownership via RLS ─────────────────
+  // ── Load report + verify ownership ─────────────────────────
   const { data: report, error: rErr } = await supabase
     .from("market_reports")
     .select("*")
@@ -48,6 +48,13 @@ export async function POST(_req: Request, { params }: Params) {
 
   if (rErr || !report) {
     return NextResponse.json({ error: "Report not found" }, { status: 404 })
+  }
+
+  // Only the creator can regenerate. Recipients who can read the
+  // report via a property share get view + download only — they
+  // can't trigger a fresh pipeline run on someone else's property.
+  if (report.created_by !== profile.id) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 })
   }
 
   // Mark processing

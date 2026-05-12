@@ -19,13 +19,28 @@ type Row = MarketReport & {
 }
 
 export default async function MarketAnalysisListPage() {
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
   const t        = await getTranslations("marketAnalysis")
   const tOp      = await getTranslations("marketAnalysis.operation")
   const tCol     = await getTranslations("marketAnalysis.table")
   const locale   = await getLocale()
   const dateLocale = locale === "es" ? "es-CR" : "en-US"
+
+  // Scope explicitly: my own reports + reports on properties shared TO
+  // me (approved). Same defense-in-depth as /properties and
+  // /performance-reports — RLS allows it, the query asks for it.
+  const { data: sharedInRows } = await supabase
+    .from("property_shares")
+    .select("property_id")
+    .eq("shared_with", profile.id)
+    .eq("status",      "approved")
+    .is("deleted_at",  null)
+
+  const sharedInIds = (sharedInRows ?? []).map((r) => r.property_id)
+  const scope = sharedInIds.length > 0
+    ? `created_by.eq.${profile.id},property_id.in.(${sharedInIds.join(",")})`
+    : `created_by.eq.${profile.id}`
 
   const { data: reportsRaw } = await supabase
     .from("market_reports")
@@ -34,6 +49,7 @@ export default async function MarketAnalysisListPage() {
       property:properties(title, slug),
       creator:profiles!market_reports_created_by_fkey(full_name)
     `)
+    .or(scope)
     .order("created_at", { ascending: false })
 
   const reports = (reportsRaw ?? []) as Row[]
@@ -91,6 +107,7 @@ export default async function MarketAnalysisListPage() {
                 confidenceLabel={tCol("confidence")}
                 fmtDate={fmtDate}
                 fmtRange={fmtRange}
+                canManage={r.created_by === profile.id}
               />
             ))}
           </div>
@@ -141,7 +158,10 @@ export default async function MarketAnalysisListPage() {
                       {fmtDate(r.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <ReportActions report={{ id: r.id, status: r.status, public_token: r.public_token, pdf_path: r.pdf_path }} />
+                      <ReportActions
+                        report={{ id: r.id, status: r.status, public_token: r.public_token, pdf_path: r.pdf_path }}
+                        canManage={r.created_by === profile.id}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -156,7 +176,7 @@ export default async function MarketAnalysisListPage() {
 
 // ── Mobile-only card view ──────────────────────────────────────────
 function MobileReportCard({
-  r, tOp, priceLabel, confidenceLabel, fmtDate, fmtRange,
+  r, tOp, priceLabel, confidenceLabel, fmtDate, fmtRange, canManage,
 }: {
   r:               Row
   tOp:             (key: "sale" | "rent") => string
@@ -164,6 +184,7 @@ function MobileReportCard({
   confidenceLabel: string
   fmtDate:         (iso: string) => string
   fmtRange:        (min: number | null, max: number | null, currency: string) => string
+  canManage:       boolean
 }) {
   const propertyTitle = r.property?.title ?? r.title ?? "—"
   return (
@@ -179,6 +200,7 @@ function MobileReportCard({
         <div className="shrink-0 -mt-1 -mr-1">
           <ReportActions
             report={{ id: r.id, status: r.status, public_token: r.public_token, pdf_path: r.pdf_path }}
+            canManage={canManage}
           />
         </div>
       </div>

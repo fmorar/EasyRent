@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { getLocale, getTranslations } from "next-intl/server"
 import Link from "next/link"
@@ -29,28 +29,34 @@ type InvitationRow = Invitation & {
 }
 
 export default async function AgentsPage() {
-  await requireAdmin()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
   const tAgents  = await getTranslations("agents")
   const tInv     = await getTranslations("invitations")
   const locale   = await getLocale()
   const dateLocale = locale === "es" ? "es-CR" : "en-US"
 
-  // ── Members: every non-deleted profile (agent + owner_admin) ─────
-  // We include admins on purpose: an "agentes" page that hides admins
-  // misrepresents who's on the team. Status badge clarifies the role.
+  // ── Members: only the people THIS user invited, plus the user
+  //    themselves. A super_admin sees every account they brought into
+  //    the platform; an owner_admin or agent sees their downstream
+  //    invitees only. This page is also the entry point for inviting
+  //    peers, so it's available to every authed user — scope keeps
+  //    the team list honest per viewer.
   const { data: membersRaw } = await supabase
     .from("profiles")
     .select(`
       *,
       inviter:profiles!profiles_invited_by_fkey(full_name)
     `)
+    .or(`invited_by.eq.${profile.id},id.eq.${profile.id}`)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
   const members = membersRaw as AgentRow[] | null
 
-  // ── Invitations: all of them, with the inviter / accepter joins ──
+  // ── Invitations: only ones I sent ───────────────────────────────
+  // Scoped to invited_by = me so the table reflects this admin's own
+  // outreach rather than the platform-wide invitation log.
   const { data: invitationsRaw } = await supabase
     .from("invitations")
     .select(`
@@ -58,6 +64,7 @@ export default async function AgentsPage() {
       inviter:profiles!invitations_invited_by_fkey(full_name),
       accepter:profiles!invitations_accepted_by_fkey(full_name)
     `)
+    .eq("invited_by", profile.id)
     .order("created_at", { ascending: false })
 
   const invitations = invitationsRaw as InvitationRow[] | null

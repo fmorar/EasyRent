@@ -47,7 +47,7 @@ type ReportRow = PropertyPerformanceReport & {
 
 export default async function PerformanceReportDetailPage({ params }: Params) {
   const { id } = await params
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
   const t        = await getTranslations("performanceReports.detail")
   const tTabs    = await getTranslations("performanceReports.detail.tabs")
@@ -148,10 +148,13 @@ export default async function PerformanceReportDetailPage({ params }: Params) {
           </div>
         </div>
         <div className="shrink-0">
-          <PerformanceReportActions report={{
-            id: report.id, status: report.status,
-            public_token: report.public_token, pdf_path: report.pdf_path,
-          }} />
+          <PerformanceReportActions
+            report={{
+              id: report.id, status: report.status,
+              public_token: report.public_token, pdf_path: report.pdf_path,
+            }}
+            canManage={report.created_by === profile.id}
+          />
         </div>
       </header>
 

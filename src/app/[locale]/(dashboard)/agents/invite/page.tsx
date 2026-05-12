@@ -13,10 +13,12 @@ import {
 import type { Invitation } from "@/types"
 
 export default async function InviteAgentPage() {
-  const { profile } = await requireAuth()
-  const supabase    = await createClient()
-  const isAdmin     = profile.role === "owner_admin"
-  const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? ""
+  const { profile }    = await requireAuth()
+  const supabase       = await createClient()
+  // Only super_admin can pick admin in the role dropdown. Everyone else
+  // (owner_admin + agent) is locked to inviting agents.
+  const canInviteAdmin = profile.role === "super_admin"
+  const appUrl         = process.env.NEXT_PUBLIC_APP_URL ?? ""
   const t           = await getTranslations("inviteAgentPage")
   const tInv        = await getTranslations("invitations")
   const locale      = await getLocale()
@@ -58,7 +60,7 @@ export default async function InviteAgentPage() {
         </p>
       </div>
 
-      <InviteAgentForm isAdmin={isAdmin} appUrl={appUrl} />
+      <InviteAgentForm canInviteAdmin={canInviteAdmin} appUrl={appUrl} />
 
       {(invitations?.length ?? 0) > 0 && (
         <section className="space-y-(--spacing-cluster)">

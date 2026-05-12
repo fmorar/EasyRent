@@ -22,9 +22,13 @@ import type { PropertyPerformanceReport } from "@/types"
 
 interface Props {
   report: Pick<PropertyPerformanceReport, "id" | "status" | "public_token" | "pdf_path">
+  /** Whether the current user can regenerate / delete this report.
+   *  Owners (created_by = me) get the full menu. Recipients via
+   *  property_shares get read-only — view, copy link, download PDF. */
+  canManage?: boolean
 }
 
-export function PerformanceReportActions({ report }: Props) {
+export function PerformanceReportActions({ report, canManage = true }: Props) {
   const router = useRouter()
   const t = useTranslations("performanceReports")
 
@@ -99,22 +103,30 @@ export function PerformanceReportActions({ report }: Props) {
               </DropdownMenuItem>
             </>
           )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={regenerate} disabled={pending}>
-            <ArrowPathIcon className="h-4 w-4 mr-2" />
-            {t("actions.regenerate")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => setConfirming(true)}
-            className="text-destructive focus:text-destructive"
-          >
-            <TrashIcon className="h-4 w-4 mr-2" />
-            {t("actions.delete")}
-          </DropdownMenuItem>
+          {canManage && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={regenerate} disabled={pending}>
+                <ArrowPathIcon className="h-4 w-4 mr-2" />
+                {t("actions.regenerate")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setConfirming(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <TrashIcon className="h-4 w-4 mr-2" />
+                {t("actions.delete")}
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Delete confirmation — only mounted for owners. Recipients can't
+          trigger it from the (hidden) dropdown item anyway, but skipping
+          the dialog keeps the tree clean. */}
+      {canManage && (
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent>
           <DialogHeader>
@@ -131,6 +143,7 @@ export function PerformanceReportActions({ report }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </>
   )
 }

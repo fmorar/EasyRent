@@ -41,7 +41,7 @@ interface Params { params: Promise<{ id: string }> }
 
 export async function POST(_req: Request, { params }: Params) {
   const { id } = await params
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
 
   // ── Load report ──────────────────────────────────────────
@@ -53,6 +53,13 @@ export async function POST(_req: Request, { params }: Params) {
 
   if (rErr || !report) {
     return NextResponse.json({ error: "report_not_found" }, { status: 404 })
+  }
+
+  // Only the original creator can regenerate. Recipients who can view
+  // the report (via a property share) get read-only access — they
+  // shouldn't trigger a new pipeline run on someone else's property.
+  if (report.created_by !== profile.id) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 })
   }
 
   // Mark processing

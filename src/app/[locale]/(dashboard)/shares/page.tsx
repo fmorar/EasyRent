@@ -25,12 +25,16 @@ interface ShareRow {
 }
 
 export default async function SharesPage() {
-  await requireAdmin()
+  const { profile } = await requireAdmin()
   const supabase = await createClient()
   const t        = await getTranslations("shares")
   const locale   = await getLocale()
   const dateLocale = locale === "es" ? "es-CR" : "en-US"
 
+  // Scope explicitly to the current user's shares — ones they sent
+  // (shared_by) or received (shared_with). The RLS admin-bypass would
+  // otherwise leak every share on the platform into any owner_admin's
+  // queue, which is not the workflow the team wants here.
   const { data: sharesRaw } = await supabase
     .from("property_shares")
     .select(`
@@ -39,6 +43,7 @@ export default async function SharesPage() {
       shared_by_profile:profiles!property_shares_shared_by_fkey(id, full_name, avatar_url),
       shared_with_profile:profiles!property_shares_shared_with_fkey(id, full_name, avatar_url, role)
     `)
+    .or(`shared_by.eq.${profile.id},shared_with.eq.${profile.id}`)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
 

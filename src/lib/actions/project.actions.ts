@@ -64,6 +64,12 @@ export async function createProject(
 // Allowed sources: master templates (visible to all) or forks shared with me.
 // Nested forks ARE allowed: forking a fork creates a new fork with
 // forked_from = source.id (chain).
+//
+// Inherits the source's amenities + photos so the new fork lands with
+// the same content the user was looking at, ready to publish. Photos
+// are inherited by URL reference (same storage objects) — the fork
+// doesn't get its own copies until the agent uploads new ones, which
+// is the cheap+correct semantics for shared/template inventory.
 export async function forkProject(
   sourceId: string
 ): Promise<ActionResult<Project>> {
@@ -104,6 +110,51 @@ export async function forkProject(
     .single()
 
   if (error) return { success: false, error: error.message }
+
+  // ── Inherit amenities + photos in parallel ─────────────────────
+  // Failures here don't fail the fork — the project row already
+  // exists, and the user can re-upload / re-add anything that
+  // didn't copy. We log so the issue surfaces.
+  const [amenitiesRes, photosRes] = await Promise.all([
+    supabase
+      .from("project_amenities")
+      .select("name, icon, sort_order")
+      .eq("project_id", sourceId),
+
+    supabase
+      .from("project_photos")
+      .select("url, storage_path, type, is_cover, order_index, caption")
+      .eq("project_id", sourceId),
+  ])
+
+  const amenityRows = (amenitiesRes.data ?? []).map((a) => ({
+    project_id: data.id,
+    name:       a.name,
+    icon:       a.icon,
+    sort_order: a.sort_order,
+  }))
+  if (amenityRows.length > 0) {
+    const { error: amErr } = await supabase
+      .from("project_amenities")
+      .insert(amenityRows)
+    if (amErr) console.error("[forkProject] failed to copy amenities:", amErr)
+  }
+
+  const photoRows = (photosRes.data ?? []).map((p) => ({
+    project_id:   data.id,
+    url:          p.url,
+    storage_path: p.storage_path,
+    type:         p.type,
+    is_cover:     p.is_cover,
+    order_index:  p.order_index,
+    caption:      p.caption,
+  }))
+  if (photoRows.length > 0) {
+    const { error: phErr } = await supabase
+      .from("project_photos")
+      .insert(photoRows)
+    if (phErr) console.error("[forkProject] failed to copy photos:", phErr)
+  }
 
   revalidatePath("/projects")
   return { success: true, data }

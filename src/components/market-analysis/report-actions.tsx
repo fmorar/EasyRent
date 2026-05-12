@@ -24,9 +24,13 @@ import type { MarketReport } from "@/types"
 
 interface Props {
   report: Pick<MarketReport, "id" | "status" | "public_token" | "pdf_path">
+  /** Whether the current user can regenerate / duplicate / delete this
+   *  report. Owners (created_by = me) get the full menu. Recipients via
+   *  property_shares get read-only — view, copy link, download PDF. */
+  canManage?: boolean
 }
 
-export function ReportActions({ report }: Props) {
+export function ReportActions({ report, canManage = true }: Props) {
   const router  = useRouter()
   const t       = useTranslations("marketAnalysis.actions")
   const tDel    = useTranslations("marketAnalysis")
@@ -120,23 +124,28 @@ export function ReportActions({ report }: Props) {
               )}
             </>
           )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={regenerate} disabled={pending}>
-            <ArrowPathIcon className="h-4 w-4 mr-2" />
-            {t("regenerate")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={duplicate}>
-            <DocumentDuplicateIcon className="h-4 w-4 mr-2" />
-            {t("duplicate")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setConfirming(true)} className="text-destructive">
-            <TrashIcon className="h-4 w-4 mr-2" />
-            {t("delete")}
-          </DropdownMenuItem>
+          {canManage && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={regenerate} disabled={pending}>
+                <ArrowPathIcon className="h-4 w-4 mr-2" />
+                {t("regenerate")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={duplicate}>
+                <DocumentDuplicateIcon className="h-4 w-4 mr-2" />
+                {t("duplicate")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setConfirming(true)} className="text-destructive">
+                <TrashIcon className="h-4 w-4 mr-2" />
+                {t("delete")}
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {canManage && (
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent>
           <DialogHeader>
@@ -153,6 +162,7 @@ export function ReportActions({ report }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </>
   )
 }

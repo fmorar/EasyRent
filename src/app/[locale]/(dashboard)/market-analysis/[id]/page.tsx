@@ -28,7 +28,7 @@ type ReportRow = MarketReport & {
 
 export default async function MarketReportDetailPage({ params }: Params) {
   const { id } = await params
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
   const t        = await getTranslations("marketReportDetail")
   const tTabs    = await getTranslations("marketReportDetail.tabs")
@@ -155,6 +155,7 @@ export default async function MarketReportDetailPage({ params }: Params) {
         <div className="shrink-0">
           <ReportActions
             report={{ id: report.id, status: report.status, public_token: report.public_token, pdf_path: report.pdf_path }}
+            canManage={report.created_by === profile.id}
           />
         </div>
       </header>

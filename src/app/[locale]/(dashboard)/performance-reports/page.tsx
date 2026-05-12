@@ -18,12 +18,28 @@ type Row = PropertyPerformanceReport & {
 }
 
 export default async function PerformanceReportsListPage() {
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
   const t        = await getTranslations("performanceReports")
   const tCol     = await getTranslations("performanceReports.table")
   const locale   = await getLocale()
   const dateLocale = locale === "es" ? "es-CR" : "en-US"
+
+  // Scope explicitly to "reports I created" + "reports on properties
+  // approved-shared TO me". Mirrors the /properties + /contracts
+  // approach so an RLS-only future regression can't leak inventory
+  // into this list.
+  const { data: sharedInRows } = await supabase
+    .from("property_shares")
+    .select("property_id")
+    .eq("shared_with", profile.id)
+    .eq("status",      "approved")
+    .is("deleted_at",  null)
+
+  const sharedInIds = (sharedInRows ?? []).map((r) => r.property_id)
+  const scope = sharedInIds.length > 0
+    ? `created_by.eq.${profile.id},property_id.in.(${sharedInIds.join(",")})`
+    : `created_by.eq.${profile.id}`
 
   const { data: rowsRaw } = await supabase
     .from("property_performance_reports")
@@ -31,6 +47,7 @@ export default async function PerformanceReportsListPage() {
       *,
       property:properties(title, slug)
     `)
+    .or(scope)
     .order("created_at", { ascending: false })
 
   const reports = (rowsRaw ?? []) as Row[]
@@ -94,10 +111,13 @@ export default async function PerformanceReportsListPage() {
                     {r.performance_status && <PerformanceHealthBadge status={r.performance_status} />}
                   </div>
                   <div className="shrink-0 -mt-1 -mr-1">
-                    <PerformanceReportActions report={{
-                      id: r.id, status: r.status,
-                      public_token: r.public_token, pdf_path: r.pdf_path,
-                    }} />
+                    <PerformanceReportActions
+                      report={{
+                        id: r.id, status: r.status,
+                        public_token: r.public_token, pdf_path: r.pdf_path,
+                      }}
+                      canManage={r.created_by === profile.id}
+                    />
                   </div>
                 </div>
                 <Link

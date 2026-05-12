@@ -90,17 +90,26 @@ export async function listPerformanceReports():
 }
 
 export async function deletePerformanceReport(id: string): Promise<ActionResult> {
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
 
-  // Best-effort PDF cleanup
+  // Only the creator can delete. Recipients (via property_shares) can
+  // see and download the report but not destroy it — they don't own
+  // the underlying property.
   const { data: report } = await supabase
     .from("property_performance_reports")
-    .select("pdf_path")
+    .select("created_by, pdf_path")
     .eq("id", id)
     .maybeSingle()
 
-  if (report?.pdf_path) {
+  if (!report) {
+    return { success: false, error: "Reporte no encontrado" }
+  }
+  if (report.created_by !== profile.id) {
+    return { success: false, error: "No tenés permiso para borrar este reporte" }
+  }
+
+  if (report.pdf_path) {
     await supabase.storage.from("performance-reports").remove([report.pdf_path])
   }
 

@@ -10,7 +10,6 @@ import {
   UsersIcon as Users,
   DocumentTextIcon as FileText,
   Cog6ToothIcon as Settings,
-  UserPlusIcon as UserPlus,
   ArrowsRightLeftIcon as Share2,
   ArrowTrendingUpIcon as TrendingUp,
   ChartBarIcon as BarChart,
@@ -53,14 +52,15 @@ const NAV_MAIN: NavItem[] = [
   { href: "/contracts",  labelKey: "contracts",  icon: FileText,        adminOnly: false },
   { href: "/market-analysis", labelKey: "marketAnalysis", icon: BarChart, adminOnly: false },
   { href: "/performance-reports", labelKey: "performanceReports", icon: ChartLine, adminOnly: false },
+  // /agents is also the surface where every user (agent / admin / super)
+  // invites peers — so it lives in the main nav, not gated to admins.
+  // The page scopes its tables to the viewer.
+  { href: "/agents",     labelKey: "agents",      icon: Users,          adminOnly: false },
   { href: "/dashboard/blog", labelKey: "blog",   icon: NewsIcon,        adminOnly: false },
 ]
 
 const NAV_ADMIN: NavItem[] = [
   { href: "/owner-prospector", labelKey: "ownerProspector", icon: SearchIcon, adminOnly: true },
-  // /invitations got merged into /agents — the page now shows active
-  // members + the full invitation log in one place.
-  { href: "/agents",      labelKey: "agents",       icon: Users,    adminOnly: true },
   { href: "/shares",      labelKey: "shareRequests",icon: Share2,   adminOnly: true },
 ]
 

@@ -26,12 +26,44 @@ interface InviteInput {
   zones?: string[]
 }
 
+/**
+ * Authoritative check for who can invite whom. UI dropdowns mirror this
+ * but never trust them — the server makes the final call.
+ *
+ *   super_admin → agent | owner_admin
+ *   owner_admin → agent
+ *   agent       → agent
+ *
+ * Nobody can mint another super_admin via the invite flow.
+ */
+function canInviteRole(
+  inviterRole: string,
+  requestedRole: "agent" | "owner_admin",
+): boolean {
+  if (requestedRole === "owner_admin") return inviterRole === "super_admin"
+  if (requestedRole === "agent")       return inviterRole === "super_admin"
+                                         || inviterRole === "owner_admin"
+                                         || inviterRole === "agent"
+  return false
+}
+
 export async function inviteAgent(
   input: InviteInput
 ): Promise<ActionResult<{ token: string; emailSent: boolean; emailError?: string }>> {
   const { profile } = await requireAuth()
   const supabase    = await createClient()
   const admin       = createAdminClient()
+
+  const role = input.role ?? "agent"
+
+  if (!canInviteRole(profile.role, role)) {
+    return {
+      success: false,
+      error:   role === "owner_admin"
+        ? "Solo el super admin puede invitar a otros administradores."
+        : "No tenés permiso para invitar con ese rol.",
+    }
+  }
 
   // Check for existing active invitation for this email
   const { data: existing } = await supabase
@@ -45,8 +77,6 @@ export async function inviteAgent(
   if (existing) {
     return { success: false, error: "An active invitation already exists for this email" }
   }
-
-  const role = input.role ?? "agent"
   const { data: invitation, error } = await admin
     .from("invitations")
     .insert({

@@ -27,13 +27,15 @@ import { ZonesPicker } from "@/components/shared/zones-picker"
 import { formatZoneList } from "@/lib/zones"
 
 interface Props {
-  /** Whether the current user is an owner_admin (controls role-select visibility). */
-  isAdmin: boolean
+  /** True when the current user is super_admin — only they can pick
+   *  `owner_admin` in the role dropdown. owner_admin and agent inviters
+   *  are locked to inviting agents. */
+  canInviteAdmin: boolean
   /** App base URL used to compose the invite link to copy. */
-  appUrl:  string
+  appUrl:         string
 }
 
-export function InviteAgentForm({ isAdmin, appUrl }: Props) {
+export function InviteAgentForm({ canInviteAdmin, appUrl }: Props) {
   const t = useTranslations("inviteAgent")
 
   const [email, setEmail] = useState("")
@@ -234,7 +236,7 @@ export function InviteAgentForm({ isAdmin, appUrl }: Props) {
         </p>
       </div>
 
-      {isAdmin && (
+      {canInviteAdmin && (
         <div className="space-y-1.5">
           <Label htmlFor="invite-role">{t("roleLabel")}</Label>
           <Select

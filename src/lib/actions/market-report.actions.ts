@@ -112,17 +112,25 @@ export async function listMarketReports(): Promise<ActionResult<MarketReport[]>>
 export async function deleteMarketReport(
   id: string
 ): Promise<ActionResult> {
-  await requireAuth()
+  const { profile } = await requireAuth()
   const supabase = await createClient()
 
-  // RLS enforces ownership / admin. Best-effort cleanup of PDF in storage.
+  // Only the creator can delete. Recipients (via property_shares) get
+  // read+download access only — they don't own the underlying property.
   const { data: report } = await supabase
     .from("market_reports")
-    .select("pdf_path")
+    .select("created_by, pdf_path")
     .eq("id", id)
     .maybeSingle()
 
-  if (report?.pdf_path) {
+  if (!report) {
+    return { success: false, error: "Reporte no encontrado" }
+  }
+  if (report.created_by !== profile.id) {
+    return { success: false, error: "No tenés permiso para borrar este reporte" }
+  }
+
+  if (report.pdf_path) {
     await supabase.storage.from("market-reports").remove([report.pdf_path])
   }
 
@@ -146,11 +154,18 @@ export async function duplicateMarketReport(
 
   const { data: src, error } = await supabase
     .from("market_reports")
-    .select("property_id, report_type, report_locale, title, metadata")
+    .select("created_by, property_id, report_type, report_locale, title, metadata")
     .eq("id", id)
     .single()
 
   if (error || !src) return { success: false, error: "Source report not found" }
+
+  // Only the creator can duplicate. Sharee recipients have view+download
+  // only — duplicating from someone else's analysis would let them seed
+  // a fresh report on a property whose context isn't fully theirs.
+  if (src.created_by !== profile.id) {
+    return { success: false, error: "No tenés permiso para duplicar este reporte" }
+  }
 
   const insert: MarketReportInsert = {
     property_id:   src.property_id,
