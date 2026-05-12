@@ -33,7 +33,7 @@ import type { Profile, Invitation } from "@/types"
 type ProfileRow = Profile & { inviter: { full_name: string } | null }
 type InvitationRow = Invitation & {
   inviter:  { full_name: string } | null
-  accepter: { full_name: string } | null
+  accepter: { id: string; full_name: string; slug: string | null; avatar_url: string | null } | null
 }
 
 interface PersonRow {
@@ -78,12 +78,15 @@ export default async function AgentsPage() {
   const members = (membersRaw ?? []) as unknown as ProfileRow[]
 
   // ── Invitations I sent ─────────────────────────────────────────
+  // We pull the accepter join because if the members query somehow
+  // misses an accepted invitation (RLS quirk, race condition), we can
+  // still render that person as Active using the accepter data.
   const { data: invitationsRaw } = await supabase
     .from("invitations")
     .select(`
       *,
       inviter:profiles!invitations_invited_by_fkey(full_name),
-      accepter:profiles!invitations_accepted_by_fkey(full_name)
+      accepter:profiles!invitations_accepted_by_fkey(id, full_name, slug, avatar_url)
     `)
     .eq("invited_by", profile.id)
     .order("created_at", { ascending: false })
@@ -119,6 +122,29 @@ export default async function AgentsPage() {
     ...invitations
       .filter((inv) => !memberEmails.has(inv.email.toLowerCase()))
       .map<PersonRow>((inv) => {
+        // Accepted invitation without a matching members row → treat
+        // as Active and reuse the accepter data. This kicks in when
+        // the members query under-returns (e.g. RLS misfire) so the
+        // page still renders correctly instead of showing an empty
+        // status badge.
+        if (inv.status === "accepted") {
+          return {
+            key:           `i:${inv.id}`,
+            status:        "active",
+            email:         inv.email,
+            full_name:     inv.accepter?.full_name ?? null,
+            avatar_url:    inv.accepter?.avatar_url ?? null,
+            slug:          inv.accepter?.slug ?? null,
+            role:          inv.role,
+            inviter_name:  inv.inviter?.full_name ?? null,
+            date:          inv.created_at,
+            expires_at:    null,
+            profile_id:    inv.accepter?.id ?? null,
+            invitation_id: inv.id,
+            is_self:       false,
+            i_invited:     true,
+          }
+        }
         const expired = inv.status === "pending" && new Date(inv.expires_at) < now
         const effective: PersonRow["status"] = expired
           ? "expired"
