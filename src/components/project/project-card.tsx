@@ -9,6 +9,7 @@ import {
 import { ListingCardShell } from "@/components/shared/listing-card"
 import { ShareProjectDialog } from "@/components/project/share-project-dialog"
 import { ForkProjectButton } from "@/components/project/fork-project-button"
+import { DownloadProjectPhotosButton } from "@/components/project/download-project-photos-button"
 import { PROJECT_STATUS_LABELS } from "@/lib/labels"
 import type { Project } from "@/types"
 
@@ -58,6 +59,15 @@ export function ProjectCard({ project, currentUserId, isAdmin }: ProjectCardProp
             className="absolute top-2 right-2 z-20 flex gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Download is available to anyone who can see the project —
+                same rationale as on PropertyCard. Shows only when the
+                project actually has photos to avoid an empty download. */}
+            {(project.project_photos?.length ?? 0) > 0 && (
+              <DownloadProjectPhotosButton
+                projectId={project.id}
+                projectSlug={project.slug}
+              />
+            )}
             {canShare && (
               <ShareProjectDialog
                 projectId={project.id}
