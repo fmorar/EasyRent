@@ -14,7 +14,23 @@ export default async function PropertiesPage() {
   const isAdmin     = profile.role === "owner_admin"
   const t           = await getTranslations("properties")
 
-  // Admin sees all; agent sees own + shared-with-them (RLS handles this).
+  // Show only properties the user actually owns or was approved to access
+  // via a share. We can't rely on RLS alone here because the public
+  // marketplace SELECT policy also matches every marketplace-visible row
+  // for any authenticated user — that would pollute this dashboard list
+  // with strangers' published listings.
+  const { data: sharedRows } = await supabase
+    .from("property_shares")
+    .select("property_id")
+    .eq("shared_with", profile.id)
+    .eq("status",      "approved")
+    .is("deleted_at",  null)
+
+  const sharedIds = (sharedRows ?? []).map((r) => r.property_id)
+  const scope = sharedIds.length > 0
+    ? `created_by.eq.${profile.id},id.in.(${sharedIds.join(",")})`
+    : `created_by.eq.${profile.id}`
+
   // NOTE: left-join on property_photos (no `!inner`) so drafts with zero
   // photos still appear in the list.
   const { data: propertiesRaw } = await supabase
@@ -23,6 +39,7 @@ export default async function PropertiesPage() {
       *,
       property_photos(url, is_cover, order_index)
     `)
+    .or(scope)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
@@ -36,7 +53,7 @@ export default async function PropertiesPage() {
             {t("title")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isAdmin ? t("subtitleAdmin") : t("subtitleAgent")}
+            {t("subtitleAgent")}
           </p>
         </div>
         <Link href="/properties/new" className={buttonVariants()}>

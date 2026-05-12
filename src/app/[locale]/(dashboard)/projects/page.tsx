@@ -15,12 +15,28 @@ export default async function ProjectsPage() {
   const isAdmin     = profile.role === "owner_admin"
   const t           = await getTranslations("projects")
 
+  // Same scoping logic as /properties: show only projects the user created
+  // or was shared on. Master templates are platform-wide blueprints so they
+  // stay visible to everyone via the same OR clause.
+  const { data: sharedRows } = await supabase
+    .from("project_shares")
+    .select("project_id")
+    .eq("shared_with", profile.id)
+
+  const sharedIds = (sharedRows ?? []).map((r) => r.project_id)
+  const scopeParts = [
+    `created_by.eq.${profile.id}`,
+    `is_master_template.eq.true`,
+    ...(sharedIds.length > 0 ? [`id.in.(${sharedIds.join(",")})`] : []),
+  ]
+
   const { data: projectsRaw } = await supabase
     .from("projects")
     .select(`
       *,
       project_photos(url, is_cover, order_index, type)
     `)
+    .or(scopeParts.join(","))
     .is("deleted_at", null)
     .order("is_master_template", { ascending: false })
     .order("created_at", { ascending: false })
@@ -38,7 +54,7 @@ export default async function ProjectsPage() {
             {t("title")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isAdmin ? t("subtitleAdmin") : t("subtitleAgent")}
+            {t("subtitleAgent")}
           </p>
         </div>
         <Link href="/projects/new" className={buttonVariants()}>
