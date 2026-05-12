@@ -76,6 +76,17 @@ export async function forkProject(
   const { profile } = await requireAuth()
   const supabase    = await createClient()
 
+  // Forking is the agent workflow: take a master template (or a fork
+  // shared to you) and make it your own to publish under your brand.
+  // Admins / super admins don't fork — they curate the canonical
+  // templates and oversee the network instead.
+  if (profile.role !== "agent") {
+    return {
+      success: false,
+      error:   "Solo los agentes pueden forkear proyectos.",
+    }
+  }
+
   // RLS will restrict this read to projects the user can see.
   const { data: source, error: sourceError } = await supabase
     .from("projects")

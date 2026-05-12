@@ -511,6 +511,7 @@
     "agentProjects": "Agent projects",
     "myProjects": "My projects",
     "noProjects": "No projects yet. Fork a master template or create a new one.",
+    "noProjectsAdmin": "No projects shared with you yet. Agents you invited can share their projects with you once they publish them.",
     "fork": "Fork",
     "template": "Template",
     "adminBadge": "Admin"

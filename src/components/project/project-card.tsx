@@ -26,9 +26,17 @@ interface ProjectCardProps {
 export function ProjectCard({ project, currentUserId, isAdmin }: ProjectCardProps) {
   const isOwner    = project.created_by === currentUserId
   const isFork     = !!project.forked_from
-  const canShare   = isOwner && isFork && !project.is_master_template
+  // Sharing is for agents: take a project I created (fork or
+  // original) and distribute it through my 1-hop network. Master
+  // templates are admin-curated and use a different distribution path,
+  // so they're never shared via this button.
+  const canShare   = isOwner && !project.is_master_template
   const canEdit    = isOwner || (isAdmin && project.is_master_template)
-  const canFork    = !isOwner
+  // Forking is the agent workflow. Admins / super admins curate
+  // master templates instead — hiding the button keeps the action
+  // surface honest. The server action also rejects non-agents, so
+  // this is purely UX.
+  const canFork    = !isOwner && !isAdmin
   const coverPhoto = project.project_photos?.find((p) => p.is_cover)
     ?? project.project_photos?.sort((a, b) => a.order_index - b.order_index)[0]
 

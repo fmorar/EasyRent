@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useMemo, useEffect } from "react"
+import { useState, useTransition, useMemo, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +12,6 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
@@ -80,12 +79,15 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
   const [shares,           setShares]           = useState(initialShares)
   const [selectedIds,      setSelectedIds]      = useState<Set<string>>(new Set())
   const [query,            setQuery]            = useState("")
+  const [searchOpen,       setSearchOpen]       = useState(false)
   const [commissionSplit,  setCommissionSplit]   = useState<string>("50")
   const [commissionType,   setCommissionType]    = useState<"percentage" | "fixed">("percentage")
   const [submitting,       setSubmitting]        = useState(false)
   const [error,            setError]             = useState<string | null>(null)
   const [revokingId,       setRevokingId]        = useState<string | null>(null)
   const [, startTransition] = useTransition()
+
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Agents already shared with (active shares)
   const sharedWithIds = useMemo(
@@ -185,10 +187,12 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
     })
   }
 
-  // Filtered list when user types (autocomplete)
+  // Filtered list for the popover. With no query, show the full
+  // network so a focused-but-empty input reveals options — same UX as
+  // a Gmail-style "To:" picker.
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return []
+    if (!q) return availableAgents
     return availableAgents.filter((a) => {
       const hay = `${a.full_name} ${a.email ?? ""}`.toLowerCase()
       return hay.includes(q)
@@ -212,15 +216,19 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
     setSelectedIds(new Set())
   }
 
+  /**
+   * Additive selection used by the "Por zona" shortcuts.
+   *
+   * The zone shortcuts overlap heavily — the same agent typically
+   * covers Oeste + Este + Norte — so the previous toggle behaviour
+   * caused a click on the second zone to *remove* the agents the
+   * first click added. Now the buttons only add; removal is done via
+   * the chip X in the combobox above.
+   */
   function selectAgents(agentList: Profile[]) {
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      const everySelected = agentList.every((a) => next.has(a.id))
-      if (everySelected) {
-        for (const a of agentList) next.delete(a.id)
-      } else {
-        for (const a of agentList) next.add(a.id)
-      }
+      for (const a of agentList) next.add(a.id)
       return next
     })
   }
@@ -385,13 +393,20 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
             </Alert>
           )}
 
-          {/* Selected agent chips */}
-          {selectedAgents.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 rounded-lg border bg-muted/30 p-2">
+          {/* Unified multi-select combobox: chips + inline search in
+              the same field. Click anywhere on the wrapper focuses the
+              text input; Backspace on an empty input drops the last
+              chip (standard combobox UX). */}
+          <div className="relative">
+            <div
+              role="group"
+              onClick={() => inputRef.current?.focus()}
+              className="flex flex-wrap items-center gap-1.5 min-h-12 px-2 py-1.5 rounded-lg border bg-background focus-within:border-foreground/40 transition-colors cursor-text"
+            >
               {selectedAgents.map((agent) => (
                 <span
                   key={agent.id}
-                  className="inline-flex items-center gap-1.5 h-7 pl-1 pr-2 rounded-full bg-background border text-xs"
+                  className="inline-flex items-center gap-1.5 h-7 pl-1 pr-2 rounded-full bg-muted border text-xs"
                 >
                   <Avatar className="h-5 w-5">
                     <AvatarImage src={agent.avatar_url ?? undefined} />
@@ -399,12 +414,15 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
                       {getInitials(agent.full_name)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="font-medium truncate max-w-[160px]">
+                  <span className="font-medium truncate max-w-[140px]">
                     {agent.full_name}
                   </span>
                   <button
                     type="button"
-                    onClick={() => toggleAgent(agent.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleAgent(agent.id)
+                    }}
                     aria-label={`Quitar ${agent.full_name}`}
                     className="text-muted-foreground hover:text-foreground"
                   >
@@ -412,28 +430,52 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
                   </button>
                 </span>
               ))}
-              <button
-                type="button"
-                onClick={clearAll}
-                className="inline-flex items-center h-7 px-2 rounded-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Limpiar
-              </button>
-            </div>
-          )}
-
-          {/* Search — autocomplete results render only while typing */}
-          <div className="relative">
-            <Command className="rounded-lg border" shouldFilter={false}>
-              <CommandInput
+              <input
+                ref={inputRef}
+                type="text"
                 value={query}
-                onValueChange={setQuery}
-                placeholder={`Buscar entre ${availableAgents.length} agente${availableAgents.length !== 1 ? "s" : ""}…`}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setSearchOpen(true)}
+                onBlur={() => {
+                  // Delay so a click on a result registers before the
+                  // popover unmounts.
+                  window.setTimeout(() => setSearchOpen(false), 120)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Backspace" && query === "" && selectedAgents.length > 0) {
+                    toggleAgent(selectedAgents[selectedAgents.length - 1].id)
+                  }
+                  if (e.key === "Escape") {
+                    setQuery("")
+                    setSearchOpen(false)
+                    inputRef.current?.blur()
+                  }
+                }}
+                placeholder={
+                  selectedAgents.length === 0
+                    ? `Buscar entre ${availableAgents.length} agente${availableAgents.length !== 1 ? "s" : ""}…`
+                    : ""
+                }
+                className="flex-1 min-w-[140px] bg-transparent outline-none text-sm h-7 px-1 placeholder:text-muted-foreground"
               />
-              {query.trim() !== "" && (
-                <CommandList className="max-h-64">
+            </div>
+
+            {/* Results — rendered inline below the input so the row
+                count drives the height (no popover clipping, no
+                z-index battles with the zone shortcuts below). Shows
+                while typing OR while the input has focus. */}
+            {searchOpen && (query.trim() !== "" || availableAgents.length > 0) && (
+              <Command
+                className="mt-2 rounded-lg border bg-card"
+                shouldFilter={false}
+              >
+                <CommandList className="max-h-72">
                   {searchResults.length === 0 ? (
-                    <CommandEmpty>Sin resultados para &ldquo;{query}&rdquo;</CommandEmpty>
+                    <CommandEmpty>
+                      {query.trim() !== ""
+                        ? `Sin resultados para "${query}"`
+                        : "No quedan agentes para sumar."}
+                    </CommandEmpty>
                   ) : (
                     <CommandGroup>
                       {searchResults.map((agent) => {
@@ -443,7 +485,18 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
                           <CommandItem
                             key={agent.id}
                             value={agent.id}
-                            onSelect={() => toggleAgent(agent.id)}
+                            onMouseDown={(e) => {
+                              // Prevent the input from blurring before
+                              // the selection registers — onBlur fires
+                              // before onClick, which would close the
+                              // popover and swallow the click.
+                              e.preventDefault()
+                            }}
+                            onSelect={() => {
+                              toggleAgent(agent.id)
+                              setQuery("")
+                              inputRef.current?.focus()
+                            }}
                             className="gap-3 py-2"
                             data-checked={checked || undefined}
                           >
@@ -492,8 +545,8 @@ export function SharePanel({ propertyId, shares: initialShares, agents }: ShareP
                     </CommandGroup>
                   )}
                 </CommandList>
-              )}
-            </Command>
+              </Command>
+            )}
           </div>
 
           {/* Zone shortcuts — accordion by category */}

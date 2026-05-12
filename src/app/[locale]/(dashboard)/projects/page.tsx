@@ -98,7 +98,7 @@ export default async function ProjectsPage() {
         {!agentProjects.length ? (
           <EmptyState
             icon={<FolderOpenIcon className="h-8 w-8" />}
-            message={t("noProjects")}
+            message={isAdmin ? t("noProjectsAdmin") : t("noProjects")}
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-(--spacing-cluster)">

@@ -511,6 +511,7 @@
     "agentProjects": "Proyectos de agentes",
     "myProjects": "Mis proyectos",
     "noProjects": "Sin proyectos todavía. Forkeá una plantilla o creá uno nuevo.",
+    "noProjectsAdmin": "Todavía nadie compartió proyectos con vos. Los agentes que invitaste pueden compartirte sus proyectos cuando los publiquen.",
     "fork": "Fork",
     "template": "Plantilla",
     "adminBadge": "Admin"
