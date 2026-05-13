@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
+import { useTranslations } from "next-intl"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
+import { LockClosedIcon } from "@heroicons/react/24/outline"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import PropertyForm from "@/components/property/property-form"
 import { TranslationTab } from "@/components/property/translation-tab"
@@ -37,6 +39,10 @@ interface Props {
   videos:             VideoRow[]
   enTranslation:      PropertyTranslation | null
   projectInheritance: ProjectInheritance | null
+  /** True when the current viewer owns the property or is an admin.
+   *  False when the row was made visible via property_shares — they
+   *  see everything but every input is disabled. */
+  canEdit:            boolean
   tTabEn:             string
   tAiNote:            string
 }
@@ -89,9 +95,12 @@ export function PropertyEditClient({
   videos,
   enTranslation,
   projectInheritance,
+  canEdit,
   tTabEn,
   tAiNote,
 }: Props) {
+  const readOnly = !canEdit
+  const tEdit    = useTranslations("propertyEdit")
   const [formDirty,      setFormDirty]      = useState(false)
   const { blocking, confirm, cancel }        = useUnsavedChanges(formDirty)
 
@@ -220,10 +229,28 @@ export function PropertyEditClient({
             {/* Form column */}
             <div className="min-w-0 space-y-(--spacing-block)">
 
-              {/* Top control row — language toggle */}
-              <div className="flex items-center justify-end">
-                {englishToggle}
-              </div>
+              {/* Read-only banner — only when the viewer reached this
+                  row via property_shares (not as owner/admin). The EN
+                  toggle is hidden because the only thing it could do
+                  in read-only mode is fail to generate a translation. */}
+              {readOnly && (
+                <div className="flex items-start gap-3 rounded-xl border bg-muted/40 px-4 py-3">
+                  <LockClosedIcon className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
+                  <div className="space-y-0.5 min-w-0">
+                    <p className="text-sm font-medium">{tEdit("readOnlyTitle")}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {tEdit("readOnlyDesc")}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Top control row — language toggle (owners only) */}
+              {!readOnly && (
+                <div className="flex items-center justify-end">
+                  {englishToggle}
+                </div>
+              )}
 
               {/* Form (single language) or Tabs (ES + EN) */}
               {showEnglish ? (
@@ -245,6 +272,7 @@ export function PropertyEditClient({
                       property={property}
                       initialOwner={initialOwner}
                       hideActions
+                      readOnly={readOnly}
                       onFormChange={handleFormChange}
                       onOwnerChange={handleOwnerChange}
                       onDirtyChange={setFormDirty}
@@ -256,6 +284,7 @@ export function PropertyEditClient({
                       propertyId={property.id}
                       locale="en"
                       translation={enTranslation}
+                      readOnly={readOnly}
                       onContentChange={setLiveEnglish}
                       propertyContext={{
                         title:              liveProperty.title,
@@ -297,9 +326,17 @@ export function PropertyEditClient({
                 title="Fotos y videos"
                 description="Subí fotos y arrastrá para ordenarlas. La primera será la portada."
               >
-                <PhotoUploader propertyId={property.id} initialPhotos={photos} />
+                <PhotoUploader
+                  propertyId={property.id}
+                  initialPhotos={photos}
+                  readOnly={readOnly}
+                />
                 <div className="pt-2">
-                  <VideoManager propertyId={property.id} initialVideos={videos} />
+                  <VideoManager
+                    propertyId={property.id}
+                    initialVideos={videos}
+                    readOnly={readOnly}
+                  />
                 </div>
               </FormSection>
 

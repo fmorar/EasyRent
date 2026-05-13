@@ -1187,7 +1187,10 @@
   },
   "propertyEdit": {
     "backToProperties": "Properties",
-    "viewPublicPage":   "View public page ↗"
+    "viewPublicPage":   "View public page ↗",
+    "readOnlyBadge":    "Read-only",
+    "readOnlyTitle":    "Shared with you",
+    "readOnlyDesc":     "Another agent uploaded this property. You can review it and share it with clients, but you can't edit it."
   },
   "performanceReports": {
     "title":           "Performance reports",

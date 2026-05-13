@@ -40,6 +40,7 @@ interface SortablePhotoCardProps {
   photo: PhotoRow
   isCover: boolean
   uploadProgress?: number
+  readOnly?: boolean
   onDelete: (id: string) => void
   onCaptionChange: (id: string, caption: string) => void
 }
@@ -47,6 +48,7 @@ interface SortablePhotoCardProps {
 function SortablePhotoCard({
   photo,
   isCover,
+  readOnly = false,
   onDelete,
   onCaptionChange,
 }: SortablePhotoCardProps) {
@@ -90,15 +92,17 @@ function SortablePhotoCard({
       style={style}
       className="relative rounded-lg border bg-card overflow-hidden group will-change-transform"
     >
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="absolute top-2 left-2 z-10 p-1 rounded bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-(--duration-state) ease-(--ease-out-quart) cursor-grab active:cursor-grabbing"
-        aria-label="Drag to reorder"
-      >
-        <Bars3Icon className="h-4 w-4" />
-      </button>
+      {/* Drag handle — owners only */}
+      {!readOnly && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute top-2 left-2 z-10 p-1 rounded bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-(--duration-state) ease-(--ease-out-quart) cursor-grab active:cursor-grabbing"
+          aria-label="Drag to reorder"
+        >
+          <Bars3Icon className="h-4 w-4" />
+        </button>
+      )}
 
       {/* Cover badge */}
       {isCover && (
@@ -107,15 +111,17 @@ function SortablePhotoCard({
         </Badge>
       )}
 
-      {/* Delete button */}
-      <button
-        onClick={handleDeleteClick}
-        disabled={removing}
-        className="absolute bottom-2 right-2 z-10 p-1.5 rounded bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-[opacity,background-color] duration-(--duration-state) ease-(--ease-out-quart) hover:bg-destructive disabled:opacity-50"
-        aria-label="Eliminar foto"
-      >
-        <TrashIcon className="h-4 w-4" />
-      </button>
+      {/* Delete button — owners only */}
+      {!readOnly && (
+        <button
+          onClick={handleDeleteClick}
+          disabled={removing}
+          className="absolute bottom-2 right-2 z-10 p-1.5 rounded bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-[opacity,background-color] duration-(--duration-state) ease-(--ease-out-quart) hover:bg-destructive disabled:opacity-50"
+          aria-label="Eliminar foto"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      )}
 
       {/* Thumbnail — aspect-ratio (not fixed height) so the card stays
           proportional as the grid grows on wider monitors. With h-40
@@ -128,17 +134,28 @@ function SortablePhotoCard({
         className="w-full aspect-[4/3] object-cover"
       />
 
-      {/* Caption */}
-      <div className="p-2">
-        <Input
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          onBlur={handleCaptionBlur}
-          placeholder="Descripción (opcional)"
-          className="text-xs h-7"
-          disabled={saving}
-        />
-      </div>
+      {/* Caption — input for owners, static line for read-only viewers
+          (only when there's actually a caption to display). */}
+      {readOnly ? (
+        photo.caption ? (
+          <div className="p-2">
+            <p className="text-xs text-muted-foreground truncate" title={photo.caption}>
+              {photo.caption}
+            </p>
+          </div>
+        ) : null
+      ) : (
+        <div className="p-2">
+          <Input
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            onBlur={handleCaptionBlur}
+            placeholder="Descripción (opcional)"
+            className="text-xs h-7"
+            disabled={saving}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -153,9 +170,13 @@ interface UploadingFile {
 interface Props {
   propertyId: string
   initialPhotos: PhotoRow[]
+  /** When true, the dropzone, drag handles, delete buttons, and
+   *  caption inputs are all hidden / disabled. The viewer can still
+   *  see the photos. */
+  readOnly?:    boolean
 }
 
-export default function PhotoUploader({ propertyId, initialPhotos }: Props) {
+export default function PhotoUploader({ propertyId, initialPhotos, readOnly = false }: Props) {
   const [photos, setPhotos] = useState<PhotoRow[]>(
     [...initialPhotos].sort((a, b) => a.order_index - b.order_index)
   )
@@ -358,34 +379,36 @@ export default function PhotoUploader({ propertyId, initialPhotos }: Props) {
         </Alert>
       )}
 
-      {/* Drop zone */}
-      <div
-        onClick={onDropZoneClick}
-        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
-        onDragLeave={() => setIsDragOver(false)}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors duration-(--duration-snap) ease-(--ease-out-quart) ${
-          isDragOver
-            ? "border-primary bg-primary/5"
-            : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
-        }`}
-      >
-        <PhotoIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-        <p className="text-sm font-medium">Haz clic o arrastra fotos aquí</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Solo imágenes · Máx. 10 MB por archivo
-        </p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          // .heic/.heif explicit because iOS Safari doesn't always
-          // include HEIC under the image/* MIME wildcard.
-          accept="image/*,.heic,.heif"
-          multiple
-          className="hidden"
-          onChange={handleInputChange}
-        />
-      </div>
+      {/* Drop zone — hidden for read-only viewers (no upload affordance). */}
+      {!readOnly && (
+        <div
+          onClick={onDropZoneClick}
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors duration-(--duration-snap) ease-(--ease-out-quart) ${
+            isDragOver
+              ? "border-primary bg-primary/5"
+              : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30"
+          }`}
+        >
+          <PhotoIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm font-medium">Haz clic o arrastra fotos aquí</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Solo imágenes · Máx. 10 MB por archivo
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            // .heic/.heif explicit because iOS Safari doesn't always
+            // include HEIC under the image/* MIME wildcard.
+            accept="image/*,.heic,.heif"
+            multiple
+            className="hidden"
+            onChange={handleInputChange}
+          />
+        </div>
+      )}
 
       {/* Uploading files progress */}
       {uploading.length > 0 && (
@@ -433,6 +456,7 @@ export default function PhotoUploader({ propertyId, initialPhotos }: Props) {
                   key={photo.id}
                   photo={photo}
                   isCover={index === 0}
+                  readOnly={readOnly}
                   onDelete={handleDelete}
                   onCaptionChange={handleCaptionChange}
                 />

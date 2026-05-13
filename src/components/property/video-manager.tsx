@@ -51,10 +51,11 @@ function isValidYouTubeUrl(url: string): boolean {
 
 interface SortableVideoItemProps {
   video: VideoRow
+  readOnly?: boolean
   onDelete: (id: string) => void
 }
 
-function SortableVideoItem({ video, onDelete }: SortableVideoItemProps) {
+function SortableVideoItem({ video, readOnly = false, onDelete }: SortableVideoItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: video.id })
 
@@ -75,15 +76,17 @@ function SortableVideoItem({ video, onDelete }: SortableVideoItemProps) {
       style={style}
       className="flex items-center gap-3 border rounded-lg p-3 bg-card group"
     >
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="p-1 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing shrink-0"
-        aria-label="Arrastrar para reordenar"
-      >
-        <Bars3Icon className="h-4 w-4" />
-      </button>
+      {/* Drag handle — owners only */}
+      {!readOnly && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-1 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing shrink-0"
+          aria-label="Arrastrar para reordenar"
+        >
+          <Bars3Icon className="h-4 w-4" />
+        </button>
+      )}
 
       {/* Thumbnail */}
       <div className="shrink-0 w-24 h-14 rounded overflow-hidden bg-muted relative">
@@ -109,14 +112,16 @@ function SortableVideoItem({ video, onDelete }: SortableVideoItemProps) {
         <p className="text-xs text-muted-foreground truncate">{video.youtube_url}</p>
       </div>
 
-      {/* Delete */}
-      <button
-        onClick={() => onDelete(video.id)}
-        className="shrink-0 p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-        aria-label="Eliminar video"
-      >
-        <TrashIcon className="h-4 w-4" />
-      </button>
+      {/* Delete — owners only */}
+      {!readOnly && (
+        <button
+          onClick={() => onDelete(video.id)}
+          className="shrink-0 p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          aria-label="Eliminar video"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </button>
+      )}
     </div>
   )
 }
@@ -124,9 +129,12 @@ function SortableVideoItem({ video, onDelete }: SortableVideoItemProps) {
 interface Props {
   propertyId: string
   initialVideos: VideoRow[]
+  /** When true, the add-video form and per-video edit/delete controls
+   *  are hidden. The viewer can still play the embedded videos. */
+  readOnly?: boolean
 }
 
-export default function VideoManager({ propertyId, initialVideos }: Props) {
+export default function VideoManager({ propertyId, initialVideos, readOnly = false }: Props) {
   const [videos, setVideos] = useState<VideoRow[]>(
     [...initialVideos].sort((a, b) => a.order_index - b.order_index)
   )
@@ -222,37 +230,39 @@ export default function VideoManager({ propertyId, initialVideos }: Props) {
         </Alert>
       )}
 
-      {/* Add video form */}
-      <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
-        <p className="text-sm font-medium">Agregar video</p>
-        <div className="space-y-2">
-          <div>
+      {/* Add video form — owners only */}
+      {!readOnly && (
+        <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
+          <p className="text-sm font-medium">Agregar video</p>
+          <div className="space-y-2">
+            <div>
+              <Input
+                value={youtubeUrl}
+                onChange={(e) => { setYoutubeUrl(e.target.value); setUrlError(null) }}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className={urlError ? "border-destructive" : ""}
+                onKeyDown={(e) => { if (e.key === "Enter") void handleAdd() }}
+              />
+              {urlError && (
+                <p className="text-xs text-destructive mt-1">{urlError}</p>
+              )}
+            </div>
             <Input
-              value={youtubeUrl}
-              onChange={(e) => { setYoutubeUrl(e.target.value); setUrlError(null) }}
-              placeholder="https://www.youtube.com/watch?v=..."
-              className={urlError ? "border-destructive" : ""}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Título (opcional)"
               onKeyDown={(e) => { if (e.key === "Enter") void handleAdd() }}
             />
-            {urlError && (
-              <p className="text-xs text-destructive mt-1">{urlError}</p>
-            )}
           </div>
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Título (opcional)"
-            onKeyDown={(e) => { if (e.key === "Enter") void handleAdd() }}
-          />
+          <Button
+            onClick={() => void handleAdd()}
+            disabled={adding || !youtubeUrl.trim()}
+            size="sm"
+          >
+            {adding ? "Agregando..." : "Agregar"}
+          </Button>
         </div>
-        <Button
-          onClick={() => void handleAdd()}
-          disabled={adding || !youtubeUrl.trim()}
-          size="sm"
-        >
-          {adding ? "Agregando..." : "Agregar"}
-        </Button>
-      </div>
+      )}
 
       {/* Video list */}
       {videos.length > 0 && mounted ? (
@@ -270,6 +280,7 @@ export default function VideoManager({ propertyId, initialVideos }: Props) {
                 <SortableVideoItem
                   key={video.id}
                   video={video}
+                  readOnly={readOnly}
                   onDelete={handleDelete}
                 />
               ))}

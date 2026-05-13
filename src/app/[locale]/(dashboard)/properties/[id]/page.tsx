@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { getTranslations } from "next-intl/server"
@@ -37,6 +38,14 @@ export default async function PropertyEditPage({ params }: Props) {
     .single() as { data: Property | null; error: unknown }
 
   if (error || !property) notFound()
+
+  // A viewer who reached this row via a property_shares record (not as
+  // the original creator) should see the listing but not be able to
+  // edit it — the property still belongs to the agent who uploaded it.
+  // RLS already rejects writes from non-owners, so this is a UX gate
+  // that prevents the agent from typing into fields that will 403 on
+  // save.
+  const canEdit = property.created_by === profile.id || isAdminRole(profile.role)
 
   const { data: projects } = await supabase
     .from("projects")
@@ -142,7 +151,11 @@ export default async function PropertyEditPage({ params }: Props) {
               {tEdit("viewPublicPage")}
             </Link>
           )}
-          <SaveFormButton formId="property-details-form" />
+          {canEdit ? (
+            <SaveFormButton formId="property-details-form" />
+          ) : (
+            <Badge variant="outline" className="text-xs">{tEdit("readOnlyBadge")}</Badge>
+          )}
         </div>
       </div>
 
@@ -165,6 +178,7 @@ export default async function PropertyEditPage({ params }: Props) {
         videos={videos}
         enTranslation={enTranslation}
         projectInheritance={projectInheritance}
+        canEdit={canEdit}
         tTabEn={t("tabEn")}
         tAiNote={t("aiNote")}
       />

@@ -31,6 +31,10 @@ interface Props {
   propertyId:       string
   locale:           string
   translation:      PropertyTranslation | null
+  /** When true, every action button is hidden and the inputs are
+   *  disabled — the viewer was granted access via property_shares
+   *  but does not own the property. */
+  readOnly?:        boolean
   propertyContext?: Omit<DescriptionContext, "current_description" | "locale"> & { source_description?: string | null }
   onContentChange?: (fields: { title: string; description: string }) => void
 }
@@ -42,7 +46,7 @@ const STATUS_CONFIG = {
   reviewed:         { label: "Reviewed",      variant: "default"   as const, icon: CheckCircleSolid      },
 }
 
-export function TranslationTab({ propertyId, locale, translation: initial, propertyContext, onContentChange }: Props) {
+export function TranslationTab({ propertyId, locale, translation: initial, readOnly = false, propertyContext, onContentChange }: Props) {
   const [translation, setTranslation] = useState<PropertyTranslation | null>(initial)
   const [isPending, startTransition]  = useTransition()
   const [error, setError]             = useState<string | null>(null)
@@ -73,6 +77,10 @@ export function TranslationTab({ propertyId, locale, translation: initial, prope
   useEffect(() => {
     if (autoFiredRef.current) return
     if (initial) return
+    // readOnly viewers can't generate — RLS rejects the upsert. Skip
+    // the auto-fire so they don't get a "permission denied" toast on
+    // mount.
+    if (readOnly) return
     autoFiredRef.current = true
     handleGenerate()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -158,6 +166,10 @@ export function TranslationTab({ propertyId, locale, translation: initial, prope
 
   return (
     <div className="space-y-6">
+      {/* fieldset disabled cascades to the native inputs below. The
+          action buttons in the header are gated on readOnly directly
+          since hiding them is a clearer signal than a greyed button. */}
+      <fieldset disabled={readOnly} style={{ display: "contents" }}>
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -173,31 +185,33 @@ export function TranslationTab({ propertyId, locale, translation: initial, prope
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {translation && status !== "reviewed" && (
+        {!readOnly && (
+          <div className="flex items-center gap-2">
+            {translation && status !== "reviewed" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleMarkReviewed}
+                disabled={isPending}
+              >
+                <CheckCircleIcon className="h-4 w-4 mr-1" />
+                Mark reviewed
+              </Button>
+            )}
             <Button
-              variant="outline"
               size="sm"
-              onClick={handleMarkReviewed}
+              onClick={handleGenerate}
               disabled={isPending}
             >
-              <CheckCircleIcon className="h-4 w-4 mr-1" />
-              Mark reviewed
+              {isPending ? (
+                <ArrowPathIcon className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <SparklesIcon className="h-4 w-4 mr-1" />
+              )}
+              {translation ? "Regenerate" : "Generate with AI"}
             </Button>
-          )}
-          <Button
-            size="sm"
-            onClick={handleGenerate}
-            disabled={isPending}
-          >
-            {isPending ? (
-              <ArrowPathIcon className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <SparklesIcon className="h-4 w-4 mr-1" />
-            )}
-            {translation ? "Regenerate" : "Generate with AI"}
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -237,9 +251,9 @@ export function TranslationTab({ propertyId, locale, translation: initial, prope
               value={description}
               onChange={setDescription}
               onBlur={handleSave}
-              aiRewrite={propertyContext ? handleAiRewriteDescription : undefined}
+              aiRewrite={readOnly || !propertyContext ? undefined : handleAiRewriteDescription}
               placeholder="Translated description…"
-              disabled={isPending}
+              disabled={isPending || readOnly}
             />
           </div>
 
@@ -299,6 +313,7 @@ export function TranslationTab({ propertyId, locale, translation: initial, prope
           {/* Auto-saves on blur — no explicit save button needed */}
         </div>
       )}
+      </fieldset>
     </div>
   )
 }

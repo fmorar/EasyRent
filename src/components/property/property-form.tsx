@@ -138,6 +138,7 @@ interface PropertyFormProps {
   onSaved?:        () => void
   formId?:         string      // connect external submit button via HTML form attr
   hideActions?:    boolean     // hide the internal save/cancel buttons
+  readOnly?:       boolean     // disable every input/button + skip submit
   onFormChange?:   (values: DeepPartial<PropertyFormValues>) => void  // live preview
   onOwnerChange?:  (owner: Owner | null) => void                      // live preview
   onDirtyChange?:  (dirty: boolean) => void                           // unsaved-changes guard
@@ -147,6 +148,7 @@ interface PropertyFormProps {
 export default function PropertyForm({
   mode, profile, projects, property, initialOwner, onSaved,
   formId = "property-details-form", hideActions = false,
+  readOnly = false,
   onFormChange, onOwnerChange, onDirtyChange,
 }: PropertyFormProps) {
   const router = useRouter()
@@ -429,6 +431,14 @@ export default function PropertyForm({
       )}
       className="space-y-(--spacing-block)"
     >
+      {/* fieldset disabled cascades to every native form control inside
+          (inputs, selects, textareas, buttons) — the trick for read-only
+          mode without threading `disabled` to each field. Tiptap + the
+          AmenitiesPicker manage their own state, so we still pass
+          `disabled={readOnly}` to those explicitly where they're
+          rendered. `style={{display:contents}}` keeps the existing
+          space-y-(--spacing-block) rhythm intact. */}
+      <fieldset disabled={readOnly} style={{ display: "contents" }}>
 
       {serverError && (
         <Alert variant="destructive">
@@ -444,7 +454,7 @@ export default function PropertyForm({
               saved with content), we hide the banner so the agent
               can't accidentally overwrite a populated listing by
               dictating into it. */}
-      {(property?.slug?.startsWith("draft-") ?? true) && (
+      {!readOnly && (property?.slug?.startsWith("draft-") ?? true) && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-(--spacing-cluster) rounded-xl border border-dashed bg-muted/30 px-4 py-3">
           <div className="space-y-0.5">
             <p className="text-sm font-medium">¿Preferís dictarlo?</p>
@@ -681,7 +691,7 @@ export default function PropertyForm({
           onChange={(next) =>
             setValue("amenities", next, { shouldDirty: true })
           }
-          disabled={isSubmitting}
+          disabled={isSubmitting || readOnly}
         />
       </FormSection>
 
@@ -697,6 +707,7 @@ export default function PropertyForm({
           onChange={(html) => setValue("description", html, { shouldDirty: true })}
           aiRewrite={handleAiRewrite}
           placeholder={t("section5Placeholder")}
+          disabled={readOnly}
         />
       </FormSection>
 
@@ -781,6 +792,7 @@ export default function PropertyForm({
         </div>
       )}
 
+      </fieldset>
     </form>
   )
 }
