@@ -24,7 +24,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Alert } from "@/components/ui/alert"
 import { updatePhotoOrder, deletePhoto, updatePhotoCaption } from "@/lib/actions/media.actions"
-import { convertHeicToJpegIfNeeded, looksLikeHeic } from "@/lib/heic-to-jpeg"
+import { looksLikeHeic } from "@/lib/heic-to-jpeg"
+import { prepareImageForUpload } from "@/lib/image-pipeline"
 
 export type PhotoRow = {
   id: string
@@ -261,13 +262,15 @@ export default function PhotoUploader({ propertyId, initialPhotos }: Props) {
       return
     }
 
-    // Normalise HEIC → JPEG client-side so the gallery renders on
-    // every browser (non-Safari can't display HEIC at all).
+    // Normalise + compress + strip EXIF before upload. Pipeline:
+    //   HEIC → JPEG  →  resize to 2400px  →  re-encode @ q=0.85
+    //   →  drop EXIF (GPS, camera serial, timestamps).
+    // Trims a 12 MB iPhone photo down to ~1.5 MB without visible loss.
     let prepared: File[]
     try {
-      prepared = await Promise.all(fileArray.map(convertHeicToJpegIfNeeded))
+      prepared = await Promise.all(fileArray.map(prepareImageForUpload))
     } catch (err) {
-      console.error("[photo-uploader] HEIC conversion failed:", err)
+      console.error("[photo-uploader] image pipeline failed:", err)
       const msg = "No pudimos procesar una de las fotos. Probá con JPG o PNG."
       setGlobalError(msg)
       toast.error(msg)

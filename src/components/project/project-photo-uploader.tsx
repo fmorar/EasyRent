@@ -28,7 +28,8 @@ import {
   updateProjectPhotoCaption,
   type ProjectPhotoRow,
 } from "@/lib/actions/project-media.actions"
-import { convertHeicToJpegIfNeeded, looksLikeHeic } from "@/lib/heic-to-jpeg"
+import { looksLikeHeic } from "@/lib/heic-to-jpeg"
+import { prepareImageForUpload } from "@/lib/image-pipeline"
 
 interface SortablePhotoCardProps {
   photo: ProjectPhotoRow
@@ -234,11 +235,13 @@ export default function ProjectPhotoUploader({ projectId, initialPhotos }: Props
       return
     }
 
+    // HEIC → JPEG → resize → re-encode → strip EXIF. See
+    // src/lib/image-pipeline.ts for the targets.
     let prepared: File[]
     try {
-      prepared = await Promise.all(fileArray.map(convertHeicToJpegIfNeeded))
+      prepared = await Promise.all(fileArray.map(prepareImageForUpload))
     } catch (err) {
-      console.error("[project-photo-uploader] HEIC conversion failed:", err)
+      console.error("[project-photo-uploader] image pipeline failed:", err)
       const msg = "No pudimos procesar una de las fotos. Probá con JPG o PNG."
       setGlobalError(msg)
       toast.error(msg)
