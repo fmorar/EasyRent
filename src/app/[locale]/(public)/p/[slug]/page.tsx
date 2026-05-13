@@ -26,7 +26,8 @@ import type { MarketplaceProperty, Profile } from "@/types"
 import type { VideoRow } from "@/lib/actions/media.actions"
 
 interface Props {
-  params: Promise<{ slug: string }>
+  params:       Promise<{ slug: string }>
+  searchParams: Promise<{ via?: string }>
 }
 
 
@@ -112,8 +113,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: fallbackTitle, description: fallbackDesc }
 }
 
-export default async function PublicPropertyPage({ params }: Props) {
+export default async function PublicPropertyPage({ params, searchParams }: Props) {
   const { slug } = await params
+  const { via }  = await searchParams
   const supabase  = await createClient()
   const locale    = await getLocale()
 
@@ -178,20 +180,17 @@ export default async function PublicPropertyPage({ params }: Props) {
     if (!amenitiesSeen.has(k)) { amenitiesSeen.add(k); amenities.push({ name, icon: null }) }
   }
 
-  // Contact resolution: this page is gated on v_marketplace, which
-  // only exposes properties with is_marketplace_visible = true. So
-  // by definition the visitor is hitting a marketplace listing and
-  // the contact is the platform's super_admin — leads go to the
-  // platform, who refers them to the actual owner off-platform and
-  // splits commission externally.
-  //
-  // Fallbacks (creator → owner_admin) only kick in if the super_admin
-  // profile is missing or inactive, so the page never goes
-  // contact-less.
-  //
-  // Phase 2 will add a `?via=[agent-slug]` override so the agent
-  // profile can swap the contact to the agent who's currently
-  // working the lead. Not implemented here.
+  // Contact resolution:
+  //   1. `?via=<agent-slug>` (set by agent-profile cards on shared
+  //      properties) — if the agent has an approved property_share
+  //      on this property, they are the contact. The visitor came
+  //      from their profile and they're the one working the lead.
+  //   2. Otherwise — super_admin (platform owner). This page is
+  //      gated on v_marketplace, which only exposes
+  //      is_marketplace_visible=true rows, so any uncontextualised
+  //      visit is a marketplace lead and routes through the platform.
+  //   3. Fallbacks (creator → owner_admin) cover the edge where
+  //      neither resolves so the page never goes contact-less.
   type ContactProfile = Pick<
     Profile,
     "id" | "full_name" | "slug" | "avatar_url" | "phone" | "email" | "role" | "bio"
@@ -199,7 +198,37 @@ export default async function PublicPropertyPage({ params }: Props) {
 
   let contactAgent: ContactProfile | null = null
 
-  {
+  // Step 1: ?via override — only accepted when the agent actually has
+  // an approved share on this property. We refuse on any mismatch so
+  // a guessed slug can't hijack the contact away from the platform.
+  if (via && property.id) {
+    const { data: viaAgent } = await supabase
+      .from("profiles")
+      .select("id, full_name, slug, avatar_url, phone, email, role, bio")
+      .eq("slug", via)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .maybeSingle() as { data: ContactProfile | null }
+
+    if (viaAgent) {
+      const { data: validShare } = await supabase
+        .from("property_shares")
+        .select("id")
+        .eq("property_id", property.id)
+        .eq("shared_with", viaAgent.id)
+        .eq("status", "approved")
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle<{ id: string }>()
+
+      if (validShare) {
+        contactAgent = viaAgent
+      }
+    }
+  }
+
+  // Step 2: super_admin (marketplace channel).
+  if (!contactAgent) {
     const { data } = await supabase
       .from("profiles")
       .select("id, full_name, slug, avatar_url, phone, email, role, bio")

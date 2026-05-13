@@ -10,20 +10,28 @@ import type { MarketplaceProperty } from "@/types"
 interface Props {
   property:  MarketplaceProperty
   coverUrl?: string
+  /** When set, append `?via=<slug>` to the listing href so the
+   *  detail page can swap the contact to this agent (the one the
+   *  property was shared with). Used by /agents/[slug] so a click
+   *  doesn't bounce the visitor to the platform's super_admin. */
+  viaAgentSlug?: string
 }
 
 /**
  * Public marketplace card — uses ListingCardShell for canonical visual.
  * Body shows: title + price · address · specs.
  */
-export function MarketplaceCard({ property, coverUrl }: Props) {
+export function MarketplaceCard({ property, coverUrl, viaAgentSlug }: Props) {
   const t           = useTranslations("properties.listingTypes")
   const tAmenity    = useTranslations("marketplace.filterBar")
   const listingType = property.listing_type ?? "sale"
+  const href        = viaAgentSlug
+    ? `/p/${property.slug}?via=${encodeURIComponent(viaAgentSlug)}`
+    : `/p/${property.slug}`
 
   return (
     <ListingCardShell
-      href={`/p/${property.slug}`}
+      href={href}
       coverUrl={coverUrl ?? null}
       coverAlt={property.title ?? ""}
       // Shared name pairs with the hero photo on `/p/[slug]`. The
