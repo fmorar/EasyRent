@@ -409,7 +409,7 @@ export default async function PublicPropertyPage({ params }: Props) {
           </section>
 
           {/* Amenidades — shared component, same on /projects/[slug] */}
-          <AmenitiesList amenities={amenities} heading={t("amenities")} />
+          <AmenitiesList amenities={amenities} heading={t("amenities")} locale={locale} />
 
           {/* Ubicación + map */}
           {property.display_lat != null && property.display_lng != null && (

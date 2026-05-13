@@ -1,4 +1,5 @@
 import { getAmenityIcon } from "@/lib/amenity-icons"
+import { translateAmenity } from "@/lib/amenity-translations"
 
 interface Amenity {
   name: string
@@ -11,6 +12,8 @@ interface Props {
   amenities: Amenity[]
   /** Section heading (caller passes localized copy). */
   heading?:  string
+  /** Current page locale. When omitted defaults to "es" (no translation). */
+  locale?:   string
 }
 
 /**
@@ -24,7 +27,7 @@ interface Props {
  * Each row has a leading icon + name, separated by dashed hairlines.
  * Renders nothing when the list is empty.
  */
-export function AmenitiesList({ amenities, heading = "Amenidades" }: Props) {
+export function AmenitiesList({ amenities, heading = "Amenidades", locale = "es" }: Props) {
   if (!amenities || amenities.length === 0) return null
 
   return (
@@ -37,9 +40,11 @@ export function AmenitiesList({ amenities, heading = "Amenidades" }: Props) {
             className="flex items-center gap-2 text-sm py-1.5 border-b border-dashed last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0"
           >
             <span className="text-foreground shrink-0">
+              {/* Icon resolution stays keyed by the source (ES) name so
+                  the dictionary doesn't need to know about icons. */}
               {getAmenityIcon(a.name, "h-4 w-4")}
             </span>
-            <span>{a.name}</span>
+            <span>{translateAmenity(a.name, locale)}</span>
           </div>
         ))}
       </div>

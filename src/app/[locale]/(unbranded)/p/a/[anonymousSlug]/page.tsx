@@ -14,6 +14,7 @@ import { notFound } from "next/navigation"
 import { getLocale, getTranslations } from "next-intl/server"
 import { formatListingPrice } from "@/lib/utils"
 import { getAmenityIcon } from "@/lib/amenity-icons"
+import { translateAmenity } from "@/lib/amenity-translations"
 import { BedIcon, BathIcon } from "@/lib/property-icons"
 import { LightboxProvider } from "@/components/ui/lightbox"
 import { PropertyGallery } from "@/components/property/property-gallery"
@@ -282,7 +283,7 @@ export default async function AnonymousPropertyPage({ params }: Props) {
                   <span className="text-foreground shrink-0">
                     {getAmenityIcon(a.name, "h-4 w-4")}
                   </span>
-                  <span>{a.name}</span>
+                  <span>{translateAmenity(a.name, locale)}</span>
                 </div>
               ))}
             </div>
