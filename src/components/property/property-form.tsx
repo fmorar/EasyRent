@@ -343,6 +343,13 @@ export default function PropertyForm({
     setServerError(null)
     setSavedOk(false)
 
+    // Snapshot the pre-save draft state. updateProperty graduates the
+    // slug on the server when the row leaves `draft-*`, so checking
+    // post-save would always be false. We use this to auto-open the
+    // share dialog on the first save that publishes a draft, matching
+    // the create-mode behavior.
+    const wasDraft = property?.slug?.startsWith("draft-") ?? false
+
     let ok = false
     try {
       const result = mode === "create"
@@ -362,6 +369,13 @@ export default function PropertyForm({
         // Land on the edit page with ?share=1 so the share dialog auto-opens
         // — the agent can decide to share immediately or close it.
         router.push(`/properties/${result.data.id}?share=1`)
+        return
+      }
+
+      // Draft just graduated — prompt the agent to share, same as create.
+      if (wasDraft && property?.id) {
+        toast.success("Propiedad publicada")
+        router.push(`/properties/${property.id}?share=1`)
         return
       }
 
