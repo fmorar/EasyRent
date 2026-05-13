@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useEffect } from "react"
+import { useState, useTransition, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -61,6 +61,22 @@ export function TranslationTab({ propertyId, locale, translation: initial, prope
     startNotify(() => onContentChange?.({ title, description }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, description])
+
+  // Auto-generate on first reveal when the property has no translation
+  // yet. Without this, toggling "Mostrar inglés" just shows empty
+  // fields and the EN public/unbranded view stays stuck on the ES
+  // fallback — the agent has to remember to also click "Generate
+  // with AI", which nobody does. We fire once per mount; a stable
+  // ref prevents StrictMode double-invocations and parent re-renders
+  // from triggering a second call mid-flight.
+  const autoFiredRef = useRef(false)
+  useEffect(() => {
+    if (autoFiredRef.current) return
+    if (initial) return
+    autoFiredRef.current = true
+    handleGenerate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleGenerate = () => {
     setError(null)
