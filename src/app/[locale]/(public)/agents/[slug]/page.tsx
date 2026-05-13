@@ -310,12 +310,13 @@ export default async function AgentProfilePage({ params }: Props) {
                     key={property.property_id}
                     property={stub}
                     coverUrl={property.cover_url ?? undefined}
-                    // Shared-with-this-agent properties pass the
-                    // agent's slug so the listing page swaps the
-                    // contact to them (not the platform super_admin).
-                    // Own properties skip this — the detail page will
-                    // resolve the contact via the regular flow.
-                    viaAgentSlug={property.is_own ? undefined : agent.slug}
+                    // Always carry the agent's slug — clicks from an
+                    // agent profile should route the lead to that
+                    // agent, whether the property is their own or
+                    // shared with them. The detail page validates the
+                    // via slug against creator OR approved share, so
+                    // a guessed slug can't hijack the contact.
+                    viaAgentSlug={agent.slug}
                   />
                 )
               })}

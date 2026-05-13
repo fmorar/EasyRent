@@ -198,9 +198,12 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
 
   let contactAgent: ContactProfile | null = null
 
-  // Step 1: ?via override — only accepted when the agent actually has
-  // an approved share on this property. We refuse on any mismatch so
-  // a guessed slug can't hijack the contact away from the platform.
+  // Step 1: ?via override — accepted when the agent is either the
+  // creator OR has an approved share on this property. The page is
+  // typically reached from /agents/<slug>, where clicks on any of
+  // that agent's listings (their own + shared-with-them) should
+  // route the lead to them. Anything else (guessed slug, stale
+  // share) falls back to the marketplace default.
   if (via && property.id) {
     const { data: viaAgent } = await supabase
       .from("profiles")
@@ -211,17 +214,23 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
       .maybeSingle() as { data: ContactProfile | null }
 
     if (viaAgent) {
-      const { data: validShare } = await supabase
-        .from("property_shares")
-        .select("id")
-        .eq("property_id", property.id)
-        .eq("shared_with", viaAgent.id)
-        .eq("status", "approved")
-        .is("deleted_at", null)
-        .limit(1)
-        .maybeSingle<{ id: string }>()
+      const isCreator = propExtra?.created_by === viaAgent.id
 
-      if (validShare) {
+      let hasApprovedShare = false
+      if (!isCreator) {
+        const { data: share } = await supabase
+          .from("property_shares")
+          .select("id")
+          .eq("property_id", property.id)
+          .eq("shared_with", viaAgent.id)
+          .eq("status", "approved")
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle<{ id: string }>()
+        hasApprovedShare = !!share
+      }
+
+      if (isCreator || hasApprovedShare) {
         contactAgent = viaAgent
       }
     }
