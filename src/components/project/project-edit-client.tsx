@@ -161,7 +161,9 @@ export function ProjectEditClient({
           id={SCROLL_CONTAINER_ID}
           className="flex-1 overflow-y-auto min-w-0"
         >
-          <div className="mx-auto max-w-5xl px-4 sm:px-6 py-6 sm:py-8 grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-6 lg:gap-8">
+          {/* Width steps mirror the property edit page — see the
+              comment there. Cramped working area on 27"/32" monitors. */}
+          <div className="mx-auto max-w-5xl xl:max-w-6xl 2xl:max-w-[1600px] px-4 sm:px-6 py-6 sm:py-8 grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-6 lg:gap-8">
 
             {/* TOC — sticky on lg+ */}
             <aside className="hidden lg:block">
