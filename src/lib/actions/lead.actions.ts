@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { revalidatePath } from "next/cache"
 import {
   PublicLeadEnrichmentSchema, computeInterestLevel,
@@ -200,7 +201,7 @@ export async function reassignLead(
   const { profile } = await requireAuth()
   const supabase    = await createClient()
 
-  if (profile.role !== "owner_admin") {
+  if (!isAdminRole(profile.role)) {
     return { success: false, error: "Only admins can reassign leads" }
   }
 

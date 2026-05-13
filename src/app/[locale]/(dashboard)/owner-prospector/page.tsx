@@ -5,11 +5,12 @@
 //
 // Why admin-only: the data we surface (raw text from third-party
 // portals, contact-extraction hints) is sensitive territory. Only
-// `owner_admin` profiles see this page.
+// owner_admin / super_admin profiles see this page.
 
 import { redirect } from "next/navigation"
 import { getLocale } from "next-intl/server"
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { OwnerProspectorClient } from "@/components/owner-prospector/owner-prospector-client"
 
 // The fetcher rate-limits at 1 req/sec/host, so a 300-listing scan
@@ -20,7 +21,10 @@ export const maxDuration = 300
 
 export default async function OwnerProspectorPage() {
   const { profile } = await requireAuth()
-  if (profile.role !== "owner_admin") {
+  // Admin-tier means owner_admin OR super_admin — matches is_admin()
+  // on the DB side. Narrowing to owner_admin only would lock out the
+  // platform's super_admin from a tool they very much need to use.
+  if (!isAdminRole(profile.role)) {
     const locale = await getLocale()
     redirect(`/${locale}/dashboard`)
   }

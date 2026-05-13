@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { revalidatePath } from "next/cache"
 import { slugify } from "@/lib/utils"
 import { sendAgentInvitationEmail } from "@/lib/email/send-agent-invitation"
@@ -181,7 +182,7 @@ export async function revokeInvitation(
 ): Promise<ActionResult> {
   const { profile } = await requireAuth()
 
-  if (profile.role !== "owner_admin") {
+  if (!isAdminRole(profile.role)) {
     return { success: false, error: "Only admins can revoke invitations" }
   }
 

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { revalidatePath } from "next/cache"
 import { formatListingPrice } from "@/lib/utils"
 import { formatCommission } from "@/lib/labels"
@@ -271,7 +272,7 @@ export async function getPendingShares() {
   const { profile } = await requireAuth()
   const supabase    = await createClient()
 
-  if (profile.role !== "owner_admin") {
+  if (!isAdminRole(profile.role)) {
     return { success: false, error: "Admin only" }
   }
 
