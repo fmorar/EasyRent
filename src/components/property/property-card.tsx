@@ -39,7 +39,13 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
 export function PropertyCard({ property, currentUserId, isAdmin, creatorName }: PropertyCardProps) {
   const t         = useTranslations("card")
   const isOwner   = property.created_by === currentUserId
-  const canShare  = isOwner || Boolean(isAdmin)
+  // canManage is strictly creator-only: only the agent who uploaded
+  // the property can re-share, publish to marketplace, edit or delete
+  // it. Admins keep RLS access (for emergency intervention) but the
+  // UI no longer encourages those actions on listings they don't
+  // own. `isAdmin` stays in the prop API for future surfaces that
+  // need a softer gate.
+  const canManage = isOwner
   // Draft detection: the "new property" flow creates a row with a slug
   // prefixed `draft-`. Until the agent renames it (which only happens
   // when they save real content), the property is considered a draft.
@@ -95,11 +101,9 @@ export function PropertyCard({ property, currentUserId, isAdmin, creatorName }: 
             className="absolute top-2 right-2 z-20 flex items-center gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Provenance badge. Gated on `!isOwner` (NOT on
-                `!canShare`) so admins viewing a property uploaded by
-                another agent still see who put it in their dashboard.
-                The actions menu below stays bound to canShare — that
-                one IS about permission. */}
+            {/* Provenance badge — shown to anyone who isn't the
+                creator (admins included). Informational, not
+                permission-gated. */}
             {!isOwner && (
               <Badge variant="outline" className="text-xs bg-white/90">
                 {creatorName
@@ -113,7 +117,7 @@ export function PropertyCard({ property, currentUserId, isAdmin, creatorName }: 
               propertySlug={property.slug}
               isMarketplaceVisible={property.is_marketplace_visible}
               initialAnonymousSlug={property.anonymous_slug}
-              canManage={canShare}
+              canManage={canManage}
             />
           </div>
         </>

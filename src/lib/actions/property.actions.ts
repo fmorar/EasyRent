@@ -264,8 +264,30 @@ export async function setPropertyMarketplaceVisible(
   propertyId: string,
   visible:    boolean,
 ): Promise<ActionResult<{ is_marketplace_visible: boolean }>> {
-  await requireAuth()
-  const supabase = await createClient()
+  const { profile } = await requireAuth()
+  const supabase    = await createClient()
+
+  // Only the creator publishes to the marketplace. RLS would let an
+  // admin write this, but the marketplace contact resolution flips to
+  // super_admin once the flag is on — turning it on for a property
+  // you don't own would silently transfer leads away from the actual
+  // owner. So we hard-block at the action.
+  const { data: row } = await supabase
+    .from("properties")
+    .select("created_by")
+    .eq("id", propertyId)
+    .is("deleted_at", null)
+    .maybeSingle<{ created_by: string }>()
+
+  if (!row) {
+    return { success: false, error: "No se encontró la propiedad." }
+  }
+  if (row.created_by !== profile.id) {
+    return {
+      success: false,
+      error:   "Solo el agente que subió la propiedad puede publicarla al marketplace.",
+    }
+  }
 
   const { error } = await supabase
     .from("properties")

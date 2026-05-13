@@ -178,19 +178,41 @@ export default async function PublicPropertyPage({ params }: Props) {
     if (!amenitiesSeen.has(k)) { amenitiesSeen.add(k); amenities.push({ name, icon: null }) }
   }
 
-  // Fetch the contact agent — the person whose profile shows on the
-  // sidebar + "publicado por". We prefer the property's actual creator
-  // (`created_by`) so visitors talk to the agent who owns the listing,
-  // not whoever happens to be the platform's owner_admin. Only when
-  // that profile is missing / inactive / soft-deleted do we fall back
-  // to a generic owner_admin so the page never goes contact-less.
+  // Contact resolution: this page is gated on v_marketplace, which
+  // only exposes properties with is_marketplace_visible = true. So
+  // by definition the visitor is hitting a marketplace listing and
+  // the contact is the platform's super_admin — leads go to the
+  // platform, who refers them to the actual owner off-platform and
+  // splits commission externally.
+  //
+  // Fallbacks (creator → owner_admin) only kick in if the super_admin
+  // profile is missing or inactive, so the page never goes
+  // contact-less.
+  //
+  // Phase 2 will add a `?via=[agent-slug]` override so the agent
+  // profile can swap the contact to the agent who's currently
+  // working the lead. Not implemented here.
   type ContactProfile = Pick<
     Profile,
     "id" | "full_name" | "slug" | "avatar_url" | "phone" | "email" | "role" | "bio"
   >
 
   let contactAgent: ContactProfile | null = null
-  if (propExtra?.created_by) {
+
+  {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, slug, avatar_url, phone, email, role, bio")
+      .eq("role", "super_admin")
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle() as { data: ContactProfile | null }
+    contactAgent = data
+  }
+
+  if (!contactAgent && propExtra?.created_by) {
     const { data } = await supabase
       .from("profiles")
       .select("id, full_name, slug, avatar_url, phone, email, role, bio")
@@ -200,6 +222,7 @@ export default async function PublicPropertyPage({ params }: Props) {
       .maybeSingle() as { data: ContactProfile | null }
     contactAgent = data
   }
+
   if (!contactAgent) {
     const { data } = await supabase
       .from("profiles")

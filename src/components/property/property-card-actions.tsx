@@ -31,11 +31,10 @@ interface Props {
   propertySlug:         string
   isMarketplaceVisible: boolean
   initialAnonymousSlug: string | null
-  /** Whether the current user owns the property (or is admin). Owners
-   *  see the full menu (Share, Edit, Delete + downloads). Non-owners
-   *  who have the property shared with them see only the marketing
-   *  actions (Download photos, Copy social post) — they can't share,
-   *  edit, or delete a listing they don't own. */
+  /** Whether the current user owns the property. Only the creator
+   *  sees the full menu (Share, Edit, Delete + downloads). Everyone
+   *  else — including admins viewing somebody else's listing — sees
+   *  just the marketing actions (Download photos, Copy social post). */
   canManage?:           boolean
 }
 

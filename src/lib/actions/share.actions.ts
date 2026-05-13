@@ -21,6 +21,29 @@ export async function shareProperty(
   const { profile } = await requireAuth()
   const supabase    = await createClient()
 
+  // Only the property's creator can share it with other agents.
+  // Non-owners (including admins) cannot re-share — a recipient who
+  // wants to pass the listing to a colleague has to ask the original
+  // owner. This is the rule that keeps the commission accounting
+  // honest: a share is a 50/50 split between owner and recipient, and
+  // 3-way splits aren't supported yet.
+  const { data: row } = await supabase
+    .from("properties")
+    .select("created_by")
+    .eq("id", input.property_id)
+    .is("deleted_at", null)
+    .maybeSingle<{ created_by: string }>()
+
+  if (!row) {
+    return { success: false, error: "No se encontró la propiedad." }
+  }
+  if (row.created_by !== profile.id) {
+    return {
+      success: false,
+      error:   "Solo el agente que subió la propiedad puede compartirla con otros agentes.",
+    }
+  }
+
   const { data, error } = await supabase
     .from("property_shares")
     .insert({
