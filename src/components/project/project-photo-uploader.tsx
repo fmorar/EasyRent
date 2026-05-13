@@ -107,11 +107,13 @@ function SortablePhotoCard({
         <TrashIcon className="h-4 w-4" />
       </button>
 
+      {/* Aspect-ratio thumbnail — fixed h-40 produced thin strips on
+          ultra-wide monitors when the parent column grew past ~400px. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.url}
         alt={photo.caption ?? "Foto del proyecto"}
-        className="w-full h-40 object-cover"
+        className="w-full aspect-[4/3] object-cover"
       />
 
       <div className="p-2">
@@ -381,7 +383,7 @@ export default function ProjectPhotoUploader({ projectId, initialPhotos }: Props
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={photos.map((p) => p.id)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
               {photos.map((photo, index) => (
                 <SortablePhotoCard
                   key={photo.id}

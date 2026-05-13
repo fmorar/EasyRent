@@ -117,12 +117,15 @@ function SortablePhotoCard({
         <TrashIcon className="h-4 w-4" />
       </button>
 
-      {/* Thumbnail */}
+      {/* Thumbnail — aspect-ratio (not fixed height) so the card stays
+          proportional as the grid grows on wider monitors. With h-40
+          the card stretched to 500+ px wide on 32" displays while the
+          photo stayed 160 px tall, producing a thin strip. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.url}
         alt={photo.caption ?? "Foto de propiedad"}
-        className="w-full h-40 object-cover"
+        className="w-full aspect-[4/3] object-cover"
       />
 
       {/* Caption */}
@@ -422,7 +425,9 @@ export default function PhotoUploader({ propertyId, initialPhotos }: Props) {
             items={photos.map((p) => p.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {/* Extra columns at xl/2xl so 32" displays don't blow each
+                card up to 500+ px wide. */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
               {photos.map((photo, index) => (
                 <SortablePhotoCard
                   key={photo.id}
