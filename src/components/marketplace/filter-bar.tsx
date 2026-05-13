@@ -207,11 +207,14 @@ export function MarketplaceFilterBar({ locations, destinationPath }: Props) {
         </Field>
       </div>
 
-      {/* ── Bottom row: tabs · filter chips · CTA ───────────── */}
-      <div className="flex items-center gap-3 flex-wrap">
+      {/* ── Bottom row: tabs · filter chips · CTA ─────────────
+          Mobile: stacks vertically — operation pills row, chip
+          row (horizontal scroll), CTA full width.
+          Desktop: idealista-style single row. */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:flex-wrap">
 
         {/* Operation pill tabs — click an active tab again to clear */}
-        <div className="inline-flex items-center gap-1 rounded-full bg-muted/40 p-1">
+        <div className="inline-flex items-center gap-1 rounded-full bg-muted/40 p-1 self-start">
           {OPERATION_TABS.map((tab) => {
             const active = currentOperation === tab.value
             const next   = active ? "" : tab.value
@@ -246,7 +249,10 @@ export function MarketplaceFilterBar({ locations, destinationPath }: Props) {
           <span className="text-xs font-medium">{t("filters")}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+        {/* Type chips — horizontal scroll on mobile, wrap+grow on
+            desktop. -mx negatives let the scroll area bleed to the
+            card edges so chips don't crowd against the padding. */}
+        <div className="flex items-center gap-1.5 overflow-x-auto sm:overflow-visible sm:flex-wrap sm:flex-1 sm:min-w-0 -mx-1 px-1 sm:mx-0 sm:px-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {TYPE_CHIPS.map((chip) => {
             const active = currentType === chip.value
             return (
@@ -255,7 +261,7 @@ export function MarketplaceFilterBar({ locations, destinationPath }: Props) {
                 type="button"
                 onClick={() => setParam("type", chip.value)}
                 className={cn(
-                  "h-8 px-3 rounded-full text-xs font-medium transition-colors border",
+                  "h-8 px-3 rounded-full text-xs font-medium transition-colors border shrink-0",
                   active
                     ? "bg-foreground text-background border-foreground"
                     : "bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground",
@@ -274,7 +280,7 @@ export function MarketplaceFilterBar({ locations, destinationPath }: Props) {
                 setParam("furnished", currentFurnished === "1" ? "" : "1")
               }
               className={cn(
-                "h-8 px-3 rounded-full text-xs font-medium transition-colors border inline-flex items-center gap-1.5",
+                "h-8 px-3 rounded-full text-xs font-medium transition-colors border inline-flex items-center gap-1.5 shrink-0",
                 currentFurnished === "1"
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground",
@@ -286,12 +292,14 @@ export function MarketplaceFilterBar({ locations, destinationPath }: Props) {
           )}
         </div>
 
-        {/* CTA — runs AI parsing on the query input */}
+        {/* CTA — runs AI parsing on the query input. Full width on
+            mobile (the row is vertical there) so the button reads as
+            the primary action; auto-width on desktop. */}
         <button
           type="button"
           onClick={submitSearch}
           disabled={aiBusy}
-          className="h-10 px-5 rounded-xl bg-foreground text-background text-sm font-heading font-semibold hover:bg-foreground/90 transition-colors shrink-0 ml-auto disabled:opacity-60 inline-flex items-center gap-2"
+          className="h-10 px-5 rounded-xl bg-foreground text-background text-sm font-heading font-semibold hover:bg-foreground/90 transition-colors shrink-0 w-full sm:w-auto sm:ml-auto justify-center disabled:opacity-60 inline-flex items-center gap-2"
         >
           {aiBusy ? (
             <>
