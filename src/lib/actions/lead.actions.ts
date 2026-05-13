@@ -217,6 +217,45 @@ export async function reassignLead(
   return { success: true, data }
 }
 
+// Manual entry from authenticated surfaces (e.g. contract wizard).
+// No dedup, no AI extraction — the agent is typing this themselves,
+// they already know if the person exists. Source = "direct" since
+// it didn't come through any public form.
+export async function createManualLead(input: {
+  full_name: string
+  email?:    string
+  phone?:    string
+}): Promise<ActionResult<{ id: string; full_name: string; email: string | null; phone: string | null }>> {
+  const { profile } = await requireAuth()
+  const supabase    = await createClient()
+
+  const full_name = input.full_name.trim()
+  if (!full_name) {
+    return { success: false, error: "El nombre es obligatorio." }
+  }
+
+  const { data, error } = await supabase
+    .from("leads")
+    .insert({
+      full_name,
+      email:       input.email?.trim() || null,
+      phone:       input.phone?.trim() || null,
+      source:      "direct",
+      captured_by: profile.id,
+      assigned_to: profile.id,
+      stage:       "new",
+    })
+    .select("id, full_name, email, phone")
+    .single()
+
+  if (error || !data) {
+    return { success: false, error: error?.message ?? "No se pudo crear el lead." }
+  }
+
+  revalidatePath("/leads")
+  return { success: true, data }
+}
+
 export async function archiveLead(leadId: string): Promise<ActionResult> {
   await requireAuth()
   const supabase = await createClient()
