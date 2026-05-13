@@ -110,61 +110,46 @@ export function SharePropertyDialog({
   }, [open, propertyId, canManage])
 
   // ── URL building ─────────────────────────────────────────────────
-  // Recipients copying the branded URL should route the lead to
-  // themselves (?via=<their-slug>), not the platform's super_admin.
-  // The owner gets a plain link — leads on their own listings come
-  // through the marketplace channel by default.
-  const origin     = typeof window !== "undefined" ? window.location.origin : ""
-  const viaSuffix  = viaAgentSlug ? `?via=${encodeURIComponent(viaAgentSlug)}` : ""
-  const publicUrl  = marketplaceOn ? `${origin}/p/${propertySlug}${viaSuffix}` : null
-  const anonUrl    = anonymousSlug ? `${origin}/p/a/${anonymousSlug}` : null
+  // "Mi link" — always carries `?via=<viewer-slug>` so the contact
+  // resolution on /p/[slug] shows the viewing agent (owner or share
+  // recipient) instead of super_admin. The marketplace channel
+  // (without via) is reserved for visitors who arrived through the
+  // /marketplace listing.
+  //
+  // The branded URL only works when the property is in the
+  // marketplace — that's the public detail page gate. So we only
+  // surface "Mi link" once the marketplace toggle is on.
+  const origin    = typeof window !== "undefined" ? window.location.origin : ""
+  const viaSuffix = viaAgentSlug ? `?via=${encodeURIComponent(viaAgentSlug)}` : ""
+  const myLinkUrl = marketplaceOn ? `${origin}/p/${propertySlug}${viaSuffix}` : null
+  const anonUrl   = anonymousSlug ? `${origin}/p/a/${anonymousSlug}` : null
 
   // ── Body composition ─────────────────────────────────────────────
   const body = (
     <div className="space-y-5">
-      {/* Public branded link — owner gets a toggle to publish to the
-          marketplace; recipients see the URL once the owner has
-          published. */}
+      {/* "Mi link" — branded URL tied to the viewing agent's profile.
+          Shown only when the marketplace toggle is on (the URL gate
+          requires marketplace visibility today). When off, the agent
+          uses the unbranded link below. */}
       <ShareLinkRow
         icon={<GlobeAltIcon />}
         tone="success"
-        title={t("publicLinkTitle")}
-        description={publicUrl ? t("publicLinkActive") : t("publicLinkInactive")}
-        url={publicUrl}
+        title={t("myLinkTitle")}
+        description={myLinkUrl ? t("myLinkActive") : t("myLinkInactive")}
+        url={myLinkUrl}
         onCopy={() => trackEvent({
           property_id: propertyId,
           event_type:  "share_clicked",
           source:      "share_dialog_branded",
           metadata:    { channel: "copy_link" },
         })}
-        control={canManage ? (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={marketplaceOn}
-            aria-label={t("publishToggleAria")}
-            onClick={toggleMarketplace}
-            disabled={togglingMarket}
-            className={[
-              "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 disabled:opacity-50",
-              marketplaceOn ? "bg-primary" : "bg-input",
-            ].join(" ")}
-          >
-            <span
-              className={[
-                "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform duration-200",
-                marketplaceOn ? "translate-x-4" : "translate-x-0",
-              ].join(" ")}
-            />
-          </button>
-        ) : undefined}
       />
 
       <Separator />
 
-      {/* Unbranded link — auto-generated on every property, no toggle.
-          Always shown so any agent (owner or share recipient) can copy
-          and forward it to a prospect. */}
+      {/* Unbranded link — auto-generated on every property, always
+          on. Works regardless of marketplace flag, so it's the safe
+          default for private outreach. */}
       <ShareLinkRow
         icon={<EyeSlashIcon />}
         tone="muted"
@@ -178,6 +163,47 @@ export function SharePropertyDialog({
           metadata:    { channel: "copy_link" },
         })}
       />
+
+      {canManage && (
+        <>
+          <Separator />
+
+          {/* Marketplace toggle — just a switch + description, no
+              URL row. Publishing the property here automatically
+              routes marketplace leads through the platform's
+              super_admin (the monetisation channel). */}
+          <div className="flex items-start gap-3">
+            <span className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 bg-success/15 text-success [&>svg]:h-4 [&>svg]:w-4">
+              <GlobeAltIcon />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{t("marketplaceToggleTitle")}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t("marketplaceToggleDesc")}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={marketplaceOn}
+              aria-label={t("publishToggleAria")}
+              onClick={toggleMarketplace}
+              disabled={togglingMarket}
+              className={[
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 disabled:opacity-50 mt-2",
+                marketplaceOn ? "bg-primary" : "bg-input",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform duration-200",
+                  marketplaceOn ? "translate-x-4" : "translate-x-0",
+                ].join(" ")}
+              />
+            </button>
+          </div>
+        </>
+      )}
 
       {canManage && (
         <>

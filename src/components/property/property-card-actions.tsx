@@ -196,7 +196,10 @@ export function PropertyCardActions({
       </DropdownMenu>
 
       {/* Share dialog — always mounted. canManage drives whether the
-          marketplace toggle + collaborators panel render inside. */}
+          marketplace toggle + collaborators panel render inside.
+          The viewing agent's slug is always passed so "Mi link"
+          carries `?via=<slug>` and leads route to the viewer
+          (owner or recipient). */}
       <SharePropertyDialog
         propertyId={propertyId}
         propertyTitle={propertyTitle}
@@ -204,7 +207,7 @@ export function PropertyCardActions({
         isMarketplaceVisible={isMarketplaceVisible}
         initialAnonymousSlug={initialAnonymousSlug}
         canManage={canManage}
-        viaAgentSlug={canManage ? null : viewerAgentSlug}
+        viaAgentSlug={viewerAgentSlug}
         open={shareOpen}
         onOpenChange={setShareOpen}
       />
