@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { getTranslations } from "next-intl/server"
@@ -19,7 +19,11 @@ interface Props {
 
 export default async function PropertyEditPage({ params }: Props) {
   const { id }        = await params
-  const { profile }   = await requireAdmin()
+  // requireAuth (not requireAdmin): agents need to edit the properties
+  // they create. RLS on `properties` already scopes what they can read
+  // — anything outside their scope errors and falls through to
+  // notFound() below, which is the right UX.
+  const { profile }   = await requireAuth()
   const supabase      = await createClient()
   const t             = await getTranslations("translations")
   const tEdit         = await getTranslations("propertyEdit")
