@@ -28,6 +28,7 @@ import {
   updateProjectPhotoCaption,
   type ProjectPhotoRow,
 } from "@/lib/actions/project-media.actions"
+import { convertHeicToJpegIfNeeded, looksLikeHeic } from "@/lib/heic-to-jpeg"
 
 interface SortablePhotoCardProps {
   photo: ProjectPhotoRow
@@ -219,16 +220,32 @@ export default function ProjectPhotoUploader({ projectId, initialPhotos }: Props
   async function handleFiles(files: FileList | File[]) {
     setGlobalError(null)
     const fileArray = Array.from(files)
-    const invalid = fileArray.filter(
-      (f) => !f.type.startsWith("image/") || f.size > 10 * 1024 * 1024,
+
+    // HEIC reports an empty MIME on iOS Safari — accept via filename
+    // fallback. Size check stays a hard limit.
+    const tooBig    = fileArray.filter((f) => f.size > 10 * 1024 * 1024)
+    const wrongKind = fileArray.filter(
+      (f) => !f.type.startsWith("image/") && !looksLikeHeic(f),
     )
-    if (invalid.length > 0) {
+    if (tooBig.length > 0 || wrongKind.length > 0) {
       const msg = "Solo se aceptan imágenes de hasta 10 MB."
       setGlobalError(msg)
       toast.error(msg)
       return
     }
-    await Promise.all(fileArray.map(uploadFile))
+
+    let prepared: File[]
+    try {
+      prepared = await Promise.all(fileArray.map(convertHeicToJpegIfNeeded))
+    } catch (err) {
+      console.error("[project-photo-uploader] HEIC conversion failed:", err)
+      const msg = "No pudimos procesar una de las fotos. Probá con JPG o PNG."
+      setGlobalError(msg)
+      toast.error(msg)
+      return
+    }
+
+    await Promise.all(prepared.map(uploadFile))
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -322,7 +339,9 @@ export default function ProjectPhotoUploader({ projectId, initialPhotos }: Props
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          // .heic/.heif explicit — iOS Safari doesn't always honor
+          // image/* for HEIC files.
+          accept="image/*,.heic,.heif"
           multiple
           className="hidden"
           onChange={handleInputChange}
