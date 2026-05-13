@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { createProject, updateProject } from "@/lib/actions/project.actions"
+import { isAdminRole } from "@/lib/roles"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
@@ -71,7 +72,11 @@ export function ProjectForm({
 }: Props) {
   const router  = useRouter()
   const t       = useTranslations("projectForm")
-  const isAdmin = profile.role === "owner_admin"
+  // Include super_admin — they get the same operational privileges as
+  // owner_admin (the SQL is_admin() helper treats them the same).
+  // Narrow comparison silently hid the "master template" toggle from
+  // super_admin and dropped is_master_template in createProject.
+  const isAdmin = isAdminRole(profile.role)
 
   const [serverError, setServerError] = useState<string | null>(null)
   const [savedOk,     setSavedOk]     = useState(false)

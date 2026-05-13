@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { requireAuth } from "@/lib/auth"
+import { isAdminRole } from "@/lib/roles"
 import { revalidatePath } from "next/cache"
 import { slugify } from "@/lib/utils"
 import { nanoid } from "nanoid"
@@ -16,7 +17,8 @@ type ProjectFormInput = {
   available_units?:    number | null
   completion_date?:    string | null
   status?:             ProjectInsert["status"]
-  /** Only honored when the caller is an owner_admin. Silently ignored otherwise. */
+  /** Only honored when the caller is an admin (owner_admin or super_admin).
+   *  Silently ignored otherwise. */
   is_master_template?: boolean
   is_public?:          boolean
   google_place_id?:    string | null
@@ -30,9 +32,12 @@ export async function createProject(
 
   const slug = `${slugify(input.title)}-${nanoid(6)}`
 
-  // Only admins can create master templates. For agents the flag is forced to false
-  // (RLS would also reject it, but we filter early to give a clean response).
-  const isAdmin = profile.role === "owner_admin"
+  // Only admins (owner_admin or super_admin) can create master
+  // templates. For agents the flag is forced to false. The narrow
+  // owner_admin-only check used to drop the flag for super_admin too —
+  // RLS treats both roles equally via is_admin(), so the JS check
+  // must match.
+  const isAdmin = isAdminRole(profile.role)
 
   const { data, error } = await supabase
     .from("projects")
@@ -296,7 +301,7 @@ export async function updateProject(
 ): Promise<ActionResult<Project>> {
   const { profile } = await requireAuth()
   const supabase    = await createClient()
-  const isAdmin     = profile.role === "owner_admin"
+  const isAdmin     = isAdminRole(profile.role)
 
   const update: ProjectUpdate = {
     title:           input.title,
