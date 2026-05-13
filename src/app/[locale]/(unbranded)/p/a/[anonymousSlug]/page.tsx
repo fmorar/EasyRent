@@ -101,10 +101,20 @@ export default async function AnonymousPropertyPage({ params }: Props) {
       ])
     : [{ data: null }, { data: null }]
 
-  // Property amenities (anonymous view doesn't expose property.amenities,
-  // so we read just the project amenities — those are non-identifying).
-  const amenities: { name: string; icon: string | null }[] =
-    (projectAmenities ?? []) as { name: string; icon: string | null }[]
+  // Merge project amenities (with icons) + property amenities (string
+  // names) and dedup by lower-cased name. Project first so its icons
+  // win when both list the same amenity. Amenities are non-identifying
+  // (piscina, gimnasio, BBQ, etc.) so they're safe on the anonymous
+  // surface — see migration 20260512160000.
+  const projAmenities = (projectAmenities ?? []) as { name: string; icon: string | null }[]
+  const propAmenities = ((property as { amenities?: string[] | null }).amenities ?? [])
+    .map((name) => ({ name, icon: null }))
+  const seen      = new Set<string>()
+  const amenities: { name: string; icon: string | null }[] = []
+  for (const a of [...projAmenities, ...propAmenities]) {
+    const k = a.name.toLowerCase()
+    if (!seen.has(k)) { seen.add(k); amenities.push(a) }
+  }
 
   // Translation overlay (non-default locale)
   const { data: translation } = locale !== "es"
