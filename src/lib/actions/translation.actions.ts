@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { requireAdmin } from "@/lib/auth"
+import { requireAdmin, requireAuth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import {
   translateProperty,
@@ -159,7 +159,11 @@ export async function markTranslationAsReviewed(
 export async function getPropertyTranslations(
   propertyId: string
 ): Promise<PropertyTranslation[]> {
-  await requireAdmin()
+  // requireAuth (not requireAdmin): agents need to read translations of
+  // the properties they edit. RLS on `property_translations` already
+  // scopes per-row visibility — admin gates here would bounce agents to
+  // /dashboard via requireAdmin's redirect, breaking the edit flow.
+  await requireAuth()
   const supabase = await createClient()
 
   const { data } = await supabase

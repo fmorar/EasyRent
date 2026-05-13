@@ -102,7 +102,10 @@ function buildSteps(locale: string): Step[] {
         </p>
       ),
       selector: '[data-tour="save-form"]',
-      side: "bottom",
+      // bottom-right: the Guardar button sits flush with the right edge,
+      // so "bottom" overflows the viewport and triggers horizontal scroll.
+      // Anchoring to the right keeps the card inside.
+      side: "bottom-right",
       showControls: true,
       pointerPadding: 8,
       pointerRadius: 8,
@@ -195,7 +198,9 @@ function TourCard({
         </div>
       </div>
 
-      <span className="text-foreground">{arrow}</span>
+      {/* Arrow is an SVG using fill="currentColor" — text-card makes it
+          match the card's bg so it reads as a continuation of the card. */}
+      <span className="text-card">{arrow}</span>
     </div>
   )
 }
