@@ -313,6 +313,7 @@ export function PropertyEditClient({
                   property={property}
                   initialOwner={initialOwner}
                   hideActions
+                  readOnly={readOnly}
                   onFormChange={handleFormChange}
                   onOwnerChange={handleOwnerChange}
                   onDirtyChange={setFormDirty}
