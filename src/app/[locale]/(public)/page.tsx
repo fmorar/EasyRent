@@ -89,9 +89,14 @@ export default async function LandingPage() {
   // can derive both the carousel covers (first photo) and the hero
   // mini-card thumbnail strip (next 3 photos) from a single batched
   // lookup.
+  // Only master-template projects surface on public marketing pages.
+  // Agent-created / forked projects live on their owner's dashboard
+  // but never the platform marketing site — that's reserved for the
+  // editorialised catalog.
   const { data: projectRows } = await supabase
     .from("projects")
     .select("id, slug, title, description, developer_name, location_label, total_units, available_units")
+    .eq("is_master_template", true)
     .eq("is_public", true)
     .eq("is_active", true)
     .is("deleted_at", null)

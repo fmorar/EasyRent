@@ -34,6 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .from("projects")
     .select("title, description, is_public")
     .eq("slug", slug)
+    .eq("is_master_template", true)
     .eq("is_public", true)
     .eq("is_active", true)
     .is("deleted_at", null)
@@ -65,6 +66,9 @@ export default async function ProjectPublicPage({ params }: Props) {
   const { slug } = await params
   const supabase  = await createClient()
 
+  // Public project pages are reserved for master templates only.
+  // An agent's own non-template project lives on their dashboard
+  // but doesn't get a public URL — that path 404s by design.
   const { data: project } = await supabase
     .from("projects")
     .select(`
@@ -73,6 +77,7 @@ export default async function ProjectPublicPage({ params }: Props) {
       project_amenities(name, icon, sort_order)
     `)
     .eq("slug", slug)
+    .eq("is_master_template", true)
     .eq("is_public", true)
     .eq("is_active", true)
     .is("deleted_at", null)

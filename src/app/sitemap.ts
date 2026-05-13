@@ -59,10 +59,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  // ── Projects (public)
+  // ── Projects (public) — master templates only, agent-created
+  // projects never enter the sitemap.
   const { data: projects } = await supabase
     .from("projects")
     .select("slug, updated_at")
+    .eq("is_master_template", true)
     .eq("is_public", true)
     .eq("is_active", true)
     .is("deleted_at", null)

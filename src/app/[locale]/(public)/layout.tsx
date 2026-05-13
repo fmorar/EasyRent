@@ -14,6 +14,7 @@ export default async function PublicLayout({
     supabase
       .from("projects")
       .select("slug, title")
+      .eq("is_master_template", true)
       .eq("is_public", true)
       .eq("is_active", true)
       .is("deleted_at", null)
