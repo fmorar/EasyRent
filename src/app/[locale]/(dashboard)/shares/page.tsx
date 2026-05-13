@@ -109,7 +109,9 @@ export default async function SharesPage() {
               <PendingRow
                 key={s.id}
                 share={s}
+                viewerId={profile.id}
                 commissionLabel={t("commission")}
+                waitingLabel={t("waitingOnReceiver")}
                 formatDate={formatDate}
               />
             ))}
@@ -143,13 +145,21 @@ export default async function SharesPage() {
 // ── Pending row (fluid: stacks below md, inline above) ──────────
 function PendingRow({
   share: s,
+  viewerId,
   commissionLabel,
+  waitingLabel,
   formatDate,
 }: {
   share: ShareRow
+  viewerId: string
   commissionLabel: string
+  waitingLabel: string
   formatDate: (iso: string) => string
 }) {
+  // Only the agent the property was shared WITH can approve/reject —
+  // the sender would otherwise be reviewing their own request, which
+  // defeats the whole purpose of the queue.
+  const canReview = s.shared_with_profile?.id === viewerId
   return (
     <Card className="p-4 md:p-3 md:px-5 transition-colors duration-150 ease-out hover:bg-muted/30">
       <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-5">
@@ -187,9 +197,15 @@ function PendingRow({
           </p>
         </div>
 
-        {/* Actions */}
+        {/* Actions — only the recipient can decide */}
         <div className="md:shrink-0 flex justify-end">
-          <ShareReviewButtons shareId={s.id} />
+          {canReview ? (
+            <ShareReviewButtons shareId={s.id} />
+          ) : (
+            <span className="text-xs text-muted-foreground italic">
+              {waitingLabel}
+            </span>
+          )}
         </div>
       </div>
     </Card>

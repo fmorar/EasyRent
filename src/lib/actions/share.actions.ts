@@ -57,7 +57,10 @@ export async function revokeShare(shareId: string): Promise<ActionResult> {
   return { success: true, data: undefined }
 }
 
-// Admin only: approve or reject a pending share
+// Approve or reject a pending share. Only the recipient of the share
+// (shared_with) can decide — the sender can't approve their own
+// request, even if they happen to be an admin. super_admin keeps an
+// override for support / audit scenarios.
 export async function reviewShare(
   shareId: string,
   decision: "approved" | "rejected",
@@ -66,8 +69,21 @@ export async function reviewShare(
   const { profile } = await requireAuth()
   const supabase    = await createClient()
 
-  if (profile.role !== "owner_admin") {
-    return { success: false, error: "Only admins can approve or reject shares" }
+  const { data: share, error: fetchErr } = await supabase
+    .from("property_shares")
+    .select("shared_by, shared_with")
+    .eq("id", shareId)
+    .is("deleted_at", null)
+    .maybeSingle<{ shared_by: string; shared_with: string }>()
+
+  if (fetchErr || !share) {
+    return { success: false, error: "No se encontró la solicitud." }
+  }
+  if (share.shared_by === profile.id) {
+    return { success: false, error: "No podés aprobar una solicitud que enviaste vos." }
+  }
+  if (share.shared_with !== profile.id && profile.role !== "super_admin") {
+    return { success: false, error: "Solo el agente destinatario puede revisar esta solicitud." }
   }
 
   const { data, error } = await supabase

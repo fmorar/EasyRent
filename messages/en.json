@@ -647,6 +647,7 @@
     "history":           "History",
     "noPending":         "No pending requests.",
     "commission":        "Commission",
+    "waitingOnReceiver": "Waiting on approval",
     "statusPending":     "Pending",
     "statusApproved":    "Approved",
     "statusRejected":    "Rejected",

@@ -647,6 +647,7 @@
     "history":           "Historial",
     "noPending":         "No hay solicitudes pendientes.",
     "commission":        "Comisión",
+    "waitingOnReceiver": "Esperando aprobación",
     "statusPending":     "Pendiente",
     "statusApproved":    "Aprobada",
     "statusRejected":    "Rechazada",
