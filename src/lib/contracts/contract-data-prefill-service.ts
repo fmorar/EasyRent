@@ -179,19 +179,27 @@ export async function prefillContractData(
   data.property.floor          = property.floor != null ? String(property.floor) : ""
   data.property.included_items = (property.amenities as string[] | null) ?? []
   if (property.display_address) {
-    // Best-effort parse — Costa Rican addresses are commonly:
-    // "Cond. del Río, Brasil, Santa Ana, San José, 10906, Costa Rica"
-    // We don't try to be clever; leave it for the user but pre-fill
-    // province/canton/district from the LAST 3 segments before the
-    // postal code, when present.
-    const parts = property.display_address.split(",").map((s) => s.trim()).filter(Boolean)
-    // Strip trailing "Costa Rica" + postal code if present.
-    const cleaned = parts.filter((p) => !/^\d{4,6}$/.test(p) && !/costa\s+rica/i.test(p))
-    // Last 3 cleaned segments are usually [district, canton, province].
+    // Best-effort parse — Costa Rican addresses from Google Places look
+    // like one of:
+    //   • "Cond. del Río, Brasil, Santa Ana, San José, 10906, Costa Rica"
+    //   • "Cond. X, Mata Redonda, Ciudad de San José,
+    //      Área Metropolitana de San José, San José, 10906, Costa Rica"
+    // The "Área Metropolitana de [X]" / "Gran Área Metropolitana"
+    // segment is a regional label that shifts the last-3 slice off by
+    // one, so we strip it. We also drop the "Ciudad de " prefix that
+    // Google attaches to the canton name in the capital so the legal
+    // text reads "San José" instead of "Ciudad de San José".
+    const parts   = property.display_address.split(",").map((s) => s.trim()).filter(Boolean)
+    const cleaned = parts.filter((p) =>
+      !/^\d{4,6}$/.test(p) &&
+      !/costa\s+rica/i.test(p) &&
+      !/^(área|area|gran área|gran area)\s+metropolitana/i.test(p),
+    )
     if (cleaned.length >= 3) {
-      data.property.province = cleaned[cleaned.length - 1] || ""
-      data.property.canton   = cleaned[cleaned.length - 2] || ""
-      data.property.district = cleaned[cleaned.length - 3] || ""
+      const canton = cleaned[cleaned.length - 2] ?? ""
+      data.property.province = cleaned[cleaned.length - 1] ?? ""
+      data.property.canton   = canton.replace(/^ciudad\s+de\s+/i, "")
+      data.property.district = cleaned[cleaned.length - 3] ?? ""
     }
   }
   if (project) {
