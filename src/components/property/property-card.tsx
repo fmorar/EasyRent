@@ -21,12 +21,15 @@ interface PropertyWithPhotos extends Property {
 }
 
 interface PropertyCardProps {
-  property:      PropertyWithPhotos
-  currentUserId: string
-  isAdmin?:      boolean
+  property:        PropertyWithPhotos
+  currentUserId:   string
+  /** Slug of the viewing agent. Passed through to the share dialog so
+   *  recipients copy URLs that route leads to themselves via `?via=`. */
+  currentUserSlug?: string | null
+  isAdmin?:        boolean
   /** Full name of the agent who uploaded the property. Used to label
    *  the "Compartida por …" badge on cards a non-owner is seeing. */
-  creatorName?:  string | null
+  creatorName?:    string | null
 }
 
 const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -36,7 +39,7 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
   off_market: "outline",
 }
 
-export function PropertyCard({ property, currentUserId, isAdmin, creatorName }: PropertyCardProps) {
+export function PropertyCard({ property, currentUserId, currentUserSlug, isAdmin, creatorName }: PropertyCardProps) {
   const t         = useTranslations("card")
   const isOwner   = property.created_by === currentUserId
   // canManage is strictly creator-only: only the agent who uploaded
@@ -118,6 +121,7 @@ export function PropertyCard({ property, currentUserId, isAdmin, creatorName }: 
               isMarketplaceVisible={property.is_marketplace_visible}
               initialAnonymousSlug={property.anonymous_slug}
               canManage={canManage}
+              viewerAgentSlug={currentUserSlug}
             />
           </div>
         </>

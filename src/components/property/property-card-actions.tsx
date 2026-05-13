@@ -32,10 +32,14 @@ interface Props {
   isMarketplaceVisible: boolean
   initialAnonymousSlug: string | null
   /** Whether the current user owns the property. Only the creator
-   *  sees the full menu (Share, Edit, Delete + downloads). Everyone
-   *  else — including admins viewing somebody else's listing — sees
-   *  just the marketing actions (Download photos, Copy social post). */
+   *  sees Edit/Delete + the marketplace toggle inside the share
+   *  dialog. Share (read-only access to the unbranded link) is open
+   *  to everyone — including shared-with recipients. */
   canManage?:           boolean
+  /** Slug of the viewing agent. Passed to the share dialog so the
+   *  copied branded URL includes `?via=<slug>` and leads route to
+   *  this agent instead of the platform's super_admin. */
+  viewerAgentSlug?:     string | null
 }
 
 /**
@@ -51,6 +55,7 @@ export function PropertyCardActions({
   propertyId, propertyTitle, propertySlug,
   isMarketplaceVisible, initialAnonymousSlug,
   canManage = true,
+  viewerAgentSlug = null,
 }: Props) {
   const router = useRouter()
   const t = useTranslations("card")
@@ -161,16 +166,18 @@ export function PropertyCardActions({
             {t("copySocialPost")}
           </DropdownMenuItem>
 
-          {/* Management actions — owner / admin only. Sharing and
-              editing belong to the actual owner; we hide them entirely
-              for shared-with users to avoid confusing affordances. */}
+          {/* Share is available to everyone — owner publishes /
+              shares with agents from inside the dialog; recipients
+              copy the always-on unbranded link to forward. */}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setShareOpen(true)}>
+            <ShareIcon className="h-4 w-4 mr-2" />
+            {t("shareCta")}
+          </DropdownMenuItem>
+
+          {/* Edit + Delete — creator only. */}
           {canManage && (
             <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShareOpen(true)}>
-                <ShareIcon className="h-4 w-4 mr-2" />
-                {t("shareCta")}
-              </DropdownMenuItem>
               <DropdownMenuItem render={<Link href={`/properties/${propertyId}`} />}>
                 <PencilSquareIcon className="h-4 w-4 mr-2" />
                 {t("edit")}
@@ -188,20 +195,19 @@ export function PropertyCardActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Share dialog — controlled so it can be triggered from the
-          dropdown menu item (children prop intentionally omitted).
-          Only mounted for owners/admins; shared-with users can't share. */}
-      {canManage && (
-        <SharePropertyDialog
-          propertyId={propertyId}
-          propertyTitle={propertyTitle}
-          propertySlug={propertySlug}
-          isMarketplaceVisible={isMarketplaceVisible}
-          initialAnonymousSlug={initialAnonymousSlug}
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-        />
-      )}
+      {/* Share dialog — always mounted. canManage drives whether the
+          marketplace toggle + collaborators panel render inside. */}
+      <SharePropertyDialog
+        propertyId={propertyId}
+        propertyTitle={propertyTitle}
+        propertySlug={propertySlug}
+        isMarketplaceVisible={isMarketplaceVisible}
+        initialAnonymousSlug={initialAnonymousSlug}
+        canManage={canManage}
+        viaAgentSlug={canManage ? null : viewerAgentSlug}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+      />
 
       {/* Delete confirmation — owner-only. */}
       {canManage && (

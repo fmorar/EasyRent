@@ -80,9 +80,12 @@ export async function createProperty(
   const { profile } = await requireAuth()
   const supabase    = await createClient()
 
-  // Generate a unique slug from title
-  const baseSlug = slugify(input.title)
-  const slug     = `${baseSlug}-${nanoid(6)}`
+  // Generate a unique slug from title + an always-on anonymous link
+  // (the unbranded share URL). Owners and recipients copy it on
+  // demand; no toggle is exposed in the UI.
+  const baseSlug      = slugify(input.title)
+  const slug          = `${baseSlug}-${nanoid(6)}`
+  const anonymousSlug = nanoid(12)
 
   const { data, error } = await supabase
     .from("properties")
@@ -116,6 +119,7 @@ export async function createProperty(
       owner_id:       input.owner_id ?? null,
       amenities:      input.amenities ?? [],
       slug,
+      anonymous_slug: anonymousSlug,
     })
     .select()
     .single()
@@ -319,7 +323,8 @@ export async function createDraftProperty(): Promise<ActionResult<{ id: string }
   const { profile } = await requireAuth()
   const supabase    = await createClient()
 
-  const slug = `draft-${nanoid(10)}`
+  const slug          = `draft-${nanoid(10)}`
+  const anonymousSlug = nanoid(12)
 
   const { data, error } = await supabase
     .from("properties")
@@ -327,6 +332,7 @@ export async function createDraftProperty(): Promise<ActionResult<{ id: string }
       created_by:             profile.id,
       title:                  "Nueva propiedad",
       slug,
+      anonymous_slug:         anonymousSlug,
       price:                  1,                  // placeholder — required NOT NULL
       currency:               "USD",
       property_type:          "apartment",

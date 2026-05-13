@@ -92,6 +92,7 @@ export default async function PropertiesPage() {
               key={property.id}
               property={property}
               currentUserId={profile.id}
+              currentUserSlug={profile.slug}
               isAdmin={isAdmin}
               creatorName={property.creator?.full_name ?? null}
             />
