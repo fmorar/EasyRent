@@ -95,7 +95,12 @@ export function PropertyCard({ property, currentUserId, isAdmin, creatorName }: 
             className="absolute top-2 right-2 z-20 flex items-center gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
-            {!canShare && (
+            {/* Provenance badge. Gated on `!isOwner` (NOT on
+                `!canShare`) so admins viewing a property uploaded by
+                another agent still see who put it in their dashboard.
+                The actions menu below stays bound to canShare — that
+                one IS about permission. */}
+            {!isOwner && (
               <Badge variant="outline" className="text-xs bg-white/90">
                 {creatorName
                   ? t("sharedBy", { name: creatorName })
