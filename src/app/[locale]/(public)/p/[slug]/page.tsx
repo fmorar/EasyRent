@@ -8,6 +8,7 @@ import { AmenitiesList } from "@/components/shared/amenities-list"
 import { HtmlDescription } from "@/components/shared/html-description"
 import { LightboxProvider } from "@/components/ui/lightbox"
 import { PropertyGallery } from "@/components/property/property-gallery"
+import { PropertyVideos } from "@/components/property/property-videos"
 import { Badge } from "@/components/ui/badge"
 import { TourForm } from "@/components/property/tour-form"
 import { MobileContactSticky } from "@/components/layout/mobile-contact-sticky"
@@ -22,6 +23,7 @@ import { getSimilarProperties } from "@/lib/similar-properties"
 import { MapPinIcon as MapPin, ArrowsPointingOutIcon as Maximize2, TruckIcon as Car } from "@heroicons/react/24/outline"
 import type { Metadata } from "next"
 import type { MarketplaceProperty, Profile } from "@/types"
+import type { VideoRow } from "@/lib/actions/media.actions"
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -133,6 +135,17 @@ export default async function PublicPropertyPage({ params }: Props) {
     .select("url, caption, is_cover, order_index")
     .eq("property_id", property.id!)
     .order("order_index") as { data: { url: string; caption: string | null; is_cover: boolean; order_index: number }[] | null }
+
+  // Fetch videos. RLS allows public SELECT on property_videos so this
+  // works for unauthenticated visitors. Cast through a local generic
+  // because the generated types don't know this table yet.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyClient = supabase as unknown as { from: (t: string) => any }
+  const { data: videos } = await anyClient
+    .from("property_videos")
+    .select("id, property_id, youtube_url, title, order_index, created_at")
+    .eq("property_id", property.id!)
+    .order("order_index") as { data: VideoRow[] | null }
 
   // Fetch project amenities + photos when the property belongs to a project
   const [{ data: projectAmenities }, { data: projectPhotos }] = property.project_id
@@ -421,6 +434,9 @@ export default async function PublicPropertyPage({ params }: Props) {
               <LegalDisclaimer variant="documentation" tone="note" />
             </div>
           )}
+
+          {/* Videos — YouTube embeds, ordered by order_index */}
+          <PropertyVideos videos={videos ?? []} heading={t("videos")} />
 
           {/* Descripción — shared component */}
           <HtmlDescription html={displayDesc} heading={t("description")} />

@@ -17,6 +17,7 @@ import { getAmenityIcon } from "@/lib/amenity-icons"
 import { BedIcon, BathIcon } from "@/lib/property-icons"
 import { LightboxProvider } from "@/components/ui/lightbox"
 import { PropertyGallery } from "@/components/property/property-gallery"
+import { PropertyVideos } from "@/components/property/property-videos"
 import { Badge } from "@/components/ui/badge"
 import {
   MapPinIcon as MapPin,
@@ -28,6 +29,7 @@ import { LegalDisclaimer } from "@/components/shared/legal-disclaimer"
 import { PropertyViewTracker } from "@/components/analytics/property-view-tracker"
 import type { Metadata } from "next"
 import type { AnonymousProperty } from "@/types"
+import type { VideoRow } from "@/lib/actions/media.actions"
 
 interface Props {
   params: Promise<{ anonymousSlug: string }>
@@ -71,6 +73,15 @@ export default async function AnonymousPropertyPage({ params }: Props) {
     .order("order_index") as {
       data: { url: string; caption: string | null; is_cover: boolean; order_index: number }[] | null
     }
+
+  // Videos — YouTube embeds carry no identity, safe to surface here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyClient = supabase as unknown as { from: (t: string) => any }
+  const { data: videos } = await anyClient
+    .from("property_videos")
+    .select("id, property_id, youtube_url, title, order_index, created_at")
+    .eq("property_id", property.id!)
+    .order("order_index") as { data: VideoRow[] | null }
 
   // Project amenities + project photos (when linked)
   const [{ data: projectAmenities }, { data: projectPhotos }] = property.project_id
@@ -285,6 +296,9 @@ export default async function AnonymousPropertyPage({ params }: Props) {
         {property.listing_type === "sale" && (
           <LegalDisclaimer variant="closing-costs" tone="note" />
         )}
+
+        {/* Videos — YouTube embeds, identity-free, ordered by order_index */}
+        <PropertyVideos videos={videos ?? []} heading={t("videos")} />
 
         {/* Descripción */}
         {displayDesc && (
