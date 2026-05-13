@@ -314,6 +314,12 @@ function ManualLeadDialog({
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    // The Dialog renders via portal, but React's synthetic event
+    // bubbling follows the component tree — so the inner submit would
+    // also fire the wizard's outer onSubmit handler, kicking off
+    // "Generar borrador" with lead_id=null BEFORE this server action
+    // had a chance to create the lead. Stop the bubble here.
+    e.stopPropagation()
     setError(null)
     const trimmed = fullName.trim()
     if (!trimmed) {
