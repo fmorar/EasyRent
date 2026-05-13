@@ -136,7 +136,26 @@ export async function updateProperty(
   const { profile } = await requireAuth()
   const supabase    = await createClient()
 
+  // Draft graduation: properties created via /properties/new get a
+  // placeholder slug `draft-<nanoid>`. The dashboard card keys off
+  // that prefix to render the "Borrador" pill. On the first save with
+  // a real title we regenerate the slug so the listing leaves draft
+  // state. Subsequent edits keep the existing slug to preserve any
+  // share links already in circulation.
+  let newSlug: string | undefined
+  if (input.title) {
+    const { data: current } = await supabase
+      .from("properties")
+      .select("slug")
+      .eq("id", id)
+      .single<{ slug: string | null }>()
+    if (current?.slug?.startsWith("draft-")) {
+      newSlug = `${slugify(input.title)}-${nanoid(6)}`
+    }
+  }
+
   const update: PropertyUpdate = {
+    ...(newSlug ? { slug: newSlug } : {}),
     title:          input.title,
     description:    input.description,
     price:          input.price,
