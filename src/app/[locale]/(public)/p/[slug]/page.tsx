@@ -95,7 +95,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       .select("seo_title, seo_description")
       .eq("property_id", data.id)
       .eq("locale", locale)
-      .in("status", ["auto_translated", "reviewed"])
+      // needs_review = human touched it; still want to show it (it's
+      // strictly better than the original EN fallback). Only `pending`
+      // (no content yet) stays out.
+      .in("status", ["auto_translated", "needs_review", "reviewed"])
       .single() as { data: { seo_title: string | null; seo_description: string | null } | null }
 
     if (tr) {
@@ -219,7 +222,10 @@ export default async function PublicPropertyPage({ params }: Props) {
         .select("title, description, public_address, seo_title, seo_description, status")
         .eq("property_id", property.id!)
         .eq("locale", locale)
-        .in("status", ["auto_translated", "reviewed"])
+        // needs_review = human touched it; still want to show it (it's
+      // strictly better than the original EN fallback). Only `pending`
+      // (no content yet) stays out.
+      .in("status", ["auto_translated", "needs_review", "reviewed"])
         .single()
     : { data: null }
 

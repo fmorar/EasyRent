@@ -117,13 +117,16 @@ export default async function AnonymousPropertyPage({ params }: Props) {
   }
 
   // Translation overlay (non-default locale)
+  // needs_review = human-touched draft; still strictly better than
+  // falling back to the original ES text. Only `pending` (empty) is
+  // excluded.
   const { data: translation } = locale !== "es"
     ? await supabase
         .from("property_translations")
         .select("title, description, public_address, status")
         .eq("property_id", property.id!)
         .eq("locale", locale)
-        .in("status", ["auto_translated", "reviewed"])
+        .in("status", ["auto_translated", "needs_review", "reviewed"])
         .single()
     : { data: null }
 
