@@ -133,7 +133,7 @@ async function notifyRecipientOfShare(input: {
       areaSqm:          property.area_sqm,
       coverUrl,
     },
-    commissionLabel: formatCommission(input.commission_type, input.commission_value),
+    commissionLabel: formatCommission(input.commissionType, input.commissionValue),
     reviewUrl,
   })
 }
