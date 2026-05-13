@@ -197,6 +197,10 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
   >
 
   let contactAgent: ContactProfile | null = null
+  // Tracks the resolved via-agent's id so we can propagate ?via= to
+  // similar-property cards where the same agent has access. Stays
+  // null when via is missing, invalid, or doesn't validate.
+  let viaAgentId: string | null = null
 
   // Step 1: ?via override — accepted when the agent is either the
   // creator OR has an approved share on this property. The page is
@@ -232,6 +236,7 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
 
       if (isCreator || hasApprovedShare) {
         contactAgent = viaAgent
+        viaAgentId = viaAgent.id
       }
     }
   }
@@ -326,6 +331,35 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
     bedrooms:        property.bedrooms,
     display_address: property.display_address,
   })
+
+  // When the visitor arrived with a valid ?via=<agent>, propagate
+  // that via to any similar-property card the agent ALSO has access
+  // to (their own listings + listings shared with them). Cards
+  // outside the agent's scope link to the plain marketplace URL,
+  // which routes those leads to super_admin as usual.
+  const similarIdsViaAgent = new Set<string>()
+  if (viaAgentId && similar.length > 0) {
+    const ids = similar.map((p) => p.id).filter((id): id is string => !!id)
+    if (ids.length > 0) {
+      const [ownRes, shareRes] = await Promise.all([
+        supabase
+          .from("properties")
+          .select("id")
+          .in("id", ids)
+          .eq("created_by", viaAgentId)
+          .is("deleted_at", null),
+        supabase
+          .from("property_shares")
+          .select("property_id")
+          .in("property_id", ids)
+          .eq("shared_with", viaAgentId)
+          .eq("status", "approved")
+          .is("deleted_at", null),
+      ])
+      for (const row of ownRes.data ?? []) similarIdsViaAgent.add(row.id)
+      for (const row of shareRes.data ?? []) similarIdsViaAgent.add(row.property_id)
+    }
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major) space-y-(--spacing-section)">
@@ -587,6 +621,7 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
                 key={p.id}
                 property={p}
                 coverUrl={p.id ? similarCovers[p.id] : undefined}
+                viaAgentSlug={p.id && similarIdsViaAgent.has(p.id) ? via : undefined}
               />
             ))}
           </div>
