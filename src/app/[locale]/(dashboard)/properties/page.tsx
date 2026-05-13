@@ -38,13 +38,18 @@ export default async function PropertiesPage() {
     .from("properties")
     .select(`
       *,
-      property_photos(url, is_cover, order_index)
+      property_photos(url, is_cover, order_index),
+      creator:profiles!properties_created_by_fkey(full_name)
     `)
     .or(scope)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
-  const properties = propertiesRaw as Property[] | null
+  // The creator join lives on `property.creator`, but the rest of the
+  // app treats rows as plain Property; keep the cast narrow here so
+  // the card can read the name without bloating the Property type.
+  type PropertyWithCreator = Property & { creator?: { full_name: string } | null }
+  const properties = propertiesRaw as PropertyWithCreator[] | null
 
   return (
     <div className="space-y-(--spacing-section)">
@@ -88,6 +93,7 @@ export default async function PropertiesPage() {
               property={property}
               currentUserId={profile.id}
               isAdmin={isAdmin}
+              creatorName={property.creator?.full_name ?? null}
             />
           ))}
         </div>

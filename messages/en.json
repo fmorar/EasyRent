@@ -482,6 +482,7 @@
     "publicBadge":      "Public",
     "anonBadge":        "Unbranded link",
     "sharedWithYou":    "Shared with you",
+    "sharedBy":         "Shared by {name}",
     "viewAll":          "View all · {count}",
     "menuLabel":        "More actions",
     "edit":             "Edit",

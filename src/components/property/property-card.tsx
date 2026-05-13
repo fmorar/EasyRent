@@ -24,6 +24,9 @@ interface PropertyCardProps {
   property:      PropertyWithPhotos
   currentUserId: string
   isAdmin?:      boolean
+  /** Full name of the agent who uploaded the property. Used to label
+   *  the "Compartida por …" badge on cards a non-owner is seeing. */
+  creatorName?:  string | null
 }
 
 const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -33,7 +36,7 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
   off_market: "outline",
 }
 
-export function PropertyCard({ property, currentUserId, isAdmin }: PropertyCardProps) {
+export function PropertyCard({ property, currentUserId, isAdmin, creatorName }: PropertyCardProps) {
   const t         = useTranslations("card")
   const isOwner   = property.created_by === currentUserId
   const canShare  = isOwner || Boolean(isAdmin)
@@ -94,7 +97,9 @@ export function PropertyCard({ property, currentUserId, isAdmin }: PropertyCardP
           >
             {!canShare && (
               <Badge variant="outline" className="text-xs bg-white/90">
-                {t("sharedWithYou")}
+                {creatorName
+                  ? t("sharedBy", { name: creatorName })
+                  : t("sharedWithYou")}
               </Badge>
             )}
             <PropertyCardActions
