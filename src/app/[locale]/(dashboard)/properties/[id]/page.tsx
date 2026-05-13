@@ -1,5 +1,4 @@
 import { requireAuth } from "@/lib/auth"
-import { isAdminRole } from "@/lib/roles"
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { getTranslations } from "next-intl/server"
@@ -39,13 +38,12 @@ export default async function PropertyEditPage({ params }: Props) {
 
   if (error || !property) notFound()
 
-  // A viewer who reached this row via a property_shares record (not as
-  // the original creator) should see the listing but not be able to
-  // edit it — the property still belongs to the agent who uploaded it.
-  // RLS already rejects writes from non-owners, so this is a UX gate
-  // that prevents the agent from typing into fields that will 403 on
-  // save.
-  const canEdit = property.created_by === profile.id || isAdminRole(profile.role)
+  // Strictly the creator. Admins can SEE every property (RLS allows
+  // it, and they need to triage / re-share) but they shouldn't edit
+  // content that belongs to another agent. RLS still permits the
+  // write — this is a UX-only gate, so an admin can run SQL directly
+  // if they need to intervene for support.
+  const canEdit = property.created_by === profile.id
 
   const { data: projects } = await supabase
     .from("projects")
