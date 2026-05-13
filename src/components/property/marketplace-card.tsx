@@ -23,11 +23,27 @@ interface Props {
  */
 export function MarketplaceCard({ property, coverUrl, viaAgentSlug }: Props) {
   const t           = useTranslations("properties.listingTypes")
+  const tStatus     = useTranslations("properties.publicStatuses")
   const tAmenity    = useTranslations("marketplace.filterBar")
   const listingType = property.listing_type ?? "sale"
+  const status      = property.status ?? "available"
+  const available   = status === "available"
   const href        = viaAgentSlug
     ? `/p/${property.slug}?via=${encodeURIComponent(viaAgentSlug)}`
     : `/p/${property.slug}`
+
+  // Headline state — type + availability so sold/rented listings
+  // don't masquerade as "En alquiler" / "En venta".
+  const stateLabel = status === "sold"
+    ? tStatus(listingType === "rent" ? "rented" : "sold")
+    : status === "reserved"   ? tStatus("reserved")
+    : status === "off_market" ? tStatus("off_market")
+    : t(listingType)
+  const stateClassName = available
+    ? (listingType === "rent"
+        ? "bg-info text-info-foreground"
+        : "bg-foreground text-background")
+    : "bg-muted text-muted-foreground"
 
   return (
     <ListingCardShell
@@ -41,17 +57,10 @@ export function MarketplaceCard({ property, coverUrl, viaAgentSlug }: Props) {
       viewTransitionName={property.slug ? `cover-${property.slug}` : undefined}
       photoOverlay={
         <div className="absolute top-2 left-2 z-10 flex flex-wrap gap-1">
-          <Badge
-            className={
-              "text-[10px] uppercase tracking-wider " +
-              (listingType === "rent"
-                ? "bg-info text-info-foreground"
-                : "bg-foreground text-background")
-            }
-          >
-            {t(listingType)}
+          <Badge className={`text-[10px] uppercase tracking-wider ${stateClassName}`}>
+            {stateLabel}
           </Badge>
-          {listingType === "rent" && property.is_furnished && (
+          {listingType === "rent" && property.is_furnished && available && (
             <Badge className="text-[10px] uppercase tracking-wider bg-primary text-primary-foreground">
               {tAmenity("amueblado")}
             </Badge>

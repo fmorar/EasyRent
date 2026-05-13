@@ -399,16 +399,32 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-(--spacing-cluster)">
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge
-                  className={
-                    property.listing_type === "rent"
-                      ? "bg-info text-info-foreground text-[11px] uppercase tracking-wider"
-                      : "bg-foreground text-background text-[11px] uppercase tracking-wider"
-                  }
-                >
-                  {tListing(property.listing_type ?? "sale")}
-                </Badge>
-                {property.listing_type === "rent" && property.is_furnished && (
+                {/* Headline state = listing type + availability. A
+                    rent+sold listing must read "Alquilado", not "En
+                    alquiler"; same for sale+sold ("Vendido"),
+                    reserved, and off_market. Color also tones down
+                    when the listing is no longer available so the
+                    visitor doesn't think the listing is open. */}
+                {(() => {
+                  const lt     = property.listing_type ?? "sale"
+                  const status = property.status ?? "available"
+
+                  let label: string
+                  if (status === "sold")       label = t(lt === "rent" ? "publicStatuses.rented" : "publicStatuses.sold")
+                  else if (status === "reserved")   label = t("publicStatuses.reserved")
+                  else if (status === "off_market") label = t("publicStatuses.off_market")
+                  else                              label = tListing(lt)
+
+                  const available = status === "available"
+                  const className = available
+                    ? (lt === "rent"
+                        ? "bg-info text-info-foreground text-[11px] uppercase tracking-wider"
+                        : "bg-foreground text-background text-[11px] uppercase tracking-wider")
+                    : "bg-muted text-muted-foreground text-[11px] uppercase tracking-wider"
+
+                  return <Badge className={className}>{label}</Badge>
+                })()}
+                {property.listing_type === "rent" && property.is_furnished && property.status === "available" && (
                   <Badge className="bg-primary text-primary-foreground text-[11px] uppercase tracking-wider">
                     {t("furnished") /* fallback to filterBar key if missing */}
                   </Badge>
@@ -482,7 +498,14 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
               <DetailRow
                 label={t("tableStatus")}
-                value={t(`publicStatuses.${property.status}` as Parameters<typeof t>[0]) ?? property.status!}
+                value={(() => {
+                  // Same rent+sold → "Alquilado" mapping as the
+                  // headline badge so the detail table doesn't
+                  // contradict the pill above it.
+                  const lt = property.listing_type ?? "sale"
+                  if (property.status === "sold" && lt === "rent") return t("publicStatuses.rented")
+                  return t(`publicStatuses.${property.status}` as Parameters<typeof t>[0]) ?? property.status!
+                })()}
               />
               {displayAddress && (
                 <DetailRow label={t("tableLocation")} value={displayAddress} />
