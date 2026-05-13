@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { createProperty, updateProperty } from "@/lib/actions/property.actions"
 import { cn } from "@/lib/utils"
@@ -150,6 +150,7 @@ export default function PropertyForm({
   onFormChange, onOwnerChange, onDirtyChange,
 }: PropertyFormProps) {
   const router = useRouter()
+  const locale = useLocale()
   const t      = useTranslations("propertyForm")
   const [serverError, setServerError] = useState<string | null>(null)
   const [savedOk,     setSavedOk]     = useState(false)
@@ -368,14 +369,17 @@ export default function PropertyForm({
         toast.success("Propiedad creada")
         // Land on the edit page with ?share=1 so the share dialog auto-opens
         // — the agent can decide to share immediately or close it.
-        router.push(`/properties/${result.data.id}?share=1`)
+        // The locale prefix is mandatory: next/navigation's router.push
+        // doesn't go through next-intl middleware, so an unprefixed path
+        // 404s (or strips the query on a downstream redirect).
+        router.push(`/${locale}/properties/${result.data.id}?share=1`)
         return
       }
 
       // Draft just graduated — prompt the agent to share, same as create.
       if (wasDraft && property?.id) {
         toast.success("Propiedad publicada")
-        router.push(`/properties/${property.id}?share=1`)
+        router.push(`/${locale}/properties/${property.id}?share=1`)
         return
       }
 
