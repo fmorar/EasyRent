@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { requireAdmin, requireAuth } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import {
   translateProperty,
@@ -37,7 +37,9 @@ export async function generatePropertyTranslation(
   propertyId: string,
   targetLocale: string
 ): Promise<ActionResult<PropertyTranslation>> {
-  await requireAdmin()
+  // Owners (created_by) and admins can translate. RLS on
+  // property_translations enforces per-row scope on the upsert below.
+  await requireAuth()
   const supabase = await createClient()
 
   const { data: property, error: fetchErr } = await supabase
@@ -106,7 +108,7 @@ export async function updatePropertyTranslation(
   locale: string,
   fields: Partial<Pick<PropertyTranslation, "title" | "description" | "public_address" | "seo_title" | "seo_description" | "highlights">>
 ): Promise<ActionResult<PropertyTranslation>> {
-  const { profile } = await requireAdmin()
+  const { profile } = await requireAuth()
   const supabase    = await createClient()
 
   const { data, error } = await supabase
@@ -133,7 +135,7 @@ export async function markTranslationAsReviewed(
   propertyId: string,
   locale: string
 ): Promise<ActionResult<PropertyTranslation>> {
-  const { userId } = await requireAdmin()
+  const { userId } = await requireAuth()
   const supabase   = await createClient()
 
   const { data, error } = await supabase
