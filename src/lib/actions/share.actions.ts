@@ -3,6 +3,9 @@
 import { createClient } from "@/lib/supabase/server"
 import { requireAuth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
+import { formatListingPrice } from "@/lib/utils"
+import { formatCommission } from "@/lib/labels"
+import { sendShareNotificationEmail } from "@/lib/email/send-share-notification"
 import type { ActionResult, PropertyShare } from "@/types"
 
 interface ShareInput {
@@ -34,8 +37,105 @@ export async function shareProperty(
 
   if (error) return { success: false, error: error.message }
 
+  // Fire-and-forget email notification to the recipient. We pull the
+  // bits the template needs in parallel; if any fetch fails we just
+  // skip the email — the share row is the source of truth, the email
+  // is a nudge. Wrapped so a Resend outage can't surface as a failed
+  // share creation.
+  void notifyRecipientOfShare({
+    propertyId:  input.property_id,
+    recipientId: input.shared_with,
+    senderName:  profile.full_name,
+    commissionType:  input.commission_type,
+    commissionValue: input.commission_value ?? null,
+  }).catch((err) => {
+    console.error("[share] notify recipient failed:", err)
+  })
+
   revalidatePath(`/properties/${input.property_id}`)
   return { success: true, data }
+}
+
+async function notifyRecipientOfShare(input: {
+  propertyId:      string
+  recipientId:     string
+  senderName:      string | null
+  commissionType:  "percentage" | "fixed"
+  commissionValue: number | null
+}): Promise<void> {
+  const supabase = await createClient()
+
+  const [{ data: recipient }, { data: property }, { data: cover }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("email")
+      .eq("id", input.recipientId)
+      .is("deleted_at", null)
+      .maybeSingle<{ email: string | null }>(),
+    supabase
+      .from("properties")
+      .select("title, listing_type, price, currency, display_address, bedrooms, bathrooms, area_sqm")
+      .eq("id", input.propertyId)
+      .is("deleted_at", null)
+      .maybeSingle<{
+        title:            string
+        listing_type:     "sale" | "rent" | null
+        price:            number | null
+        currency:         string | null
+        display_address:  string | null
+        bedrooms:         number | null
+        bathrooms:        number | null
+        area_sqm:         number | null
+      }>(),
+    supabase
+      .from("property_photos")
+      .select("url")
+      .eq("property_id", input.propertyId)
+      .eq("is_cover", true)
+      .order("order_index", { ascending: true })
+      .limit(1)
+      .maybeSingle<{ url: string }>(),
+  ])
+
+  if (!recipient?.email || !property) return
+
+  // Fallback to first photo when no explicit cover is flagged.
+  let coverUrl: string | null = cover?.url ?? null
+  if (!coverUrl) {
+    const { data: firstPhoto } = await supabase
+      .from("property_photos")
+      .select("url")
+      .eq("property_id", input.propertyId)
+      .order("order_index", { ascending: true })
+      .limit(1)
+      .maybeSingle<{ url: string }>()
+    coverUrl = firstPhoto?.url ?? null
+  }
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.easyrent.house").replace(/\/$/, "")
+  const reviewUrl = `${appUrl}/es/shares`
+
+  const priceLabel = property.price != null
+    ? formatListingPrice(Number(property.price), property.currency, property.listing_type)
+    : "Precio a confirmar"
+  const listingTypeLabel = property.listing_type === "rent" ? "En alquiler" : "En venta"
+
+  await sendShareNotificationEmail({
+    to:         recipient.email,
+    senderName: input.senderName,
+    property: {
+      title:            property.title,
+      listingTypeLabel,
+      priceLabel,
+      address:          property.display_address,
+      bedrooms:         property.bedrooms,
+      bathrooms:        property.bathrooms,
+      areaSqm:          property.area_sqm,
+      coverUrl,
+    },
+    commissionLabel: formatCommission(input.commission_type, input.commission_value),
+    reviewUrl,
+  })
 }
 
 export async function revokeShare(shareId: string): Promise<ActionResult> {
