@@ -304,6 +304,17 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
   const tPublic    = await getTranslations("publicProperty")
   const tListing   = await getTranslations("properties.listingTypes")
 
+  // Closed listings (sold / reserved) still reach this page — they
+  // sit in v_marketplace because is_marketplace_visible was on when
+  // the agent flipped the status. We swap most of the listing for a
+  // "ya no está disponible" message + a strong push toward similar
+  // properties. Off-market never gets here (v_marketplace filters it).
+  const lt       = property.listing_type ?? "sale"
+  const isClosed = property.status === "sold" || property.status === "reserved"
+  const closedLabel = property.status === "reserved"
+    ? t("publicStatuses.reserved")
+    : t(lt === "rent" ? "publicStatuses.rented" : "publicStatuses.sold")
+
   // Merge property + project photos. Property photos first (interior of the
   // unit usually leads), then project photos (façade, amenities) appended.
   // Cover photo is hoisted to position 0 so the gallery's hero tile shows it.
@@ -366,6 +377,33 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
 
       {/* Fires property_viewed + deep_engagement after a short delay */}
       <PropertyViewTracker propertyId={property.id ?? ""} variant="branded" />
+
+      {/* Closed-listing hero — bold, above-the-fold message so the
+          visitor knows immediately the property is no longer
+          available, with a fast jump to similar listings below. */}
+      {isClosed && (
+        <section className="rounded-2xl border bg-muted/40 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1 min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              {closedLabel}
+            </p>
+            <h2 className="text-xl sm:text-2xl font-heading font-semibold leading-tight">
+              {tPublic("closedHeadline")}
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-prose">
+              {tPublic("closedDesc")}
+            </p>
+          </div>
+          {similar.length > 0 && (
+            <a
+              href="#similar-properties"
+              className="inline-flex items-center justify-center rounded-lg bg-foreground text-background px-5 py-2.5 text-sm font-medium hover:bg-foreground/90 transition-colors shrink-0"
+            >
+              {tPublic("closedCta")}
+            </a>
+          )}
+        </section>
+      )}
 
       {/* ── Photo gallery ─────────────────────────────────── */}
       <LightboxProvider
@@ -530,7 +568,8 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
           <AmenitiesList amenities={amenities} heading={t("amenities")} locale={locale} />
 
           {/* Ubicación + map */}
-          {property.display_lat != null && property.display_lng != null && (
+          {/* Map — hidden on closed listings (no actionable next step) */}
+          {!isClosed && property.display_lat != null && property.display_lng != null && (
             <section className="space-y-(--spacing-cluster)">
               <h2 className="text-lg font-heading font-semibold">{t("tableLocation")}</h2>
               <ClickOnceTracker
@@ -601,8 +640,12 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
           )}
         </div>
 
-        {/* ── RIGHT — sticky contact sidebar (desktop only) ── */}
-        {admin && (
+        {/* ── RIGHT — sticky contact sidebar (desktop only).
+                Hidden on closed listings — there's nothing to
+                schedule a visit for, and we already push the
+                visitor toward similar properties via the hero
+                banner above. */}
+        {admin && !isClosed && (
           <PropertyContactSidebar
             propertyId={property.id ?? ""}
             agent={admin}
@@ -626,13 +669,13 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
               room beneath the 2-col body. Hidden when there's nothing
               to recommend. */}
       {similar.length > 0 && (
-        <section className="space-y-(--spacing-block) pt-(--spacing-section) border-t">
+        <section id="similar-properties" className="space-y-(--spacing-block) pt-(--spacing-section) border-t scroll-mt-20">
           <header className="space-y-(--spacing-tight)">
             <h2
               className="font-heading font-bold tracking-tight leading-[1.05]"
               style={{ fontSize: "clamp(1.5rem, 3vw, 2rem)" }}
             >
-              {tPublic("similarHeadline")}
+              {isClosed ? tPublic("similarHeadlineClosed") : tPublic("similarHeadline")}
             </h2>
             <p className="text-sm text-muted-foreground">
               {tPublic("similarSubtitle")}
@@ -651,8 +694,10 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
         </section>
       )}
 
-      {/* ── Mobile sticky bottom bar (replaces sidebar on <lg) ── */}
-      {admin && (
+      {/* ── Mobile sticky bottom bar (replaces sidebar on <lg) — same
+              rule as the desktop sidebar: hidden when the listing is
+              closed. */}
+      {admin && !isClosed && (
         <MobileContactSticky
           phone={admin.phone}
           email={admin.email}

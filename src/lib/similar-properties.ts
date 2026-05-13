@@ -58,6 +58,10 @@ export async function getSimilarProperties(
       .neq("id", subject.id)
       .eq("listing_type",  subjectIntent           as never)
       .eq("property_type", subject.property_type   as never)
+      // v_marketplace includes sold/reserved (only off_market is
+      // filtered). Limit similar suggestions to available listings
+      // so the "Mirá estas opciones disponibles" promise isn't a lie.
+      .eq("status",        "available"             as never)
       .order("created_at", { ascending: false })
       .limit(CANDIDATE_POOL) as { data: MarketplaceProperty[] | null }
     pool = data
@@ -74,6 +78,7 @@ export async function getSimilarProperties(
       .select("*")
       .neq("id", subject.id)
       .eq("listing_type", subjectIntent as never)
+      .eq("status",       "available"  as never)
       .order("created_at", { ascending: false })
       .limit(CANDIDATE_POOL) as { data: MarketplaceProperty[] | null }
     pool = [...(pool ?? []), ...((extra ?? []).filter((p) => p.id && !have.has(p.id)))]

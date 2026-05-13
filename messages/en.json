@@ -282,7 +282,11 @@
     "callCta":            "Call",
     "whatsappCta":        "WhatsApp",
     "similarHeadline":    "Similar properties",
-    "similarSubtitle":    "More options with the same intent and similar features. Tap to open the full listing."
+    "similarHeadlineClosed": "Other available options",
+    "similarSubtitle":    "More options with the same intent and similar features. Tap to open the full listing.",
+    "closedHeadline":     "This property is no longer available",
+    "closedDesc":         "It's off the market, but we lined up similar options nearby so you can keep your search going.",
+    "closedCta":          "See similar options"
   },
   "publicProject": {
     "shareCta":           "Share"
