@@ -374,6 +374,17 @@
   }
 }
 
+/* ── Onborda overlay z-index escalation ──────────────────────────
+   Onborda hard-codes its overlay/pointer at z-[900] and its card at
+   z-[950]. That loses against legitimate page-level stacking like
+   the property card actions (z-20 inside an absolute container that
+   establishes its own stacking context), which would render on top
+   of the tour dim layer. Force the tour layers above any sane page
+   value so the spotlight + card always win. */
+[data-name="onborda-overlay"] { z-index: 9998 !important; }
+[data-name="onborda-pointer"] { z-index: 9999 !important; }
+[data-name="onborda-card"]    { z-index: 10000 !important; }
+
 /* Numeric class — monospace tabular figures (prices, counts, IDs) */
 @layer utilities {
   .font-numeric {
