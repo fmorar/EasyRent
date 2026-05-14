@@ -3,6 +3,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
+import Image from "next/image"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MarketplaceCard } from "@/components/property/marketplace-card"
 import { AgentContactBand } from "@/components/agent/agent-contact-band"
@@ -208,21 +209,25 @@ export default async function AgentProfilePage({ params }: Props) {
             set, render a neutral muted gradient. */}
         <div className="relative w-full h-48 sm:h-64 lg:h-80 overflow-hidden">
           {agent.cover_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={agent.cover_url}
               alt=""
               aria-hidden
-              className="absolute inset-0 w-full h-full object-cover"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
             />
           ) : agent.avatar_url ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={agent.avatar_url}
                 alt=""
                 aria-hidden
-                className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-50"
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover scale-110 blur-xl opacity-50"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-muted/60 to-muted/40" />
             </>

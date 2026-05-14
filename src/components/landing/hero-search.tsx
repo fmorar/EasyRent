@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import {
   ArrowRightIcon,
 } from "@heroicons/react/24/outline"
@@ -91,11 +92,15 @@ export function HeroSearch({ locations, project }: HeroSearchProps) {
       {/* ── Contained project photo ─────────────────────────────── */}
       <div className="relative rounded-3xl overflow-hidden ring-1 ring-foreground/5 shadow-sm aspect-[16/10] sm:aspect-[16/8] lg:aspect-[16/7]">
         {project?.cover_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // Homepage hero — LCP candidate, so `priority` skips lazy
+          // loading and signals fetchpriority=high to the browser.
+          <Image
             src={project.cover_url}
             alt={project.title}
-            className="absolute inset-0 h-full w-full object-cover"
+            fill
+            priority
+            sizes="(min-width: 1024px) 1200px, 100vw"
+            className="object-cover"
           />
         ) : (
           <div className="absolute inset-0 bg-hero-fallback" />

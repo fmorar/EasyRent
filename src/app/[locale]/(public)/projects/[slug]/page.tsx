@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
@@ -252,11 +253,13 @@ export default async function ProjectPublicPage({ params }: Props) {
       {/* ─── HERO ────────────────────────────────────────────── */}
       <section className="relative h-[80vh] min-h-[480px] sm:min-h-[560px] lg:min-h-[620px] lg:h-[88vh] w-full overflow-hidden">
         {heroPhoto ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={heroPhoto.url}
             alt={project.title}
-            className="absolute inset-0 w-full h-full object-cover"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
           />
         ) : (
           <div className="absolute inset-0 bg-hero-fallback" />
@@ -355,11 +358,12 @@ export default async function ProjectPublicPage({ params }: Props) {
                   index={photos.indexOf(galleryPhotos[0])}
                   className="col-span-2 md:col-span-2 md:row-span-2 bg-muted rounded-xl sm:rounded-2xl overflow-hidden relative group cursor-zoom-in"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={galleryPhotos[0].url}
                     alt={galleryPhotos[0].caption ?? project.title}
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+                    fill
+                    sizes="(min-width: 768px) 50vw, 100vw"
+                    className="object-cover group-hover:scale-[1.02] transition-transform duration-500"
                   />
                 </LightboxTrigger>
               )}
@@ -371,11 +375,12 @@ export default async function ProjectPublicPage({ params }: Props) {
                     i === 0 ? "md:col-span-2" : ""
                   }`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={p.url}
                     alt={p.caption ?? project.title}
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+                    fill
+                    sizes="(min-width: 768px) 25vw, 50vw"
+                    className="object-cover group-hover:scale-[1.02] transition-transform duration-500"
                   />
                   {/* "+N" overlay on the last visible thumb if there are more */}
                   {i === 2 && totalPhotos > 4 && (
@@ -443,11 +448,12 @@ export default async function ProjectPublicPage({ params }: Props) {
                   >
                     <div className="aspect-[4/3] bg-muted relative overflow-hidden">
                       {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={cover.url}
                           alt={p.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          fill
+                          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground">

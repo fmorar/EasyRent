@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Squares2X2Icon } from "@heroicons/react/24/outline"
 import { LightboxTrigger } from "@/components/ui/lightbox"
 import { cn } from "@/lib/utils"
@@ -151,13 +152,28 @@ function Tile({
   overlay?:  React.ReactNode
   viewTransitionName?: string
 }) {
+  // The hero tile is the LCP element on the property page. We pass
+  // `priority` only when the tile owns a view-transition-name —
+  // PropertyGallery sets that on the hero (index 0) and never on the
+  // smaller tiles, so this is a clean signal without threading
+  // another prop. Non-hero tiles get the default lazy-load behaviour.
+  const isHero = !!viewTransitionName
   const inner = (
     <>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={photo.url}
         alt={alt}
-        className="w-full h-full object-cover transition-opacity duration-200 hover:opacity-95"
+        fill
+        // Hero spans 2/4 cols on sm+, smaller tiles 1/4. On mobile
+        // everything is full-width. Tells the optimizer to ship a
+        // ~700px source on phones and a ~1100px source on desktop.
+        sizes={
+          isHero
+            ? "(min-width: 640px) 50vw, 100vw"
+            : "(min-width: 640px) 25vw, 100vw"
+        }
+        priority={isHero}
+        className="object-cover transition-opacity duration-200 hover:opacity-95"
         // Pairs with the marketplace card's cover img — the browser
         // morphs that smaller image into this hero. Only the first
         // photo (index 0, the gallery hero) carries the name. The

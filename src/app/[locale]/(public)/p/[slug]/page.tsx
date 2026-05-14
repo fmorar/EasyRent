@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
+import Image from "next/image"
 import { getLocale, getTranslations } from "next-intl/server"
 import { Link } from "@/i18n/navigation"
 import { formatListingPrice } from "@/lib/utils"
@@ -723,10 +724,12 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
                 className="group flex items-center gap-(--spacing-block) hover:[&_p:first-of-type]:underline underline-offset-4 decoration-foreground/30"
               >
                 {admin.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={admin.avatar_url}
                     alt={admin.full_name}
+                    width={56}
+                    height={56}
+                    sizes="56px"
                     className="h-14 w-14 rounded-full object-cover shrink-0"
                   />
                 ) : (

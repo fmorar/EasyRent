@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -157,11 +158,12 @@ function ProjectCard({
     >
       {/* Photo (full bleed) */}
       {project.cover_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={project.cover_url}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-(--duration-hero) ease-(--ease-out-expo) group-hover:scale-[1.03]"
+          fill
+          sizes="(min-width: 1024px) 50vw, 100vw"
+          className="object-cover transition-transform duration-(--duration-hero) ease-(--ease-out-expo) group-hover:scale-[1.03]"
         />
       ) : (
         <div className="absolute inset-0 bg-hero-fallback" />
