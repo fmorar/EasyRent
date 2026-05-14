@@ -46,14 +46,23 @@ interface PropertySchemaInput {
 }
 
 /**
- * Builds an Apartment / House / LocalBusiness schema with embedded
- * Offer. Schema.org's `Apartment` extends `Place` → `Accommodation`,
- * so all the residential-specific fields (numberOfRooms,
- * numberOfBathroomsTotal, floorSize) live on the type itself.
+ * Builds a `@graph` payload containing two linked nodes:
  *
- * `businessFunction` differentiates rent (`LeaseOut`) from sale
- * (`Sell`), which is the field Google uses to distinguish the two on
- * the SERP listing card.
+ *   1. Apartment / House / LocalBusiness — the residential entity,
+ *      carrying Accommodation-specific fields (numberOfRooms,
+ *      numberOfBathroomsTotal, floorSize, address, geo).
+ *
+ *   2. Product — the commercial wrapper, carrying offers, images,
+ *      description, and `itemOffered` linking back to the Apartment
+ *      via `@id`.
+ *
+ * Why split: Schema.org's Apartment inherits from Place → Thing, NOT
+ * Product, so properties like `offers`, `image`, `datePosted`, and
+ * `inLanguage` aren't valid on it. Google's Rich Results validator
+ * flags them as errors. The @graph pattern is the standard fix: each
+ * node carries only properties valid for its type, and the two are
+ * linked through `itemOffered`/`@id`. Crawlers reconstruct the
+ * full entity from both.
  *
  * `availability` is conservative — we only mark a listing `InStock`
  * when its status is "available". Anything else (sold/reserved/off
@@ -66,19 +75,77 @@ export function buildPropertyJsonLd(input: PropertySchemaInput) {
   const schemaType   = SCHEMA_TYPE_BY_PROPERTY[propertyType] ?? "Place"
 
   const isRent = property.listing_type === "rent"
+  const listingId = `${canonicalUrl}#listing`
+  const offerId   = `${canonicalUrl}#offer`
 
-  // ── Offer ──
+  // ── Address parsing ────────────────────────────────────────────
+  // Costa Rica display_address typically looks like:
+  //   "Calle X, San Rafael, Escazú, San José, 10906, Costa Rica"
+  // We strip the trailing country + postal code, then read the last
+  // two remaining segments as locality (canton) and region (province).
+  const { locality, region, postalCode } = parseDisplayAddress(property.display_address)
+  const address: Record<string, unknown> = {
+    "@type":         "PostalAddress",
+    addressCountry:  "CR",                  // ISO 3166-1 alpha-2
+  }
+  if (locality)   address.addressLocality = locality
+  if (region)     address.addressRegion   = region
+  if (postalCode) address.postalCode      = postalCode
+
+  // ── Description (HTML-stripped, length-capped) ─────────────────
+  const description = property.description
+    ? property.description
+        .replace(/<[^>]*>/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 5000)
+    : undefined
+
+  // ── Apartment/House node ───────────────────────────────────────
+  const apartmentNode: Record<string, unknown> = {
+    "@type":  schemaType,
+    "@id":    listingId,
+    name:     property.title,
+    url:      canonicalUrl,
+    address,
+  }
+  if (description) apartmentNode.description = description
+  if (imageUrls.length > 0) apartmentNode.image = imageUrls
+  if (property.display_lat != null && property.display_lng != null) {
+    apartmentNode.geo = {
+      "@type":   "GeoCoordinates",
+      latitude:  property.display_lat,
+      longitude: property.display_lng,
+    }
+  }
+  // Residential-specific fields only land on types that inherit from
+  // Accommodation. LocalBusiness/Place don't accept them.
+  if (schemaType === "Apartment" || schemaType === "House") {
+    if (property.bedrooms != null)  apartmentNode.numberOfRooms          = property.bedrooms
+    if (property.bathrooms != null) apartmentNode.numberOfBathroomsTotal = property.bathrooms
+    if (property.area_sqm  != null) apartmentNode.floorSize = {
+      "@type":  "QuantitativeValue",
+      value:    property.area_sqm,
+      unitCode: "MTK",            // UN/CEFACT code for "square metre"
+    }
+  }
+
+  // ── Product / Offer node ───────────────────────────────────────
   const availability = property.status === "available"
     ? "https://schema.org/InStock"
     : "https://schema.org/OutOfStock"
 
   const offer: Record<string, unknown> = {
-    "@type":          "Offer",
-    url:              canonicalUrl,
+    "@type":      "Offer",
+    "@id":        offerId,
+    url:          canonicalUrl,
     availability,
-    businessFunction: isRent
-      ? "https://schema.org/LeaseOut"
-      : "https://schema.org/Sell",
+    itemOffered:  { "@id": listingId },
+    // Rent vs sale is encoded via businessFunction. We use the bare
+    // enum value (not the schema.org URL form) — Google's validator
+    // accepts both, but the bare form has fewer parsing edge cases
+    // across crawlers.
+    businessFunction: isRent ? "LeaseOut" : "Sell",
   }
   if (property.price != null) {
     offer.price         = Number(property.price)
@@ -86,7 +153,8 @@ export function buildPropertyJsonLd(input: PropertySchemaInput) {
   }
   if (isRent && property.price != null) {
     // For rentals, expose unit & periodicity so Google understands
-    // it's a monthly rate, not a one-shot price.
+    // it's a monthly rate, not a one-shot price. The UnitPriceSpec
+    // is the canonical way to say "$X per month".
     offer.priceSpecification = {
       "@type":          "UnitPriceSpecification",
       price:            Number(property.price),
@@ -98,76 +166,92 @@ export function buildPropertyJsonLd(input: PropertySchemaInput) {
       },
     }
   }
+  // validFrom — when the listing was posted. Offer accepts datePosted
+  // semantically via validFrom (datePosted is reserved for JobPosting).
+  if (property.created_at) offer.validFrom = property.created_at
 
-  // ── Address ──
-  // We only have `display_address` (free-form), so we parse the last
-  // two comma-separated segments as locality + region. CR is the only
-  // country we list in today; if that ever changes, gate this.
-  const addressParts = (property.display_address ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const locality = addressParts[addressParts.length - 2] ?? null
-  const region   = addressParts[addressParts.length - 1] ?? null
+  // Locale-aware product category, e.g. "Apartamento en alquiler" /
+  // "Apartment for sale". This is what shows up as the product
+  // category in SERP cards.
+  const typeLabelEs = {
+    Apartment:     "Apartamento",
+    House:         "Casa",
+    Place:         "Inmueble",
+    LocalBusiness: "Local comercial",
+  } as Record<string, string>
+  const typeLabelEn = {
+    Apartment:     "Apartment",
+    House:         "House",
+    Place:         "Real Estate",
+    LocalBusiness: "Commercial Space",
+  } as Record<string, string>
+  const intentEs = isRent ? "en alquiler" : "en venta"
+  const intentEn = isRent ? "for rent"    : "for sale"
+  const productCategory = locale === "en"
+    ? `${typeLabelEn[schemaType] ?? "Real Estate"} ${intentEn}`
+    : `${typeLabelEs[schemaType] ?? "Inmueble"} ${intentEs}`
 
-  const address: Record<string, unknown> = {
-    "@type":         "PostalAddress",
-    addressCountry:  "CR",
+  const productNode: Record<string, unknown> = {
+    "@type":  "Product",
+    "@id":    `${canonicalUrl}#product`,
+    name:     property.title,
+    category: productCategory,
+    url:      canonicalUrl,
+    offers:   offer,
   }
-  if (locality) address.addressLocality = locality
-  if (region)   address.addressRegion   = region
+  if (description) productNode.description = description
+  if (imageUrls.length > 0) productNode.image = imageUrls
 
-  // ── Base schema ──
-  const schema: Record<string, unknown> = {
+  return {
     "@context": "https://schema.org",
-    "@type":    schemaType,
-    name:       property.title,
-    url:        canonicalUrl,
-    address,
-    offers:     offer,
-    inLanguage: locale === "en" ? "en" : "es",
+    "@graph": [apartmentNode, productNode],
+  }
+}
+
+/**
+ * Parses a Costa Rica free-form `display_address` into structured
+ * locality / region / postalCode components. Strips trailing country
+ * tokens ("Costa Rica" / "CR") and numeric postal codes before
+ * picking out the meaningful segments.
+ *
+ * Examples:
+ *   "Cond X, San Rafael, Escazú, San José, 10906, Costa Rica"
+ *     → { locality: "Escazú", region: "San José", postalCode: "10906" }
+ *   "San Pedro, San José"
+ *     → { locality: "San Pedro", region: "San José" }
+ *   "Costa Rica"
+ *     → { locality: null, region: null }
+ */
+function parseDisplayAddress(raw: string | null | undefined): {
+  locality:   string | null
+  region:     string | null
+  postalCode: string | null
+} {
+  if (!raw) return { locality: null, region: null, postalCode: null }
+  let parts = raw.split(",").map((s) => s.trim()).filter(Boolean)
+
+  // Strip country at end (case-insensitive: "Costa Rica" / "CR").
+  if (parts.length > 0 && /^(costa rica|cr)$/i.test(parts[parts.length - 1]!)) {
+    parts = parts.slice(0, -1)
   }
 
-  if (property.description) {
-    // Strip HTML for the schema description — Google rejects schema
-    // values that contain HTML tags.
-    schema.description = property.description
-      .replace(/<[^>]*>/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 5000)
-  }
-
-  if (imageUrls.length > 0) {
-    schema.image = imageUrls
-  }
-
-  if (property.display_lat != null && property.display_lng != null) {
-    schema.geo = {
-      "@type":   "GeoCoordinates",
-      latitude:  property.display_lat,
-      longitude: property.display_lng,
+  // Strip a postal code if it sits anywhere in the last two slots.
+  let postalCode: string | null = null
+  for (let i = parts.length - 1; i >= Math.max(0, parts.length - 2); i--) {
+    if (/^\d{4,6}$/.test(parts[i]!)) {
+      postalCode = parts[i]!
+      parts = [...parts.slice(0, i), ...parts.slice(i + 1)]
+      break
     }
   }
 
-  if (property.created_at) {
-    schema.datePosted = property.created_at
-  }
+  // From the remaining segments, the last is province (region), the
+  // one before that is canton (locality). Anything earlier is a more
+  // granular street/neighbourhood we don't expose via schema.
+  const region   = parts[parts.length - 1] ?? null
+  const locality = parts.length >= 2 ? parts[parts.length - 2]! : null
 
-  // Residential-specific fields. Apartment/House inherit these from
-  // Accommodation; LocalBusiness/Place don't, so we only emit them
-  // when the schema type accepts them.
-  if (schemaType === "Apartment" || schemaType === "House") {
-    if (property.bedrooms != null)  schema.numberOfRooms            = property.bedrooms
-    if (property.bathrooms != null) schema.numberOfBathroomsTotal   = property.bathrooms
-    if (property.area_sqm  != null) schema.floorSize = {
-      "@type":  "QuantitativeValue",
-      value:    property.area_sqm,
-      unitCode: "MTK",            // UN/CEFACT code for "square metre"
-    }
-  }
-
-  return schema
+  return { locality, region, postalCode }
 }
 
 /**
