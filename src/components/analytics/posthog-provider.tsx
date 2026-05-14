@@ -47,6 +47,15 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       session_recording:  { maskAllInputs: true, maskTextSelector: "[data-ph-mask]" },
       // Mark sensitive attributes so PostHog auto-masks them.
       mask_personal_data_properties: true,
+      // Disable PostHog product features we don't use. Each one ships
+      // its own chunk (surveys, exception autocapture, web vitals,
+      // toolbar) and PostHog loads them eagerly unless explicitly
+      // turned off. PageSpeed flagged surveys.js as 27 KiB of
+      // unused JS — these flags shed it.
+      disable_surveys:               true,
+      disable_session_recording:     false,  // we do use this
+      capture_exceptions:            false,
+      capture_performance:           false,
     })
   }, [])
 
