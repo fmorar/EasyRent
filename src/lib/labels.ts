@@ -14,6 +14,7 @@ import type {
   InvitationStatus,
   ShareStatus,
   LeadStage,
+  LeadSource,
   CommissionType,
 } from "@/types"
 
@@ -101,6 +102,20 @@ export const LEAD_STAGE_LABELS: Record<LeadStage, string> = {
   contract_requested: "Contrato solicitado",
   closed:             "Cerrado",
   lost:               "Perdido",
+}
+
+/**
+ * Where the lead came in from. Used in the inbox UI, the kanban filters,
+ * and the new-lead email notification subject/header.
+ */
+export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
+  marketplace:    "Marketplace easyrent",
+  agent_profile:  "Perfil de agente",
+  project_page:   "Página de proyecto",
+  anonymous_link: "Link sin marca",
+  whatsapp:       "WhatsApp",
+  direct:         "Contacto directo",
+  referral:       "Referido",
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

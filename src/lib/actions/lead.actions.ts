@@ -9,7 +9,7 @@ import {
   PublicLeadEnrichmentSchema, computeInterestLevel,
   type PublicLeadEnrichment,
 } from "@/lib/analytics/lead-schemas"
-import type { ActionResult, Lead, LeadInsert, LeadStage } from "@/types"
+import type { ActionResult, Lead, LeadInsert, LeadSource, LeadStage } from "@/types"
 
 interface PublicLeadInput {
   full_name:         string
@@ -110,7 +110,136 @@ export async function capturePublicLead(
     void runExtractionInBackground(data.id)
   }
 
+  // ── Notify the recipient agent by email ─────────────────────────
+  // Fire-and-forget: the lead is already saved; if Resend is down or
+  // the resolved agent has no email on file, the lead still surfaces
+  // in the kanban — the email is a latency-sensitive nudge, not the
+  // source of truth.
+  if (input.source) {
+    void notifyLeadRecipientInBackground({
+      leadId:        data.id,
+      capturedBy:    input.captured_by ?? null,
+      propertyId:    input.property_id ?? null,
+      projectId:     input.project_id  ?? null,
+      leadName:      input.full_name,
+      leadEmail:     input.email   ?? null,
+      leadPhone:     input.phone   ?? null,
+      message:       input.message ?? null,
+      source:        input.source,
+      sourceContext: input.source_context ?? null,
+    })
+  }
+
   return { success: true, data }
+}
+
+// Resolve which agent owns the surface the lead came from, look up
+// their email, and dispatch the notification. Falls back through
+// captured_by → property.created_by → project.created_by → first
+// super_admin, so no public form ever goes to a black hole.
+//
+// Imports are deferred so route bundles that don't capture leads
+// (kanban, settings, etc.) stay slim.
+async function notifyLeadRecipientInBackground(args: {
+  leadId:        string
+  capturedBy:    string | null
+  propertyId:    string | null
+  projectId:     string | null
+  leadName:      string
+  leadEmail:     string | null
+  leadPhone:     string | null
+  message:       string | null
+  source:        LeadSource
+  sourceContext: string | null
+}) {
+  try {
+    const { LEAD_SOURCE_LABELS } = await import("@/lib/labels")
+    const { sendLeadNotificationEmail } = await import(
+      "@/lib/email/send-lead-notification"
+    )
+
+    const admin = createAdminClient()
+    const recipientId = await resolveLeadRecipient(admin, {
+      capturedBy: args.capturedBy,
+      propertyId: args.propertyId,
+      projectId:  args.projectId,
+    })
+
+    if (!recipientId) {
+      console.warn("[lead.notify] no recipient resolved for lead", args.leadId)
+      return
+    }
+
+    const { data: agent } = await admin
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", recipientId)
+      .single()
+
+    if (!agent?.email) {
+      console.warn("[lead.notify] no email for recipient", recipientId, "lead", args.leadId)
+      return
+    }
+
+    const appUrl = (
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+      ?? "https://www.easyrent.house"
+    )
+    const inboxUrl = `${appUrl}/leads`
+
+    await sendLeadNotificationEmail({
+      to:            agent.email,
+      agentName:     agent.full_name ?? "Agente",
+      leadName:      args.leadName,
+      leadEmail:     args.leadEmail,
+      leadPhone:     args.leadPhone,
+      message:       args.message,
+      sourceLabel:   LEAD_SOURCE_LABELS[args.source] ?? args.source,
+      sourceContext: args.sourceContext,
+      inboxUrl,
+    })
+  } catch (err) {
+    console.error("[lead.notify] failed for lead", args.leadId, err)
+  }
+}
+
+// Find the right inbox for a lead: explicit captured_by wins; otherwise
+// fall back to the property/project creator; otherwise the first
+// super_admin (so the marketplace CTA + homepage forms reach someone).
+async function resolveLeadRecipient(
+  admin:  ReturnType<typeof createAdminClient>,
+  refs:   { capturedBy: string | null; propertyId: string | null; projectId: string | null },
+): Promise<string | null> {
+  if (refs.capturedBy) return refs.capturedBy
+
+  if (refs.propertyId) {
+    const { data } = await admin
+      .from("properties")
+      .select("created_by")
+      .eq("id", refs.propertyId)
+      .single()
+    if (data?.created_by) return data.created_by
+  }
+
+  if (refs.projectId) {
+    const { data } = await admin
+      .from("projects")
+      .select("created_by")
+      .eq("id", refs.projectId)
+      .single()
+    if (data?.created_by) return data.created_by
+  }
+
+  // Marketplace CTA / homepage / newsletter with no agent context →
+  // route to the first super_admin. There is exactly one super_admin
+  // in production, so this resolves deterministically.
+  const { data: superAdmin } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "super_admin")
+    .limit(1)
+    .single()
+  return superAdmin?.id ?? null
 }
 
 // Imports kept inside the function to avoid pulling the OpenAI client
