@@ -103,14 +103,51 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       .single() as { data: { seo_title: string | null; seo_description: string | null } | null }
 
     if (tr) {
-      return {
+      return buildMetadata({
+        locale,
+        slug,
         title:       tr.seo_title       ?? fallbackTitle,
         description: tr.seo_description ?? fallbackDesc,
-      }
+      })
     }
   }
 
-  return { title: fallbackTitle, description: fallbackDesc }
+  return buildMetadata({ locale, slug, title: fallbackTitle, description: fallbackDesc })
+}
+
+// Shared OG/Twitter wiring for the property page. The `og:image`
+// itself is supplied by the colocated `opengraph-image.tsx` route —
+// Next.js auto-attaches the generated PNG to <head>, so we only need
+// to set the canonical URL, locale, and copy here.
+function buildMetadata(args: {
+  locale:      string
+  slug:        string
+  title:       string
+  description: string
+}): Metadata {
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+    ?? "https://www.easyrent.house"
+  )
+  const canonical = `${baseUrl}/${args.locale}/p/${args.slug}`
+  return {
+    title:       args.title,
+    description: args.description,
+    alternates:  { canonical },
+    openGraph: {
+      type:        "website",
+      title:       args.title,
+      description: args.description,
+      url:         canonical,
+      siteName:    "easyrent",
+      locale:      args.locale === "en" ? "en_US" : "es_CR",
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title:       args.title,
+      description: args.description,
+    },
+  }
 }
 
 export default async function PublicPropertyPage({ params, searchParams }: Props) {

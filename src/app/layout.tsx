@@ -17,9 +17,30 @@ const geistMono = Geist_Mono({
   display:  "swap",
 })
 
+// Resolved at build/runtime — production should set NEXT_PUBLIC_APP_URL
+// to the canonical domain so relative og:image paths in route-level
+// metadata point at the right host (WhatsApp, Slack, Telegram etc.
+// scrape the rendered absolute URL, not the route-relative one).
+const SITE_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+  "https://www.easyrent.house"
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title:       "easyrent",
   description: "Real estate management platform",
+  openGraph: {
+    type:        "website",
+    siteName:    "easyrent",
+    title:       "easyrent",
+    description: "Real estate management platform",
+    locale:      "es_CR",
+  },
+  twitter: {
+    card:        "summary_large_image",
+    title:       "easyrent",
+    description: "Real estate management platform",
+  },
 }
 
 // Root layout — minimal shell. Locale-specific layout lives in [locale]/layout.tsx.
