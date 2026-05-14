@@ -13,6 +13,12 @@ interface Props {
   properties:    MarketplaceProperty[]
   /** Map of `propertyId → coverUrl` from `property_photos`. */
   coverByProperty: Record<string, string | undefined>
+  /**
+   * Map of `propertyId → full ordered photo list`. Optional — when
+   * provided, each card on mobile renders a swipe carousel. When
+   * absent, falls back to the single cover behaviour.
+   */
+  photosByProperty?: Record<string, Array<{ url: string; caption?: string | null }>>
 }
 
 const TYPE_FILTERS = [
@@ -35,7 +41,7 @@ const TYPE_FILTERS = [
  * filter-bar lives. This section is conversion / discovery, not the
  * actual search tool.
  */
-export function FeaturedProperties({ properties, coverByProperty }: Props) {
+export function FeaturedProperties({ properties, coverByProperty, photosByProperty }: Props) {
   const [filter, setFilter] = useState<string>("")
 
   const filtered = useMemo(() => {
@@ -117,6 +123,7 @@ export function FeaturedProperties({ properties, coverByProperty }: Props) {
               key={p.id}
               property={p}
               coverUrl={coverByProperty[p.id!]}
+              photos={photosByProperty?.[p.id!]}
             />
           ))}
         </div>

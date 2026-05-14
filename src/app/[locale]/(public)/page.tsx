@@ -108,11 +108,15 @@ export default async function LandingPage() {
   const featured = (properties ?? []) as MarketplaceProperty[]
 
   const propertyIds = featured.map((p) => p.id).filter((v): v is string => !!v)
-  const coverByProperty: Record<string, string | undefined> = {}
+  const coverByProperty:  Record<string, string | undefined> = {}
+  // Group the full sorted photo list per property so the featured-
+  // properties section's mobile cards can render a swipe carousel
+  // from the same fetched data.
+  const photosByProperty: Record<string, Array<{ url: string; caption?: string | null }>> = {}
   if (propertyIds.length > 0) {
     const { data: photos } = await supabase
       .from("property_photos")
-      .select("property_id, url, is_cover, order_index")
+      .select("property_id, url, caption, is_cover, order_index")
       .in("property_id", propertyIds)
       .order("is_cover", { ascending: false })
       .order("order_index", { ascending: true })
@@ -121,6 +125,9 @@ export default async function LandingPage() {
       if (!coverByProperty[ph.property_id]) {
         coverByProperty[ph.property_id] = ph.url
       }
+      const arr = photosByProperty[ph.property_id] ?? []
+      arr.push({ url: ph.url, caption: ph.caption })
+      photosByProperty[ph.property_id] = arr
     }
   }
 
@@ -237,6 +244,7 @@ export default async function LandingPage() {
       <FeaturedProperties
         properties={featured}
         coverByProperty={coverByProperty}
+        photosByProperty={photosByProperty}
       />
 
       <FeaturedProjects projects={projects} />

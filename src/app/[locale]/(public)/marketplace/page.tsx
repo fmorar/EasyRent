@@ -272,27 +272,38 @@ export default async function MarketplacePage({
   // mode means everything in the grid matched the user's exact filters.
   void strictCount
 
-  // ── Cover photos for each (one extra round-trip; cached by the page) ──
-  let coverByProperty: Record<string, string> = {}
+  // ── Photo list per property (single round-trip; cached by the page) ──
+  // We keep ALL photos ordered (cover first, then by order_index)
+  // because the mobile listing card renders a swipe carousel on top
+  // of the same data. `coverByProperty` keeps a flat URL → URL map
+  // for the legacy spots that still want just the cover.
+  let coverByProperty:  Record<string, string> = {}
+  let photosByProperty: Record<string, Array<{ url: string; caption?: string | null }>> = {}
   if (properties && properties.length > 0) {
     const ids = properties.map((p) => p.id!).filter(Boolean)
     const { data: photos } = await supabase
       .from("property_photos")
-      .select("property_id, url, is_cover, order_index")
+      .select("property_id, url, caption, is_cover, order_index")
       .in("property_id", ids)
       .order("order_index", { ascending: true })
 
     if (photos) {
-      // Pick cover (or first) per property
-      const grouped = new Map<string, { url: string; is_cover: boolean; order_index: number }[]>()
+      const grouped = new Map<string, { url: string; caption: string | null; is_cover: boolean; order_index: number }[]>()
       for (const ph of photos) {
         const arr = grouped.get(ph.property_id) ?? []
-        arr.push(ph as { url: string; is_cover: boolean; order_index: number })
+        arr.push(ph as { url: string; caption: string | null; is_cover: boolean; order_index: number })
         grouped.set(ph.property_id, arr)
       }
       grouped.forEach((arr, pid) => {
-        const cover = arr.find((p) => p.is_cover) ?? arr[0]
-        if (cover) coverByProperty[pid] = cover.url
+        // Sort: cover first, then by order_index. Stable across the
+        // grouping pass and the carousel render.
+        const sorted = [...arr].sort((a, b) => {
+          if (a.is_cover && !b.is_cover) return -1
+          if (!a.is_cover && b.is_cover) return 1
+          return a.order_index - b.order_index
+        })
+        if (sorted[0]) coverByProperty[pid] = sorted[0].url
+        photosByProperty[pid] = sorted.map((p) => ({ url: p.url, caption: p.caption }))
       })
     }
   }
@@ -474,6 +485,7 @@ export default async function MarketplacePage({
                 key={p.id}
                 property={p}
                 coverUrl={coverByProperty[p.id!]}
+                photos={photosByProperty[p.id!]}
               />
             ))}
           </div>

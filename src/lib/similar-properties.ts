@@ -27,6 +27,9 @@ export interface SimilarPropertiesResult {
    *  marketplace page uses, so consumers can pass it straight to
    *  `<MarketplaceCard coverUrl={...}>`. */
   coverByProperty: Record<string, string>
+  /** Map of property.id → ordered photo list (cover first). Powers
+   *  the mobile swipe carousel inside each listing card. */
+  photosByProperty: Record<string, Array<{ url: string; caption?: string | null }>>
 }
 
 const CANDIDATE_POOL = 30
@@ -85,7 +88,7 @@ export async function getSimilarProperties(
   }
 
   if (!pool || pool.length === 0) {
-    return { properties: [], coverByProperty: {} }
+    return { properties: [], coverByProperty: {}, photosByProperty: {} }
   }
 
   // ── Score + sort ─────────────────────────────────────────────────
@@ -98,33 +101,41 @@ export async function getSimilarProperties(
 
   const top = scored.slice(0, limit).map((x) => x.p)
 
-  // ── Cover photos ────────────────────────────────────────────────
+  // ── Photo lists ─────────────────────────────────────────────────
   // Same pattern as the marketplace page — one round-trip, group by
-  // property_id, prefer is_cover then lowest order_index.
+  // property_id, sort cover first then by order_index. Yields both
+  // the legacy single-cover map AND the full carousel list per
+  // property so the mobile card can swipe.
   const ids = top.map((p) => p.id!).filter(Boolean)
-  const coverByProperty: Record<string, string> = {}
+  const coverByProperty:  Record<string, string> = {}
+  const photosByProperty: Record<string, Array<{ url: string; caption?: string | null }>> = {}
   if (ids.length > 0) {
     const { data: photos } = await supabase
       .from("property_photos")
-      .select("property_id, url, is_cover, order_index")
+      .select("property_id, url, caption, is_cover, order_index")
       .in("property_id", ids)
       .order("order_index", { ascending: true })
 
     if (photos) {
-      const grouped = new Map<string, { url: string; is_cover: boolean; order_index: number }[]>()
+      const grouped = new Map<string, { url: string; caption: string | null; is_cover: boolean; order_index: number }[]>()
       for (const ph of photos) {
         const arr = grouped.get(ph.property_id) ?? []
-        arr.push(ph as { url: string; is_cover: boolean; order_index: number })
+        arr.push(ph as { url: string; caption: string | null; is_cover: boolean; order_index: number })
         grouped.set(ph.property_id, arr)
       }
       grouped.forEach((arr, pid) => {
-        const cover = arr.find((c) => c.is_cover) ?? arr[0]
-        if (cover) coverByProperty[pid] = cover.url
+        const sorted = [...arr].sort((a, b) => {
+          if (a.is_cover && !b.is_cover) return -1
+          if (!a.is_cover && b.is_cover) return 1
+          return a.order_index - b.order_index
+        })
+        if (sorted[0]) coverByProperty[pid] = sorted[0].url
+        photosByProperty[pid] = sorted.map((p) => ({ url: p.url, caption: p.caption }))
       })
     }
   }
 
-  return { properties: top, coverByProperty }
+  return { properties: top, coverByProperty, photosByProperty }
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────

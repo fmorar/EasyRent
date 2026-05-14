@@ -1,3 +1,6 @@
+"use client"
+
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -5,8 +8,18 @@ import { cn } from "@/lib/utils"
 interface Props {
   /** Where the card navigates when clicked. */
   href:           string
-  /** Image URL for the cover. Falls back to placeholder if null. */
+  /**
+   * Single cover URL. Used as a fallback when `photos` isn't passed
+   * (e.g. legacy callers, or cards that genuinely only have one photo).
+   * When `photos` is set, this prop is ignored.
+   */
   coverUrl?:      string | null
+  /**
+   * Full photo list for the mobile swipe carousel. Pass up to ~5 — we
+   * cap inside this component to keep the upfront image budget sane.
+   * On desktop only the first photo renders (single hero behavior).
+   */
+  photos?:        Array<{ url: string; caption?: string | null }>
   /** Alt text for the cover image. */
   coverAlt:       string
   /** Photo aspect ratio. Default 4:3 — matches marketing references. */
@@ -37,24 +50,31 @@ interface Props {
   priority?:           boolean
 }
 
+// Max slides per card carousel. Real listings often have 10-20 photos;
+// shipping all of them on a /marketplace grid would balloon the image
+// budget unnecessarily. Five is enough for "give the visitor a feel
+// for the unit" — they can swipe more on the detail page.
+const MAX_CAROUSEL_PHOTOS = 5
+
 /**
  * Shared base for any "listing"-style card (property, project, etc).
  *
- * Defines the canonical look: rounded-2xl, no border, hover-shadow, aspect-[4/3]
- * cover with subtle scale-on-hover, and a body slot below.
+ * Defines the canonical look: rounded-2xl, no border, hover-shadow,
+ * aspect-[4/3] cover with subtle scale-on-hover, and a body slot below.
  *
- * Body content rules (enforced via composition, not props):
- *  - Title + price on the same baseline-aligned row
- *  - Optional location line
- *  - <PropertySpecs> at the bottom
+ * Mobile: when `photos.length > 1`, the photo area becomes a
+ * horizontal swipe carousel using CSS scroll-snap. Each slide is a
+ * native <Link>, so:
+ *   • Tap → navigate to the detail page
+ *   • Drag → browser interprets as scroll, no click fires
+ * No carousel library, no Motion drag — 60fps native gestures.
  *
- * The card is a single full-area <Link>; if your overlay needs interactive
- * children (e.g. a Share button), wrap them in a div with `onClick={stopPropagation}`
- * inside `photoOverlay`.
+ * Desktop: single hero photo (the carousel collapses to one image).
  */
 export function ListingCardShell({
   href,
   coverUrl,
+  photos,
   coverAlt,
   aspectRatio = "4/3",
   photoOverlay,
@@ -65,20 +85,22 @@ export function ListingCardShell({
 }: Props) {
   const aspect = aspectRatio === "16/9" ? "aspect-video" : "aspect-[4/3]"
 
-  return (
-    <div className={cn("group relative cursor-pointer", className)}>
-      {/* Whole card is one big link — covers photo + body. Overlay children
-          (badges/share button) live above this layer with their own z-index
-          and call e.stopPropagation() so they intercept clicks first. */}
-      <Link
-        href={href}
-        className="absolute inset-0 z-0"
-        aria-label={coverAlt}
-      />
+  // Normalize the photo source: prefer the array; fall back to
+  // coverUrl wrapped in a singleton. `hero` is always the first
+  // photo — used for the desktop layout AND as the only mobile slide
+  // when there's just one image.
+  const normalizedPhotos = (photos && photos.length > 0)
+    ? photos.slice(0, MAX_CAROUSEL_PHOTOS)
+    : (coverUrl ? [{ url: coverUrl }] : [])
+  const hero            = normalizedPhotos[0]
+  const hasCarousel     = normalizedPhotos.length > 1
 
-      {/* Photo owns the hover shadow + rounded corners. Keeping the shadow
-          on the photo (not the whole card) avoids the body text feeling
-          cramped against the shadow edge on hover. */}
+  return (
+    <div className={cn("group cursor-pointer", className)}>
+      {/* Photo owns the hover shadow + rounded corners. Photo-area
+          links (full-cover Link on desktop, per-slide Links on mobile)
+          live inside this wrapper so the carousel's touch scroller can
+          absorb horizontal swipes without a parent button intercepting. */}
       <div
         className={cn(
           "bg-muted relative overflow-hidden rounded-2xl",
@@ -87,35 +109,46 @@ export function ListingCardShell({
           aspect,
         )}
       >
-        {coverUrl ? (
-          // Next/Image streams the asset through Vercel's image
-          // optimizer (`/_next/image?url=...`), which serves WebP/AVIF
-          // when supported, generates responsive `srcset`, and caches
-          // with `max-age=31536000, immutable` — fixing the "use
-          // efficient cache lifetimes" PageSpeed audit. `sizes` is
-          // tuned for the 3-up marketplace grid breakpoints.
-          <Image
-            src={coverUrl}
-            alt={coverAlt}
-            fill
-            // Mirrors the actual grid widths so the optimizer doesn't
-            // ship a 2000px hero for a 400px card. 100vw on mobile
-            // (single col), 50vw md (2 col), 33vw lg+ (3 col).
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            preload={priority}
-            fetchPriority={priority ? "high" : undefined}
-            className="object-cover group-hover:scale-[1.03] transition-transform duration-500"
-            // `view-transition-name` is forwarded via style. The
-            // browser morphs this exact image element into the same-
-            // named element on the destination page (the property
-            // hero photo). Names must be unique per document, so we
-            // only set it when given.
-            style={
-              viewTransitionName
-                ? { viewTransitionName }
-                : undefined
-            }
-          />
+        {hero ? (
+          hasCarousel ? (
+            <>
+              {/* Mobile — swipe carousel */}
+              <MobileCardCarousel
+                photos={normalizedPhotos}
+                href={href}
+                coverAlt={coverAlt}
+                priority={priority}
+                viewTransitionName={viewTransitionName}
+                className="sm:hidden"
+              />
+              {/* Desktop — single hero (matches previous look) */}
+              <Link
+                href={href}
+                aria-label={coverAlt}
+                className="hidden sm:block absolute inset-0"
+              >
+                <SingleCover
+                  url={hero.url}
+                  alt={coverAlt}
+                  priority={priority}
+                  viewTransitionName={viewTransitionName}
+                />
+              </Link>
+            </>
+          ) : (
+            <Link
+              href={href}
+              aria-label={coverAlt}
+              className="block absolute inset-0"
+            >
+              <SingleCover
+                url={hero.url}
+                alt={coverAlt}
+                priority={priority}
+                viewTransitionName={viewTransitionName}
+              />
+            </Link>
+          )
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
             Sin foto
@@ -124,12 +157,163 @@ export function ListingCardShell({
         {photoOverlay}
       </div>
 
-      {/* Body — `pointer-events-none` lets clicks pass through to the
-          absolute Link below. The wrapper is `cursor-pointer` so the user
-          gets pointer feedback over body text too. */}
-      <div className="pt-4 pb-1 space-y-1.5 relative z-10 pointer-events-none group-hover:[&_h3]:underline group-hover:[&_h3]:underline-offset-4 group-hover:[&_h3]:decoration-foreground/30">
+      {/* Body — its own Link wraps the content. Clicks on title/price
+          navigate the same as clicks on the photo. The group-hover
+          underline on h3 picks up hover state from anywhere in the
+          card (photo or body), so the affordance is consistent. */}
+      <Link
+        href={href}
+        className="block pt-4 pb-1 space-y-1.5 group-hover:[&_h3]:underline group-hover:[&_h3]:underline-offset-4 group-hover:[&_h3]:decoration-foreground/30"
+        tabIndex={-1}
+      >
         {children}
+      </Link>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+function SingleCover({
+  url,
+  alt,
+  priority,
+  viewTransitionName,
+}: {
+  url:                 string
+  alt:                 string
+  priority?:           boolean
+  viewTransitionName?: string
+}) {
+  return (
+    <Image
+      src={url}
+      alt={alt}
+      fill
+      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+      preload={priority}
+      fetchPriority={priority ? "high" : undefined}
+      className="object-cover group-hover:scale-[1.03] transition-transform duration-500"
+      style={viewTransitionName ? { viewTransitionName } : undefined}
+    />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+/**
+ * Mobile-only horizontal carousel inside a listing card. Each slide
+ * is a Link to the detail page; the browser disambiguates tap vs
+ * drag natively so we don't need a gesture library. A small counter
+ * pill ("2 / 5") tracks position via IntersectionObserver.
+ *
+ * Image loading strategy:
+ *   • Slide 1 — eager (with optional priority hint)
+ *   • Slides 2-N — `loading="lazy"` so the browser defers them where
+ *     it can. We cap the slide count at MAX_CAROUSEL_PHOTOS to keep
+ *     the upfront image budget bounded even when the browser doesn't
+ *     defer perfectly inside a horizontal scroller.
+ */
+function MobileCardCarousel({
+  photos,
+  href,
+  coverAlt,
+  priority,
+  viewTransitionName,
+  className,
+}: {
+  photos:              Array<{ url: string; caption?: string | null }>
+  href:                string
+  coverAlt:            string
+  priority?:           boolean
+  viewTransitionName?: string
+  className?:          string
+}) {
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const [activeIdx, setActiveIdx] = useState(0)
+
+  // IntersectionObserver instead of a scroll listener — cheaper and
+  // doesn't force synchronous layout reads per frame. Threshold 0.6
+  // gives a comfortable "snapped enough to count" feel.
+  useEffect(() => {
+    const root = scrollerRef.current
+    if (!root) return
+    const tiles = Array.from(root.querySelectorAll<HTMLElement>("[data-slide-idx]"))
+    if (tiles.length === 0) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.intersectionRatio >= 0.6) {
+            const idx = Number(entry.target.getAttribute("data-slide-idx"))
+            if (!Number.isNaN(idx)) setActiveIdx(idx)
+          }
+        }
+      },
+      { root, threshold: [0.6] },
+    )
+    for (const t of tiles) observer.observe(t)
+    return () => observer.disconnect()
+  }, [photos.length])
+
+  return (
+    <div className={cn("absolute inset-0", className)}>
+      <div
+        ref={scrollerRef}
+        className={cn(
+          "flex h-full w-full overflow-x-auto snap-x snap-mandatory",
+          "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+          // Constrain horizontal pans to the carousel; vertical pans
+          // still bubble up to the page so the user can scroll the
+          // marketplace grid normally.
+          "touch-pan-x overscroll-x-contain",
+        )}
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        {photos.map((p, idx) => (
+          <Link
+            key={idx}
+            href={href}
+            data-slide-idx={idx}
+            className="relative flex-none w-full h-full snap-start"
+            aria-label={p.caption ?? coverAlt}
+            // No prefetch on slides 2+ — the destination is the same
+            // page either way, and prefetching once is enough.
+            prefetch={idx === 0 ? undefined : false}
+            tabIndex={idx === 0 ? 0 : -1}
+          >
+            <Image
+              src={p.url}
+              alt={p.caption ?? (idx === 0 ? coverAlt : "")}
+              fill
+              sizes="100vw"
+              // Only the first slide gets the LCP hint. Off-screen
+              // slides ship with loading="lazy" via next/image default.
+              preload={idx === 0 && priority}
+              fetchPriority={idx === 0 && priority ? "high" : undefined}
+              className="object-cover"
+              // Pair the hero slide with the marketplace card's source
+              // photo on the detail page via the View Transitions API.
+              // Names must be unique per document, so only slide 0
+              // carries it.
+              style={
+                idx === 0 && viewTransitionName
+                  ? { viewTransitionName }
+                  : undefined
+              }
+            />
+          </Link>
+        ))}
       </div>
+
+      {/* Counter pill — small, brand-neutral, doesn't compete with the
+          status badge in the top corner. pointer-events-none so it
+          never blocks the underlying Link's tap target. */}
+      {photos.length > 1 && (
+        <span
+          className="absolute bottom-2 right-2 inline-flex items-center rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white font-numeric tabular-nums pointer-events-none z-10"
+          aria-live="polite"
+        >
+          {activeIdx + 1} / {photos.length}
+        </span>
+      )}
     </div>
   )
 }

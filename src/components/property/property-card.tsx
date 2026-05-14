@@ -55,13 +55,20 @@ export function PropertyCard({ property, currentUserId, currentUserSlug, isAdmin
   // We surface that state with a yellow pill + a dashed ring on the
   // card so blank intakes stand out from real listings in the grid.
   const isDraft = property.slug?.startsWith("draft-") ?? false
-  const coverPhoto = property.property_photos?.find((p) => p.is_cover)
-    ?? property.property_photos?.sort((a, b) => a.order_index - b.order_index)[0]
+  const sortedPhotos = (property.property_photos ?? [])
+    .slice()
+    .sort((a, b) => {
+      if (a.is_cover && !b.is_cover) return -1
+      if (!a.is_cover && b.is_cover) return 1
+      return a.order_index - b.order_index
+    })
+  const coverPhoto = sortedPhotos[0]
 
   return (
     <ListingCardShell
       href={`/properties/${property.id}`}
       coverUrl={coverPhoto?.url ?? null}
+      photos={sortedPhotos.length > 1 ? sortedPhotos.map((p) => ({ url: p.url })) : undefined}
       coverAlt={property.title}
       className={isDraft ? "outline-2 outline-dashed outline-warning/50 outline-offset-2 rounded-xl" : undefined}
       photoOverlay={

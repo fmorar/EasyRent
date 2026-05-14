@@ -384,7 +384,11 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
   // Similar listings — keeps visitors moving when this one isn't
   // quite right. Tier-based scoring (intent + type + zone + price +
   // bedrooms). Returns at most 6, plus their cover photos.
-  const { properties: similar, coverByProperty: similarCovers } = await getSimilarProperties({
+  const {
+    properties:       similar,
+    coverByProperty:  similarCovers,
+    photosByProperty: similarPhotos,
+  } = await getSimilarProperties({
     id:              property.id ?? "",
     listing_type:    property.listing_type,
     property_type:   property.property_type,
@@ -801,6 +805,7 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
                 key={p.id}
                 property={p}
                 coverUrl={p.id ? similarCovers[p.id] : undefined}
+                photos={p.id ? similarPhotos[p.id] : undefined}
                 viaAgentSlug={p.id && similarIdsViaAgent.has(p.id) ? via : undefined}
               />
             ))}

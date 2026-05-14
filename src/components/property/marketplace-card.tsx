@@ -9,7 +9,20 @@ import type { MarketplaceProperty } from "@/types"
 
 interface Props {
   property:  MarketplaceProperty
+  /**
+   * Single cover URL. Used when no `photos` array is provided (or
+   * the caller only has the cover). When `photos` is set, this is
+   * ignored — the array becomes both the cover (first item) and
+   * the source for the mobile swipe carousel.
+   */
   coverUrl?: string
+  /**
+   * Full photo list. When set + on mobile, ListingCardShell renders
+   * a horizontal swipe carousel; tap any slide to open the detail
+   * page, swipe to advance. Pass `null` / undefined when you only
+   * have the cover (single-image card behavior preserved).
+   */
+  photos?:   Array<{ url: string; caption?: string | null }>
   /** When set, append `?via=<slug>` to the listing href so the
    *  detail page can swap the contact to this agent (the one the
    *  property was shared with). Used by /agents/[slug] so a click
@@ -21,7 +34,7 @@ interface Props {
  * Public marketplace card — uses ListingCardShell for canonical visual.
  * Body shows: title + price · address · specs.
  */
-export function MarketplaceCard({ property, coverUrl, viaAgentSlug }: Props) {
+export function MarketplaceCard({ property, coverUrl, photos, viaAgentSlug }: Props) {
   const t           = useTranslations("properties.listingTypes")
   const tStatus     = useTranslations("properties.publicStatuses")
   const tAmenity    = useTranslations("marketplace.filterBar")
@@ -49,6 +62,7 @@ export function MarketplaceCard({ property, coverUrl, viaAgentSlug }: Props) {
     <ListingCardShell
       href={href}
       coverUrl={coverUrl ?? null}
+      photos={photos}
       coverAlt={property.title ?? ""}
       // Shared name pairs with the hero photo on `/p/[slug]`. The
       // browser morphs THIS image into the destination hero on

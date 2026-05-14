@@ -117,6 +117,28 @@ export default async function AgentProfilePage({ params }: Props) {
     { p_agent_id: agent.id },
   ) as { data: import("@/types").AgentProfileProperty[] | null }
 
+  // Fetch full photo lists for the carousel inside each property
+  // card on mobile. The RPC above only returns the `cover_url` —
+  // here we batch one extra query keyed by property_id so each card
+  // can swipe through up to N photos.
+  const propIds = (properties ?? [])
+    .map((p) => p.property_id)
+    .filter((id): id is string => !!id)
+  const photosByProperty: Record<string, Array<{ url: string; caption?: string | null }>> = {}
+  if (propIds.length > 0) {
+    const { data: phRows } = await supabase
+      .from("property_photos")
+      .select("property_id, url, caption, is_cover, order_index")
+      .in("property_id", propIds)
+      .order("is_cover", { ascending: false })
+      .order("order_index", { ascending: true })
+    for (const ph of phRows ?? []) {
+      const arr = photosByProperty[ph.property_id] ?? []
+      arr.push({ url: ph.url, caption: ph.caption })
+      photosByProperty[ph.property_id] = arr
+    }
+  }
+
   const initials = agent.full_name
     .split(" ")
     .map((n: string) => n[0])
@@ -397,6 +419,7 @@ export default async function AgentProfilePage({ params }: Props) {
                     key={property.property_id}
                     property={stub}
                     coverUrl={property.cover_url ?? undefined}
+                    photos={photosByProperty[property.property_id]}
                     // Always carry the agent's slug — clicks from an
                     // agent profile should route the lead to that
                     // agent, whether the property is their own or
