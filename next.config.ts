@@ -31,6 +31,13 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
       {
+        // Same hostname, transformation endpoint — used by
+        // src/lib/supabase-image.ts for on-the-fly avatar resizing.
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/render/image/public/**",
+      },
+      {
         // Google Places photo CDN — reviewer avatars and any place
         // photos surfaced on project / agent profiles.
         protocol: "https",
@@ -38,6 +45,16 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
+    // Override Vercel's 60s default. Vercel respects the lower of
+    // (source `Cache-Control: max-age`, this TTL). Supabase Storage
+    // ships every file with `max-age=3600`, which means without this
+    // override repeat visitors re-download every photo every hour.
+    // Setting 1 year flips it: Vercel caches the optimized response
+    // for 1 year regardless of what Supabase says upstream, and the
+    // browser sees `Cache-Control: public, max-age=31536000, immutable`
+    // on every `/_next/image` response. Fixes the "Use efficient
+    // cache lifetimes" PageSpeed audit at the source.
+    minimumCacheTTL: 31536000,
   },
 }
 

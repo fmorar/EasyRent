@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { NewsletterForm } from "@/components/layout/newsletter-form"
 import { EasyrentLogo } from "@/components/shared/easyrent-logo"
 
@@ -138,11 +139,15 @@ function WordmarkKnockout({ photoUrl }: { photoUrl: string | null }) {
             no hard horizontal cut between bg and photo. */}
         <div className="absolute inset-x-0 bottom-0 h-[72%]">
           {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={photoUrl}
               alt=""
-              className="h-full w-full object-cover"
+              fill
+              // Below the fold (page footer) — no priority, lazy load
+              // is the default. The optimizer also serves WebP and
+              // caches with max-age=31536000, immutable.
+              sizes="100vw"
+              className="object-cover"
             />
           ) : (
             <div className="h-full w-full bg-foreground" />

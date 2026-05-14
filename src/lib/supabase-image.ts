@@ -36,12 +36,24 @@ interface Opts {
 }
 
 /**
- * Convert a Supabase Storage public URL into its on-the-fly thumbnail
- * URL. Pass-through for anything that isn't a Supabase URL (so
- * external sources like Google Places avatars keep working).
+ * Convert a Supabase Storage public URL into a Vercel-optimized
+ * thumbnail URL. Pass-through for non-Supabase sources (Google
+ * Places avatars, etc.) so we don't break them.
  *
- * The 2× multiplier on width/height keeps things sharp on retina
- * displays without an explicit srcset.
+ * Why route through Vercel's image optimizer (`/_next/image`) instead
+ * of hitting Supabase's `/storage/v1/render/image/public/` directly:
+ *
+ *   • Supabase ships every transformed response with
+ *     `Cache-Control: max-age=3600` (1h). Visitors re-download every
+ *     hour, which trips the "Use efficient cache lifetimes" audit.
+ *   • Vercel's optimizer caches at the CDN with our configured
+ *     `images.minimumCacheTTL` (1 year) and serves the browser
+ *     `Cache-Control: public, max-age=31536000, immutable`.
+ *   • Same WebP/AVIF auto-detection, same edge delivery, and the
+ *     image budget gets unified with the rest of next/image.
+ *
+ * The 2× width multiplier keeps avatars sharp on HiDPI displays
+ * without forcing every consumer to manage srcset.
  */
 export function supabaseThumbnail(
   url: string | null | undefined,
@@ -49,26 +61,38 @@ export function supabaseThumbnail(
 ): string | undefined {
   if (!url) return undefined
 
-  // Only rewrite our own Supabase URLs. Anything else (Google avatars,
-  // Unsplash, etc.) gets returned as-is.
+  // Only optimize our own Supabase URLs. Anything else passes through.
   const isSupabase = /supabase\.co\/storage\/v1\/object\/public\//.test(url)
   if (!isSupabase) return url
 
-  // Strip any existing query string — we don't want to compound
-  // cache-busting `?v=…` values with our resize params (Supabase
-  // returns 400 on conflicting keys).
-  const [base] = url.split("?")
-  const rendered = base!.replace(
-    "/storage/v1/object/public/",
-    "/storage/v1/render/image/public/",
-  )
+  // Vercel's image optimizer accepts `w` (target width) + `q` (quality).
+  // It picks WebP/AVIF based on the Accept header and serves with the
+  // long-cache Cache-Control set by our next.config `minimumCacheTTL`.
+  //
+  // The optimizer rejects widths outside the allowlist (next.config
+  // `images.imageSizes` + `images.deviceSizes`) with a 400. We snap
+  // up to the nearest allowed value so the helper "just works" for
+  // any size a caller passes.
+  const targetWidth = nearestImageSize(opts.width * 2)
 
   const params = new URLSearchParams()
-  // Double up for HiDPI without resorting to srcset on the consumer.
-  params.set("width",  String(opts.width  * 2))
-  if (opts.height) params.set("height", String(opts.height * 2))
-  params.set("resize",  opts.resize  ?? "cover")
-  params.set("quality", String(opts.quality ?? 75))
+  params.set("url", url)
+  params.set("w",   String(targetWidth))
+  params.set("q",   String(opts.quality ?? 75))
 
-  return `${rendered}?${params.toString()}`
+  return `/_next/image?${params.toString()}`
+}
+
+// Vercel's default image-optimizer allowlist (imageSizes + deviceSizes).
+// Keep in sync with `next.config.ts` if either array gets overridden.
+const ALLOWED_WIDTHS = [
+  16, 32, 48, 64, 96, 128, 256, 384,              // imageSizes
+  640, 750, 828, 1080, 1200, 1920, 2048, 3840,    // deviceSizes
+] as const
+
+function nearestImageSize(target: number): number {
+  for (const w of ALLOWED_WIDTHS) {
+    if (w >= target) return w
+  }
+  return ALLOWED_WIDTHS[ALLOWED_WIDTHS.length - 1]!
 }
