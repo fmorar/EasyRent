@@ -12,6 +12,7 @@ import {
   EyeSlashIcon,
   ShieldCheckIcon,
   ArrowRightOnRectangleIcon,
+  EnvelopeIcon,
 } from "@heroicons/react/24/outline"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -47,13 +48,15 @@ export default function SecuritySettingsForm({ profile }: Props) {
   const supabase = createClient()
   const router   = useRouter()
 
-  // Two independent loading + message states so a failure in one
+  // Independent loading + message states so a failure in one
   // block doesn't visually wipe the other.
   const [pwMsg,    setPwMsg]    = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [emailMsg, setEmailMsg] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [globalMsg,setGlobalMsg]= useState<{ type: "success" | "error"; text: string } | null>(null)
   const [signOutPending, setSignOutPending] = useState(false)
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew,     setShowNew]     = useState(false)
+  const [showEmailPw, setShowEmailPw] = useState(false)
 
   // ── Password schema ─────────────────────────────────────────────
   const schema = z.object({
@@ -113,6 +116,64 @@ export default function SecuritySettingsForm({ profile }: Props) {
     reset()
   }
 
+  // ── Email change ────────────────────────────────────────────────
+  // Supabase requires the new email to be confirmed via a link sent
+  // to it before auth.users.email actually flips. We re-auth with
+  // current password first so a stolen session can't repoint the
+  // account, then call updateUser({ email }). The migration
+  // 20260513200000 wires an auth.users UPDATE trigger that mirrors
+  // the new email onto profiles.email once the confirmation lands.
+  const emailSchema = z.object({
+    newEmail: z.string()
+      .trim()
+      .email(t("emailInvalid"))
+      .refine((e) => e.toLowerCase() !== profile.email.toLowerCase(), {
+        message: t("emailSameAsCurrent"),
+      }),
+    pw:       z.string().min(1, t("securityCurrentRequired")),
+  })
+  type EmailFormValues = z.infer<typeof emailSchema>
+
+  const {
+    register:           registerEmail,
+    handleSubmit:       handleEmailSubmit,
+    reset:              resetEmail,
+    formState:          { errors: emailErrors, isSubmitting: emailSubmitting },
+  } = useForm<EmailFormValues>({
+    resolver: zodResolver(emailSchema),
+    mode:     "onBlur",
+  })
+
+  async function onChangeEmail(values: EmailFormValues) {
+    setEmailMsg(null)
+
+    // Re-auth — same pattern as password change.
+    const verify = await supabase.auth.signInWithPassword({
+      email:    profile.email,
+      password: values.pw,
+    })
+    if (verify.error) {
+      const msg = verify.error.message?.toLowerCase().includes("invalid")
+        ? t("securityCurrentWrong")
+        : verify.error.message
+      setEmailMsg({ type: "error", text: msg ?? t("emailChangeFail") })
+      return
+    }
+
+    const update = await supabase.auth.updateUser({ email: values.newEmail })
+    if (update.error) {
+      setEmailMsg({ type: "error", text: update.error.message })
+      return
+    }
+
+    setEmailMsg({
+      type: "success",
+      text: t("emailChangePending", { newEmail: values.newEmail }),
+    })
+    toast.success(t("emailChangePendingToast"))
+    resetEmail()
+  }
+
   async function onSignOutEverywhere() {
     setGlobalMsg(null)
     setSignOutPending(true)
@@ -129,10 +190,90 @@ export default function SecuritySettingsForm({ profile }: Props) {
 
   return (
     <div className="space-y-(--spacing-block)">
+      {/* ── Change email ─────────────────────────────────────── */}
+      <FormSection
+        id="email"
+        number={1}
+        title={t("emailTitle")}
+        description={t("emailDesc")}
+      >
+        <form onSubmit={handleEmailSubmit(onChangeEmail)} className="space-y-(--spacing-cluster)" noValidate>
+          {emailMsg && (
+            <Alert variant={emailMsg.type === "error" ? "destructive" : "default"}>
+              <AlertDescription>{emailMsg.text}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="currentEmail" className="text-xs font-medium text-muted-foreground">
+              {t("emailCurrentLabel")}
+            </Label>
+            <Input
+              id="currentEmail"
+              type="email"
+              value={profile.email}
+              readOnly
+              disabled
+              className="h-11 bg-muted/40"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="newEmail" className="text-xs font-medium text-muted-foreground">
+              {t("emailNewLabel")}
+            </Label>
+            <Input
+              id="newEmail"
+              type="email"
+              autoComplete="email"
+              placeholder="nombre@correo.com"
+              aria-invalid={emailErrors.newEmail ? "true" : "false"}
+              className="h-11"
+              {...registerEmail("newEmail")}
+            />
+            {emailErrors.newEmail && (
+              <p className="text-xs text-destructive">{emailErrors.newEmail.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="emailPw" className="text-xs font-medium text-muted-foreground">
+              {t("emailPwLabel")}
+            </Label>
+            <div className="relative">
+              <Input
+                id="emailPw"
+                type={showEmailPw ? "text" : "password"}
+                autoComplete="current-password"
+                aria-invalid={emailErrors.pw ? "true" : "false"}
+                className="h-11 pr-10"
+                {...registerEmail("pw")}
+              />
+              <EyeToggle visible={showEmailPw} onToggle={() => setShowEmailPw((v) => !v)} />
+            </div>
+            {emailErrors.pw ? (
+              <p className="text-xs text-destructive">{emailErrors.pw.message}</p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">{t("emailPwHint")}</p>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            disabled={emailSubmitting}
+            aria-busy={emailSubmitting}
+            className="gap-2"
+          >
+            <EnvelopeIcon className="h-4 w-4" />
+            {emailSubmitting ? t("emailChanging") : t("emailChangeCta")}
+          </Button>
+        </form>
+      </FormSection>
+
       {/* ── Change password ──────────────────────────────────── */}
       <FormSection
         id="password"
-        number={1}
+        number={2}
         title={t("passwordTitle")}
         description={t("passwordDesc")}
       >
@@ -234,7 +375,7 @@ export default function SecuritySettingsForm({ profile }: Props) {
       {/* ── Sign out everywhere ──────────────────────────────── */}
       <FormSection
         id="global-signout"
-        number={2}
+        number={3}
         title={t("securityGlobalTitle")}
         description={t("securityGlobalDesc")}
       >
