@@ -104,13 +104,20 @@ export function AgentContactBand({
           {/* Left rail */}
           <div className="lg:col-span-5 space-y-(--spacing-block)">
             <div className="space-y-(--spacing-cluster)">
+              {/* Plain flow rather than inline-flex: flex treated the
+                  "Hablá con" text node as a single item and let the
+                  browser wrap "con" alone underneath, producing
+                  "Hablá Fabian ↗ / con" on desktop. Letting the line
+                  flow as inline content keeps the natural Spanish
+                  reading order on every viewport. */}
               <h2
-                className="font-heading font-bold tracking-tight leading-[0.98] text-foreground inline-flex items-start gap-3"
+                className="font-heading font-bold tracking-tight leading-[0.98] text-foreground"
                 style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)" }}
               >
                 Hablá con{" "}
                 <span className="text-foreground/40">{firstName}</span>
-                <ArrowUpRightIcon className="h-8 w-8 sm:h-12 sm:w-12 shrink-0 mt-1 text-foreground" />
+                {" "}
+                <ArrowUpRightIcon className="inline-block h-8 w-8 sm:h-12 sm:w-12 align-baseline text-foreground" />
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-md">
                 Dejanos tus datos y{" "}

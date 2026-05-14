@@ -114,13 +114,16 @@ export function ProjectContactBand({
           {/* Left rail */}
           <div className="lg:col-span-5 space-y-(--spacing-block)">
             <div className="space-y-(--spacing-cluster)">
+              {/* See agent-contact-band for the rationale on dropping
+                  inline-flex here — same bug, same fix. */}
               <h2
-                className="font-heading font-bold tracking-tight leading-[0.98] text-foreground inline-flex items-start gap-3"
+                className="font-heading font-bold tracking-tight leading-[0.98] text-foreground"
                 style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)" }}
               >
                 Hablá con{" "}
                 <span className="text-foreground/40">un asesor</span>
-                <ArrowUpRightIcon className="h-8 w-8 sm:h-12 sm:w-12 shrink-0 mt-1 text-foreground" />
+                {" "}
+                <ArrowUpRightIcon className="inline-block h-8 w-8 sm:h-12 sm:w-12 align-baseline text-foreground" />
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-md">
                 {projectTitle ? (
