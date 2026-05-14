@@ -25,7 +25,11 @@ const STATIC_PATHS = [
 ]
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://easyrent.cr").replace(/\/+$/, "")
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_SITE_URL
+    ?? process.env.NEXT_PUBLIC_APP_URL
+    ?? "https://www.easyrent.house"
+  ).replace(/\/+$/, "")
   const supabase = await createClient()
 
   // ── Static
