@@ -152,11 +152,15 @@ function Tile({
   overlay?:  React.ReactNode
   viewTransitionName?: string
 }) {
-  // The hero tile is the LCP element on the property page. We pass
-  // `priority` only when the tile owns a view-transition-name —
+  // The hero tile is the LCP element on the property page. We mark it
+  // hot only when the tile owns a view-transition-name —
   // PropertyGallery sets that on the hero (index 0) and never on the
   // smaller tiles, so this is a clean signal without threading
   // another prop. Non-hero tiles get the default lazy-load behaviour.
+  //
+  // Next 16 deprecated `priority` — `preload` + `fetchPriority="high"`
+  // is the supported way to (a) inject a <link rel="preload"> and
+  // (b) set the img's fetchpriority attribute that browsers act on.
   const isHero = !!viewTransitionName
   const inner = (
     <>
@@ -172,7 +176,8 @@ function Tile({
             ? "(min-width: 640px) 50vw, 100vw"
             : "(min-width: 640px) 25vw, 100vw"
         }
-        priority={isHero}
+        preload={isHero}
+        fetchPriority={isHero ? "high" : undefined}
         className="object-cover transition-opacity duration-200 hover:opacity-95"
         // Pairs with the marketplace card's cover img — the browser
         // morphs that smaller image into this hero. Only the first

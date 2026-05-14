@@ -24,10 +24,15 @@ interface Props {
    */
   viewTransitionName?: string
   /**
-   * Hints Next/Image to preload this image (sets `fetchpriority="high"`
-   * and skips lazy loading). Use only for above-the-fold cards — e.g.
-   * the first 2-3 on the marketplace grid. Misusing it hurts LCP for
-   * the cards that ARE above the fold.
+   * Hints next/image to preload this image (injects a <link
+   * rel="preload"> in <head>) and sets `fetchpriority="high"` on
+   * the rendered <img>. Use only for above-the-fold cards — e.g.
+   * the first 2-3 on the marketplace grid. Misusing it hurts LCP
+   * for the cards that ARE above the fold.
+   *
+   * Implementation note: Next 16 deprecated the single `priority`
+   * shorthand. We accept it on this shell to keep the API ergonomic
+   * and translate to (`preload` + `fetchPriority`) internally.
    */
   priority?:           boolean
 }
@@ -97,7 +102,8 @@ export function ListingCardShell({
             // ship a 2000px hero for a 400px card. 100vw on mobile
             // (single col), 50vw md (2 col), 33vw lg+ (3 col).
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            priority={priority}
+            preload={priority}
+            fetchPriority={priority ? "high" : undefined}
             className="object-cover group-hover:scale-[1.03] transition-transform duration-500"
             // `view-transition-name` is forwarded via style. The
             // browser morphs this exact image element into the same-

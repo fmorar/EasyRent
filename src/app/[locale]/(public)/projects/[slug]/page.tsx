@@ -257,7 +257,8 @@ export default async function ProjectPublicPage({ params }: Props) {
             src={heroPhoto.url}
             alt={project.title}
             fill
-            priority
+            preload
+            fetchPriority="high"
             sizes="100vw"
             className="object-cover"
           />

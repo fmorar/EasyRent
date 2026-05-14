@@ -214,7 +214,8 @@ export default async function AgentProfilePage({ params }: Props) {
               alt=""
               aria-hidden
               fill
-              priority
+              preload
+              fetchPriority="high"
               sizes="100vw"
               className="object-cover"
             />
@@ -225,7 +226,8 @@ export default async function AgentProfilePage({ params }: Props) {
                 alt=""
                 aria-hidden
                 fill
-                priority
+                preload
+                fetchPriority="high"
                 sizes="100vw"
                 className="object-cover scale-110 blur-xl opacity-50"
               />

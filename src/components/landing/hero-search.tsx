@@ -92,13 +92,17 @@ export function HeroSearch({ locations, project }: HeroSearchProps) {
       {/* ── Contained project photo ─────────────────────────────── */}
       <div className="relative rounded-3xl overflow-hidden ring-1 ring-foreground/5 shadow-sm aspect-[16/10] sm:aspect-[16/8] lg:aspect-[16/7]">
         {project?.cover_url ? (
-          // Homepage hero — LCP candidate, so `priority` skips lazy
-          // loading and signals fetchpriority=high to the browser.
+          // Homepage hero — LCP element on the landing page. In Next 16
+          // the legacy `priority` prop was deprecated in favour of the
+          // explicit `preload` + `fetchPriority` pair (legacy `priority`
+          // silently became a no-op on the rendered <img>, which is why
+          // PageSpeed kept flagging the missing fetchpriority hint).
           <Image
             src={project.cover_url}
             alt={project.title}
             fill
-            priority
+            preload
+            fetchPriority="high"
             sizes="(min-width: 1024px) 1200px, 100vw"
             className="object-cover"
           />
