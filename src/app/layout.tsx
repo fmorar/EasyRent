@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { getLocale } from "next-intl/server"
 import { PostHogProvider } from "@/components/analytics/posthog-provider"
 import { buildOrganizationJsonLd, buildWebSiteJsonLd, jsonLdScript } from "@/lib/seo/json-ld"
 import "./globals.css"
@@ -45,11 +46,19 @@ export const metadata: Metadata = {
 }
 
 // Root layout — minimal shell. Locale-specific layout lives in [locale]/layout.tsx.
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Read the active locale here so the <html lang> attribute is
+  // correct on first render. next-intl resolves the locale from the
+  // URL via the middleware-set cookie/header even though this layout
+  // sits OUTSIDE the [locale] segment. Without this attribute, screen
+  // readers can't determine the page language and Google's lang
+  // signal falls back to autodetection (less reliable than explicit).
+  const locale = await getLocale()
   return (
     <html
+      lang={locale}
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >

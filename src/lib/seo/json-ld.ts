@@ -536,7 +536,14 @@ export function buildHreflangAlternates(args: {
   locale:  string
   baseUrl: string
 }) {
-  const path    = args.path.startsWith("/") ? args.path : `/${args.path}`
+  // Normalize the path. Two cases:
+  //   • "/" (the homepage) → emit nothing — `/{locale}/` would
+  //     produce a trailing-slash URL that Next.js 308-redirects to
+  //     `/{locale}`, causing PageSpeed to flag the canonical as
+  //     pointing to a different hreflang target.
+  //   • "/anything-else"   → keep as-is (no trailing slash).
+  const rawPath = args.path.startsWith("/") ? args.path : `/${args.path}`
+  const path    = rawPath === "/" ? "" : rawPath.replace(/\/$/, "")
   const baseUrl = args.baseUrl.replace(/\/$/, "")
   return {
     canonical: `${baseUrl}/${args.locale}${path}`,
