@@ -12,7 +12,7 @@ import { MarketplaceFilterBar } from "@/components/marketplace/filter-bar"
 import { MarketplacePagination } from "@/components/marketplace/pagination"
 import { PublicFooter } from "@/components/layout/public-footer"
 import { rankPropertiesByRelevance } from "@/lib/ai/search-fallback"
-import { buildHreflangAlternates, jsonLdScript } from "@/lib/seo/json-ld"
+import { buildFaqJsonLd, buildHreflangAlternates, jsonLdScript } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
 import type { MarketplaceProperty } from "@/types"
 
@@ -359,12 +359,28 @@ export default async function MarketplacePage({
       })),
   }
 
+  // ── SEO: FAQPage from the marketplace FAQ section ──────────────
+  // Resolves the next-intl FAQ message keys server-side so the JSON-LD
+  // matches the locale being rendered. The FAQ component itself stays
+  // a client component for the accordion — schema is just metadata.
+  const tFaq = await getTranslations("marketplace.faq")
+  const FAQ_KEYS = ["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8"] as const
+  const faqJsonLd = buildFaqJsonLd(
+    FAQ_KEYS.map((k) => ({ question: tFaq(`${k}Q`), answer: tFaq(`${k}A`) })),
+  )
+
   return (
     <div className="bg-background">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(itemListJsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(faqJsonLd) }}
+        />
+      )}
 
       {/* ── Filter bar (full-bleed tinted band) ─────────────── */}
       {/* Tint the band so it reads as a control surface, not page chrome.

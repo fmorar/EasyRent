@@ -303,6 +303,142 @@ export function buildOrganizationJsonLd(baseUrl: string) {
 }
 
 /**
+ * FAQPage — Google renders these Q&As as an accordion DIRECTLY under
+ * the page's SERP entry, dramatically expanding the listing's
+ * vertical real estate and CTR. Each Question must have one Answer
+ * with a non-empty answer text.
+ *
+ * Question text and acceptedAnswer.text both go through `stripHtml`
+ * — Google validates FAQPage strictly and rejects HTML in either
+ * field.
+ */
+export function buildFaqJsonLd(items: Array<{ question: string; answer: string }>) {
+  const stripHtml = (s: string) =>
+    s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+  const cleaned = items
+    .map((i) => ({ q: stripHtml(i.question), a: stripHtml(i.answer) }))
+    .filter((i) => i.q && i.a)
+  if (cleaned.length === 0) return null
+  return {
+    "@context":  "https://schema.org",
+    "@type":     "FAQPage",
+    mainEntity:  cleaned.map((i) => ({
+      "@type":          "Question",
+      name:             i.q,
+      acceptedAnswer:   {
+        "@type": "Answer",
+        text:    i.a,
+      },
+    })),
+  }
+}
+
+/**
+ * WebSite + SearchAction — unlocks the "sitelinks search box" inside
+ * the Google SERP entry for brand queries like "easyrent". Visitors
+ * can search the site without leaving the SERP first. The site
+ * receives the query as `?q=<term>` on the marketplace route, which
+ * already handles free-text search.
+ *
+ * Only emit this on a single canonical surface (root layout). If you
+ * also emit it on sub-pages Google flags it as duplicate.
+ */
+export function buildWebSiteJsonLd(baseUrl: string) {
+  const cleanBase = baseUrl.replace(/\/$/, "")
+  return {
+    "@context":       "https://schema.org",
+    "@type":          "WebSite",
+    name:             "easyrent",
+    url:              cleanBase,
+    inLanguage:       ["es-CR", "en"],
+    potentialAction: {
+      "@type":      "SearchAction",
+      target:       {
+        "@type":     "EntryPoint",
+        urlTemplate: `${cleanBase}/es/marketplace?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  }
+}
+
+interface ProjectSchemaInput {
+  /** Display title. */
+  name:               string
+  /** Canonical project URL. */
+  url:                string
+  /** Optional HTML description — gets stripped + capped. */
+  description?:       string | null
+  /** Absolute image URLs ordered as on the page. */
+  imageUrls:          string[]
+  /** Free-form address shown on the page (`project.display_address`). */
+  displayAddress?:    string | null
+  /** Display coordinates — public-safe approximate. */
+  displayLat?:        number | null
+  displayLng?:        number | null
+  /** Total units in the project. */
+  totalUnits?:        number | null
+  /** ISO date when the project completes / completed. */
+  completionDate?:    string | null
+  /** Amenity names (project_amenities.name). */
+  amenities?:         string[]
+}
+
+/**
+ * ApartmentComplex schema for residential project pages. Inherits
+ * from Accommodation → Residence → Place, so it accepts amenities,
+ * address, geo, image, plus complex-specific
+ * `numberOfAccommodationUnits`.
+ *
+ * Note we don't nest an Offer here — projects span multiple units
+ * with their own prices, so the Offer-per-unit lives on each
+ * property page instead.
+ */
+export function buildProjectJsonLd(input: ProjectSchemaInput) {
+  const { locality, region, postalCode } = parseDisplayAddress(input.displayAddress)
+  const address: Record<string, unknown> = {
+    "@type":         "PostalAddress",
+    addressCountry:  "CR",
+  }
+  if (locality)   address.addressLocality = locality
+  if (region)     address.addressRegion   = region
+  if (postalCode) address.postalCode      = postalCode
+
+  const schema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type":    "ApartmentComplex",
+    name:       input.name,
+    url:        input.url,
+    address,
+  }
+  if (input.description) {
+    schema.description = input.description
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 5000)
+  }
+  if (input.imageUrls.length > 0) schema.image = input.imageUrls
+  if (input.displayLat != null && input.displayLng != null) {
+    schema.geo = {
+      "@type":   "GeoCoordinates",
+      latitude:  input.displayLat,
+      longitude: input.displayLng,
+    }
+  }
+  if (input.totalUnits != null) schema.numberOfAccommodationUnits = input.totalUnits
+  if (input.completionDate)     schema.yearBuilt = input.completionDate.slice(0, 4)
+  if (input.amenities && input.amenities.length > 0) {
+    schema.amenityFeature = input.amenities.map((name) => ({
+      "@type": "LocationFeatureSpecification",
+      name,
+      value:   true,
+    }))
+  }
+  return schema
+}
+
+/**
  * BreadcrumbList — surfaces site hierarchy in the SERP listing.
  * Google renders these as a stacked path under the page title
  * (Home › Marketplace › Apartamento en Escazú) which both helps

@@ -23,7 +23,9 @@ import { fetchGoogleReviews } from "@/lib/google-places"
 import { getLocale } from "next-intl/server"
 import {
   buildBreadcrumbJsonLd,
+  buildFaqJsonLd,
   buildHreflangAlternates,
+  buildProjectJsonLd,
   jsonLdScript,
 } from "@/lib/seo/json-ld"
 
@@ -201,8 +203,13 @@ export default async function ProjectPublicPage({ params }: Props) {
     })
   }
 
-  // ── SEO: BreadcrumbList ─────────────────────────────────────────
-  // Surfaces hierarchy in the SERP entry: Home › Projects › <Name>.
+  // ── SEO: BreadcrumbList + ApartmentComplex + FAQPage ────────────
+  // Three structured-data payloads:
+  //   - Breadcrumb gives Google the SERP-card breadcrumb trail
+  //   - ApartmentComplex turns the project into a structured entity
+  //     in the knowledge graph (carries address, amenities, total
+  //     units, year built)
+  //   - FAQPage (when present) unlocks the SERP accordion of Q&As
   const locale      = await getLocale()
   const projectUrl  = `${SITE_URL}/${locale}/projects/${project.slug ?? slug}`
   const breadcrumbs = buildBreadcrumbJsonLd([
@@ -210,6 +217,20 @@ export default async function ProjectPublicPage({ params }: Props) {
     { name: locale === "en" ? "Projects" : "Proyectos",  url: `${SITE_URL}/${locale}` },
     { name: project.title, url: projectUrl },
   ])
+  const projectImages = photos.map((p) => p.url)
+  const projectSchema = buildProjectJsonLd({
+    name:           project.title,
+    url:            projectUrl,
+    description:    project.description,
+    imageUrls:      projectImages,
+    displayAddress: project.location_label,
+    totalUnits:     project.total_units,
+    completionDate: project.completion_date,
+    amenities:      amenities.map((a) => a.name),
+  })
+  const faqSchema = buildFaqJsonLd(
+    (faqs ?? []).map((f) => ({ question: f.question, answer: f.answer })),
+  )
 
   return (
     <div className="bg-background">
@@ -217,6 +238,16 @@ export default async function ProjectPublicPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbs) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(projectSchema) }}
+      />
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(faqSchema) }}
+        />
+      )}
 
       {/* ─── HERO ────────────────────────────────────────────── */}
       <section className="relative h-[80vh] min-h-[480px] sm:min-h-[560px] lg:min-h-[620px] lg:h-[88vh] w-full overflow-hidden">

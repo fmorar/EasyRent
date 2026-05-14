@@ -3,7 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { PostHogProvider } from "@/components/analytics/posthog-provider"
-import { buildOrganizationJsonLd, jsonLdScript } from "@/lib/seo/json-ld"
+import { buildOrganizationJsonLd, buildWebSiteJsonLd, jsonLdScript } from "@/lib/seo/json-ld"
 import "./globals.css"
 
 const inter = Inter({
@@ -65,6 +65,16 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: jsonLdScript(buildOrganizationJsonLd(SITE_URL)),
+          }}
+        />
+        {/* WebSite + SearchAction — unlocks the Sitelinks Search Box
+            in Google's SERP entry for brand queries. Lives in the root
+            layout (single canonical instance — Google flags it as
+            duplicate if emitted on sub-pages). */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLdScript(buildWebSiteJsonLd(SITE_URL)),
           }}
         />
         {/* PostHog wraps the tree so client components can `usePostHog()`.
