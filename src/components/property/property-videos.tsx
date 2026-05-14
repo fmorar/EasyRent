@@ -1,4 +1,5 @@
 import type { VideoRow } from "@/lib/actions/media.actions"
+import { YouTubeFacade } from "./youtube-facade"
 
 interface Props {
   videos:  VideoRow[]
@@ -17,7 +18,14 @@ function extractYouTubeId(url: string): string | null {
 }
 
 /**
- * Renders the list of YouTube videos attached to a property as embeds.
+ * Renders the list of YouTube videos attached to a property.
+ *
+ * Each tile starts as a static thumbnail (`<YouTubeFacade>`) and only
+ * mounts the real iframe on click. This avoids paying the cost of
+ * YouTube's player JS + CSS (~500 KB + ~1s CPU) on first render,
+ * which is a big LCP / TBT win because most visitors don't actually
+ * play the videos.
+ *
  * Returns null when there are no usable videos — every consumer can
  * mount it unconditionally and let it decide whether to render.
  */
@@ -35,13 +43,7 @@ export function PropertyVideos({ videos, heading }: Props) {
       <div className="space-y-(--spacing-cluster)">
         {sorted.map((v) => (
           <div key={v.id} className="rounded-xl overflow-hidden bg-muted aspect-video">
-            <iframe
-              src={`https://www.youtube.com/embed/${v.ytId}`}
-              title={v.title ?? "Video"}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="w-full h-full"
-            />
+            <YouTubeFacade videoId={v.ytId} title={v.title} />
           </div>
         ))}
       </div>
