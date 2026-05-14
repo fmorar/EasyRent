@@ -141,11 +141,15 @@ export function buildPropertyJsonLd(input: PropertySchemaInput) {
     url:          canonicalUrl,
     availability,
     itemOffered:  { "@id": listingId },
-    // Rent vs sale is encoded via businessFunction. We use the bare
-    // enum value (not the schema.org URL form) — Google's validator
-    // accepts both, but the bare form has fewer parsing edge cases
-    // across crawlers.
-    businessFunction: isRent ? "LeaseOut" : "Sell",
+    // Note: we deliberately omit `businessFunction`. Schema.org
+    // accepts it on Offer, but Google's Rich Results validator
+    // currently rejects every value (its allowlist for this context
+    // is empty — see Rich Results error "Valid values are: []").
+    // Rent vs sale is already encoded for crawlers via:
+    //   • `priceSpecification.referenceQuantity.unitCode = "MON"`
+    //     (rentals only) → marks it as a monthly rate
+    //   • `category` (e.g. "Apartamento en alquiler") → explicit
+    //   • `name`/`description` → natural-language context
   }
   if (property.price != null) {
     offer.price         = Number(property.price)
