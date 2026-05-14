@@ -12,7 +12,7 @@ import { MarketplaceFilterBar } from "@/components/marketplace/filter-bar"
 import { MarketplacePagination } from "@/components/marketplace/pagination"
 import { PublicFooter } from "@/components/layout/public-footer"
 import { rankPropertiesByRelevance } from "@/lib/ai/search-fallback"
-import { buildHreflangAlternates } from "@/lib/seo/json-ld"
+import { buildHreflangAlternates, jsonLdScript } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
 import type { MarketplaceProperty } from "@/types"
 
@@ -333,8 +333,38 @@ export default async function MarketplacePage({
   if (sp.location)                  titleParts.push(t("headlineLocation", { location: sp.location }))
   const headerTitle = titleParts.join(" ")
 
+  // ── SEO: ItemList of the current page's properties ─────────────
+  // Lets Google understand this surface lists multiple offerings and
+  // (when results match a search query) potentially render a SERP
+  // carousel for queries like "apartamentos en alquiler en Escazú".
+  // We only emit positions for the items actually rendered on this
+  // page, anchored by the page number, so pagination + filters all
+  // produce semantically distinct lists.
+  const locale            = await getLocale()
+  const marketplaceUrl    = `${SITE_URL}/${locale}/marketplace`
+  const itemListJsonLd    = {
+    "@context": "https://schema.org",
+    "@type":    "ItemList",
+    name:       headerTitle,
+    url:        marketplaceUrl,
+    numberOfItems: properties.length,
+    itemListOrder: "https://schema.org/ItemListOrderDescending",
+    itemListElement: properties
+      .filter((p) => p.slug)
+      .map((p, idx) => ({
+        "@type":   "ListItem",
+        position:  (page - 1) * PER_PAGE + idx + 1,
+        url:       `${SITE_URL}/${locale}/p/${p.slug}`,
+        name:      p.title,
+      })),
+  }
+
   return (
     <div className="bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(itemListJsonLd) }}
+      />
 
       {/* ── Filter bar (full-bleed tinted band) ─────────────── */}
       {/* Tint the band so it reads as a control surface, not page chrome.
