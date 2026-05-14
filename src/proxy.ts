@@ -145,9 +145,16 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Exclude API routes (`/api/*`), Next internals, favicon, and
-    // static image assets. API routes must never be locale-prefixed
+    // Exclude API routes (`/api/*`), Next internals, favicon, static
+    // image assets, and Next's special metadata files (robots.txt,
+    // sitemap.xml, manifest). API routes must never be locale-prefixed
     // by next-intl — they're framework-agnostic transport.
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    //
+    // robots.txt + sitemap.xml live at the domain root by convention;
+    // Google fetches them at `/robots.txt`, never `/es/robots.txt`.
+    // Letting next-intl 307-redirect them to a locale path is exactly
+    // the wrong thing to do — search engines won't follow the redirect
+    // for these special files and the site ends up uncrawlable.
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 }
