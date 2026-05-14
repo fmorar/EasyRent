@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import {
   EyeIcon,
@@ -45,6 +45,7 @@ interface Props {
  */
 export default function SecuritySettingsForm({ profile }: Props) {
   const t        = useTranslations("settings")
+  const locale   = useLocale()
   const supabase = createClient()
   const router   = useRouter()
 
@@ -160,7 +161,20 @@ export default function SecuritySettingsForm({ profile }: Props) {
       return
     }
 
-    const update = await supabase.auth.updateUser({ email: values.newEmail })
+    // emailRedirectTo overrides Supabase's project-level Site URL for
+    // the confirmation link target. Without this, dev environments
+    // (or any project with a Site URL pointing to localhost) sent the
+    // user a "verify" email pointing at localhost — broken outside
+    // the developer's laptop. We use window.location.origin so each
+    // environment redirects to itself: localhost in dev, the prod
+    // domain on www.easyrent.house.
+    const redirectTo = typeof window !== "undefined"
+      ? `${window.location.origin}/${locale}/settings`
+      : undefined
+    const update = await supabase.auth.updateUser(
+      { email: values.newEmail },
+      redirectTo ? { emailRedirectTo: redirectTo } : undefined,
+    )
     if (update.error) {
       setEmailMsg({ type: "error", text: update.error.message })
       return
