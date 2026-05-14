@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline"
 import { cn } from "@/lib/utils"
 
 interface Props {
@@ -121,19 +122,17 @@ export function ListingCardShell({
                 viewTransitionName={viewTransitionName}
                 className="sm:hidden"
               />
-              {/* Desktop — single hero (matches previous look) */}
-              <Link
+              {/* Desktop — hover-revealed arrow nav with cross-fade
+                  between photos. Single Link still wraps every slide
+                  so clicking anywhere on the photo navigates. */}
+              <DesktopCardSlider
+                photos={normalizedPhotos}
                 href={href}
-                aria-label={coverAlt}
-                className="hidden sm:block absolute inset-0"
-              >
-                <SingleCover
-                  url={hero.url}
-                  alt={coverAlt}
-                  priority={priority}
-                  viewTransitionName={viewTransitionName}
-                />
-              </Link>
+                coverAlt={coverAlt}
+                priority={priority}
+                viewTransitionName={viewTransitionName}
+                className="hidden sm:block"
+              />
             </>
           ) : (
             <Link
@@ -168,6 +167,143 @@ export function ListingCardShell({
       >
         {children}
       </Link>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+/**
+ * Desktop-only mini-slider. Hover over the card → left/right arrows
+ * fade in over the photo edges; a small row of dot indicators sits
+ * at the bottom. Click an arrow → cross-fade to the next/prev photo
+ * (no navigation). Click anywhere else on the photo → goes to the
+ * detail page like the single-cover variant.
+ *
+ * Render strategy: every photo lives in the DOM simultaneously,
+ * stacked absolutely. Only the active one has `opacity-100`, the
+ * rest are `opacity-0`. The browser preloads them all (we cap at
+ * MAX_CAROUSEL_PHOTOS so this stays bounded), so navigation is
+ * instant with no flicker.
+ *
+ * Note on view-transition-name: only photo 0 carries it. If the
+ * visitor flips to photo 2 and then clicks, the morph-to-detail
+ * animation doesn't fire — that's an acceptable degradation. The
+ * alternative (re-binding the name to the active slide) would need
+ * uniqueness coordination across N cards on the page.
+ */
+function DesktopCardSlider({
+  photos,
+  href,
+  coverAlt,
+  priority,
+  viewTransitionName,
+  className,
+}: {
+  photos:              Array<{ url: string; caption?: string | null }>
+  href:                string
+  coverAlt:            string
+  priority?:           boolean
+  viewTransitionName?: string
+  className?:          string
+}) {
+  const [idx, setIdx] = useState(0)
+  const hasMore = photos.length > 1
+
+  // Wrap-around: stay on slide if there's nowhere to go (we hide the
+  // arrow at the edges anyway, but this keeps state sane).
+  const prev = () => setIdx((i) => (i > 0 ? i - 1 : i))
+  const next = () => setIdx((i) => (i < photos.length - 1 ? i + 1 : i))
+
+  return (
+    <div className={cn("absolute inset-0", className)}>
+      {/* The Link covers the whole photo area. Buttons + dots are
+          siblings (not descendants), so their clicks don't bubble to
+          the anchor. */}
+      <Link
+        href={href}
+        aria-label={coverAlt}
+        className="absolute inset-0 block"
+      >
+        {photos.map((p, i) => (
+          <Image
+            key={i}
+            src={p.url}
+            alt={i === idx ? coverAlt : ""}
+            fill
+            sizes="(min-width: 1024px) 33vw, 50vw"
+            preload={priority && i === 0}
+            fetchPriority={priority && i === 0 ? "high" : undefined}
+            className={cn(
+              "object-cover group-hover:scale-[1.03] transition-all duration-(--duration-state) ease-(--ease-out-quart)",
+              i === idx ? "opacity-100" : "opacity-0 pointer-events-none",
+            )}
+            style={
+              i === 0 && viewTransitionName
+                ? { viewTransitionName }
+                : undefined
+            }
+            // Hide background slides from assistive tech.
+            aria-hidden={i !== idx}
+          />
+        ))}
+      </Link>
+
+      {hasMore && (
+        <>
+          {/* Left arrow */}
+          {idx > 0 && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev() }}
+              aria-label="Foto anterior"
+              className={cn(
+                "absolute left-2 top-1/2 -translate-y-1/2 z-10",
+                "h-8 w-8 rounded-full bg-white/95 text-foreground shadow-md",
+                "flex items-center justify-center",
+                "opacity-0 group-hover:opacity-100 transition-opacity duration-(--duration-state) ease-(--ease-out-quart)",
+                "hover:bg-white hover:scale-110",
+              )}
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Right arrow */}
+          {idx < photos.length - 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); next() }}
+              aria-label="Foto siguiente"
+              className={cn(
+                "absolute right-2 top-1/2 -translate-y-1/2 z-10",
+                "h-8 w-8 rounded-full bg-white/95 text-foreground shadow-md",
+                "flex items-center justify-center",
+                "opacity-0 group-hover:opacity-100 transition-opacity duration-(--duration-state) ease-(--ease-out-quart)",
+                "hover:bg-white hover:scale-110",
+              )}
+            >
+              <ChevronRightIcon className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Dot indicators — small, brand-neutral, always visible so
+              the visitor knows there's more even before they hover. */}
+          <div
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 pointer-events-none"
+            aria-hidden="true"
+          >
+            {photos.map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-(--duration-state) ease-(--ease-out-quart)",
+                  i === idx ? "w-4 bg-white" : "w-1.5 bg-white/55",
+                )}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
