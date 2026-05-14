@@ -372,6 +372,22 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
     }
   }
 
+  // Prefilled WhatsApp message — gives the agent immediate context
+  // for inbound inquiries (which property, which channel) so they
+  // can route the conversation without having to ask first. Built
+  // from absolute URL so the link survives outside the app.
+  const appUrl       = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.easyrent.house").replace(/\/$/, "")
+  const listingPath  = via
+    ? `/${locale}/p/${property.slug}?via=${encodeURIComponent(via)}`
+    : `/${locale}/p/${property.slug}`
+  const listingUrl   = `${appUrl}${listingPath}`
+  const whatsappMessage = [
+    `Hola, vi esta propiedad en easyrent y me interesa obtener información:`,
+    ``,
+    displayTitle,
+    listingUrl,
+  ].join("\n")
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major) space-y-(--spacing-section)">
 
@@ -650,6 +666,7 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
             propertyId={property.id ?? ""}
             agent={admin}
             trackingSource="branded"
+            whatsappMessage={whatsappMessage}
             form={
               <TourForm
                 propertyId={property.id!}
@@ -704,6 +721,7 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
           ctaLabel={t("scheduleTour")}
           modalTitle={t("scheduleTour")}
           modalDescription={t("scheduleTourDesc")}
+          whatsappMessage={whatsappMessage}
         >
           <TourForm
             propertyId={property.id!}

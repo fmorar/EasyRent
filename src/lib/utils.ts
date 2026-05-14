@@ -52,6 +52,28 @@ export function formatListingPrice(
 }
 
 // Slugify a string for use in URLs
+/**
+ * Build a wa.me link with an optional prefilled message. We strip
+ * everything but digits from the phone (wa.me accepts the +country
+ * code with no `+` or spaces) and URL-encode the message so emoji /
+ * newlines / accented characters survive the trip through WhatsApp's
+ * deeplink handler.
+ *
+ * Returns null when the phone is empty / unparseable so callers can
+ * skip rendering the link instead of generating a broken /wa.me/
+ * URL.
+ */
+export function buildWhatsAppLink(
+  phone:    string | null | undefined,
+  message?: string,
+): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "")
+  if (!digits) return null
+  const base = `https://wa.me/${digits}`
+  if (!message) return base
+  return `${base}?text=${encodeURIComponent(message)}`
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()

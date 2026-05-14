@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { trackEvent } from "@/lib/analytics/track"
+import { buildWhatsAppLink } from "@/lib/utils"
 import { isAdminRole } from "@/lib/roles"
 import type { ReactNode } from "react"
 import type { Profile } from "@/types"
@@ -25,6 +26,10 @@ interface Props {
   eyebrow?: string
   /** Source label fed to events ("branded" | "anonymous"). */
   trackingSource?: string
+  /** Prefilled WhatsApp message — appended as `?text=` on the wa.me
+   *  link so the visitor's first message identifies the property
+   *  they came from (and we can trace it). */
+  whatsappMessage?: string
 }
 
 /**
@@ -42,12 +47,14 @@ export function PropertyContactSidebar({
   form,
   eyebrow,
   trackingSource = "sidebar",
+  whatsappMessage,
 }: Props) {
   const t          = useTranslations("publicProperty")
   const initials   = agent.full_name
     .split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
   const isAdmin    = isAdminRole(agent.role)
   const phoneRaw   = agent.phone?.replace(/\D/g, "") ?? ""
+  const whatsAppUrl = buildWhatsAppLink(agent.phone, whatsappMessage)
   const eyebrowText = eyebrow ?? t("sendInquiry")
 
   return (
@@ -104,9 +111,9 @@ export function PropertyContactSidebar({
                   {t("callCta")}
                 </a>
               )}
-              {phoneRaw && (
+              {whatsAppUrl && (
                 <a
-                  href={`https://wa.me/${phoneRaw}`}
+                  href={whatsAppUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => trackEvent({

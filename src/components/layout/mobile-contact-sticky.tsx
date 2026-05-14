@@ -27,6 +27,10 @@ interface Props {
   /** Optional helper text under the modal title. */
   modalDescription?: string
 
+  /** Prefilled WhatsApp message — appended as `?text=` so the
+   *  visitor's first message identifies what they came from. */
+  whatsappMessage?: string
+
   /** Form content rendered inside the bottom-sheet modal. */
   children: ReactNode
 }
@@ -45,13 +49,17 @@ export function MobileContactSticky({
   ctaLabel,
   modalTitle,
   modalDescription,
+  whatsappMessage,
   children,
 }: Props) {
   const [open, setOpen] = useState(false)
 
   if (!phone && !email) return null
 
-  const cleanPhone = phone ? phone.replace(/\D/g, "") : null
+  const cleanPhone   = phone ? phone.replace(/\D/g, "") : null
+  const whatsAppUrl  = cleanPhone
+    ? `https://wa.me/${cleanPhone}${whatsappMessage ? `?text=${encodeURIComponent(whatsappMessage)}` : ""}`
+    : null
 
   return (
     <>
@@ -70,9 +78,9 @@ export function MobileContactSticky({
             </a>
           )}
 
-          {cleanPhone && (
+          {whatsAppUrl && (
             <a
-              href={`https://wa.me/${cleanPhone}`}
+              href={whatsAppUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="h-12 w-12 shrink-0 rounded-full border bg-background hover:bg-muted flex items-center justify-center text-foreground transition-colors"
