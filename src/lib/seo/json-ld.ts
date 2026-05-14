@@ -201,6 +201,13 @@ export function buildPropertyJsonLd(input: PropertySchemaInput) {
     name:     property.title,
     category: productCategory,
     url:      canonicalUrl,
+    // brand silences Google's "no GTIN/brand identifier" warning.
+    // Real estate listings don't have manufacturer brands, so we
+    // use the platform brand as the legitimate identifier.
+    brand: {
+      "@type": "Brand",
+      name:    "easyrent",
+    },
     offers:   offer,
   }
   if (description) productNode.description = description
@@ -210,6 +217,12 @@ export function buildPropertyJsonLd(input: PropertySchemaInput) {
     "@context": "https://schema.org",
     "@graph": [apartmentNode, productNode],
   }
+
+  // Note on remaining Product warnings: shippingDetails and
+  // hasMerchantReturnPolicy are e-commerce-only fields that don't
+  // apply to real estate (you don't ship or return an apartment).
+  // We deliberately leave them out — populating them with synthetic
+  // values would misrepresent the listing to crawlers.
 }
 
 /**
@@ -317,6 +330,10 @@ interface AgentSchemaInput {
   description?: string | null           // bio
   phone?:       string | null
   email?:       string | null
+  /** Optional zone list — e.g. ["Escazú", "Santa Ana"]. When present
+   *  we expose the first zone as addressLocality so Google can fold
+   *  the agent into local-pack results for that canton. */
+  zones?:       string[] | null
 }
 
 /**
@@ -325,8 +342,10 @@ interface AgentSchemaInput {
  * giving Google a structured business entity it can map into the
  * local-results pack.
  *
- * We omit telephone/email by default — those are PII the agent may
- * not want indexed verbatim. Callers can opt in per-agent.
+ * Phone is already publicly visible on the profile page, so exposing
+ * it in schema isn't a privacy regression — and it removes Google's
+ * "missing telephone" warning. Email is omitted (more PII-sensitive,
+ * Google doesn't require it for the RealEstateAgent rich result).
  */
 export function buildAgentJsonLd(input: AgentSchemaInput) {
   const schema: Record<string, unknown> = {
@@ -338,7 +357,24 @@ export function buildAgentJsonLd(input: AgentSchemaInput) {
       "@type":  "Country",
       name:     "Costa Rica",
     },
+    // priceRange is required by LocalBusiness-derived types. Real-
+    // estate agents handle a wide spectrum so "$$" is intentionally
+    // generic — Google still wants the field populated to qualify
+    // for local-pack inclusion.
+    priceRange: "$$",
   }
+
+  // Address — exposes the first zone as locality so the agent can
+  // surface in local-pack queries (e.g. "agente inmobiliario Escazú").
+  // Falls back to a country-level address when no zones are set.
+  const firstZone = input.zones?.find((z) => z && z.trim()) ?? null
+  schema.address = {
+    "@type":         "PostalAddress",
+    addressCountry:  "CR",
+    addressRegion:   "Costa Rica",
+    ...(firstZone ? { addressLocality: firstZone } : {}),
+  }
+
   if (input.imageUrl)     schema.image       = input.imageUrl
   if (input.description)  schema.description = input.description
     .replace(/<[^>]*>/g, "")

@@ -178,6 +178,8 @@ export default async function AgentProfilePage({ params }: Props) {
     url:         profileUrl,
     imageUrl:    agent.avatar_url,
     description: agent.bio,
+    phone:       agent.phone,
+    zones:       Array.isArray(agent.zones) ? agent.zones : null,
   })
   const breadcrumbs  = buildBreadcrumbJsonLd([
     { name: locale === "en" ? "Home"   : "Inicio",  url: `${SITE_URL}/${locale}` },
