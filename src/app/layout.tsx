@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { PostHogProvider } from "@/components/analytics/posthog-provider"
+import { buildOrganizationJsonLd, jsonLdScript } from "@/lib/seo/json-ld"
 import "./globals.css"
 
 const inter = Inter({
@@ -56,6 +57,16 @@ export default function RootLayout({
           extensions (Grammarly, LanguageTool, password managers, etc.) that
           inject attributes into the body before React hydrates. */}
       <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
+        {/* Schema.org Organization — site-wide brand identity for
+            search engines. Drops on every route so the knowledge-panel
+            pipeline picks it up regardless of which page a crawler
+            enters at. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLdScript(buildOrganizationJsonLd(SITE_URL)),
+          }}
+        />
         {/* PostHog wraps the tree so client components can `usePostHog()`.
             On servers without env vars the provider becomes a no-op. */}
         <PostHogProvider>

@@ -21,6 +21,7 @@ import { PropertyLocationMap } from "@/components/property/property-location-map
 import { MarketplaceCard } from "@/components/property/marketplace-card"
 import { getSimilarProperties } from "@/lib/similar-properties"
 import { MapPinIcon as MapPin, ArrowsPointingOutIcon as Maximize2, TruckIcon as Car } from "@heroicons/react/24/outline"
+import { buildPropertyJsonLd, jsonLdScript } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
 import type { MarketplaceProperty, Profile } from "@/types"
 import type { VideoRow } from "@/lib/actions/media.actions"
@@ -133,7 +134,19 @@ function buildMetadata(args: {
   return {
     title:       args.title,
     description: args.description,
-    alternates:  { canonical },
+    alternates: {
+      canonical,
+      // hreflang — tells Google which language version to serve per
+      // user. Without these, Google guesses and frequently sends CR
+      // users to the EN page (duplicate-content penalty + worse CTR).
+      // `x-default` is the fallback for visitors whose locale isn't
+      // explicitly mapped (e.g. fr-FR, pt-BR) — we default to ES.
+      languages: {
+        es:          `${baseUrl}/es/p/${args.slug}`,
+        en:          `${baseUrl}/en/p/${args.slug}`,
+        "x-default": `${baseUrl}/es/p/${args.slug}`,
+      },
+    },
     openGraph: {
       type:        "website",
       title:       args.title,
@@ -425,8 +438,43 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
     listingUrl,
   ].join("\n")
 
+  // Schema.org JSON-LD — gives Google enough structured info to render
+  // a richer SERP entry (price, photo, m², availability) and feeds the
+  // listing into the knowledge graph. Always canonical (no ?via=).
+  const canonicalUrl = `${appUrl}/${locale}/p/${property.slug}`
+  const jsonLd = buildPropertyJsonLd({
+    property: {
+      id:              property.id,
+      title:           displayTitle,
+      description:     displayDesc ?? property.description ?? null,
+      listing_type:    property.listing_type,
+      property_type:   property.property_type,
+      status:          property.status,
+      price:           property.price,
+      currency:        property.currency,
+      bedrooms:        property.bedrooms,
+      bathrooms:       property.bathrooms,
+      area_sqm:        property.area_sqm,
+      display_address: property.display_address,
+      display_lat:     property.display_lat,
+      display_lng:     property.display_lng,
+      created_at:      property.created_at,
+    },
+    imageUrls:    (photos ?? []).map((p) => p.url),
+    canonicalUrl,
+    locale,
+  })
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major) space-y-(--spacing-section)">
+
+      {/* Schema.org Apartment/House/LocalBusiness JSON-LD. Lets Google
+          surface price, photos, m², and availability on the SERP card
+          and feeds the listing into structured-data Search experiments. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
+      />
 
       {/* Fires property_viewed + deep_engagement after a short delay */}
       <PropertyViewTracker propertyId={property.id ?? ""} variant="branded" />
