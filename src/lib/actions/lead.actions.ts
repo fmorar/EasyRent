@@ -7,8 +7,8 @@ import { isAdminRole } from "@/lib/roles"
 import { revalidatePath } from "next/cache"
 import {
   PublicLeadEnrichmentSchema, computeInterestLevel,
-  type PublicLeadEnrichment,
 } from "@/lib/analytics/lead-schemas"
+import type { PublicLeadEnrichment } from "@/lib/analytics/lead-schemas"
 import type { ActionResult, Lead, LeadInsert, LeadSource, LeadStage } from "@/types"
 
 interface PublicLeadInput {
@@ -127,6 +127,9 @@ export async function capturePublicLead(
       message:       input.message ?? null,
       source:        input.source,
       sourceContext: input.source_context ?? null,
+      // Pass the validated enrichment block so the email lists the
+      // visitor's selections (intent, move-in window, pets, budget).
+      enrichment,
     })
   }
 
@@ -151,6 +154,7 @@ async function notifyLeadRecipientInBackground(args: {
   message:       string | null
   source:        LeadSource
   sourceContext: string | null
+  enrichment:    PublicLeadEnrichment
 }) {
   try {
     const { LEAD_SOURCE_LABELS } = await import("@/lib/labels")
@@ -187,6 +191,16 @@ async function notifyLeadRecipientInBackground(args: {
     )
     const inboxUrl = `${appUrl}/leads`
 
+    // Look up the property / project so the email shows a real title
+    // + a clickable link instead of just the slug. We use ES locale
+    // because the email body is in Spanish — if we ever ship EN/PT
+    // emails this gets threaded through.
+    const listingContext = await resolveListingContext(admin, {
+      appUrl,
+      propertyId: args.propertyId,
+      projectId:  args.projectId,
+    })
+
     await sendLeadNotificationEmail({
       to:            agent.email,
       agentName:     agent.full_name ?? "Agente",
@@ -196,11 +210,54 @@ async function notifyLeadRecipientInBackground(args: {
       message:       args.message,
       sourceLabel:   LEAD_SOURCE_LABELS[args.source] ?? args.source,
       sourceContext: args.sourceContext,
+      listing:       listingContext,
+      enrichment:    args.enrichment,
       inboxUrl,
     })
   } catch (err) {
     console.error("[lead.notify] failed for lead", args.leadId, err)
   }
+}
+
+// Look up the property or project so the email can render a real
+// card (title + URL) instead of just the bare slug. Falls through
+// silently when neither id resolves to a row — the email already
+// has source_context as a textual fallback.
+async function resolveListingContext(
+  admin:  ReturnType<typeof createAdminClient>,
+  refs:   { appUrl: string; propertyId: string | null; projectId: string | null },
+): Promise<{ kind: "property" | "project"; title: string; url: string } | null> {
+  if (refs.propertyId) {
+    const { data } = await admin
+      .from("properties")
+      .select("title, slug")
+      .eq("id", refs.propertyId)
+      .single()
+    if (data?.slug) {
+      return {
+        kind:  "property",
+        title: data.title,
+        // Email is rendered in ES — link to the ES surface. Visitors
+        // can switch locale from the page header.
+        url:   `${refs.appUrl}/es/p/${data.slug}`,
+      }
+    }
+  }
+  if (refs.projectId) {
+    const { data } = await admin
+      .from("projects")
+      .select("title, slug")
+      .eq("id", refs.projectId)
+      .single()
+    if (data?.slug) {
+      return {
+        kind:  "project",
+        title: data.title,
+        url:   `${refs.appUrl}/es/projects/${data.slug}`,
+      }
+    }
+  }
+  return null
 }
 
 // Find the right inbox for a lead: explicit captured_by wins; otherwise

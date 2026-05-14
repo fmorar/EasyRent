@@ -1,6 +1,7 @@
 import "server-only"
 import { getResend, getEmailFrom } from "./client"
 import { buildLeadNotificationEmail } from "./lead-notification"
+import type { PublicLeadEnrichment } from "@/lib/analytics/lead-schemas"
 
 interface Input {
   /** Agent inbox to deliver to (must be a verified-able address). */
@@ -12,6 +13,10 @@ interface Input {
   message:       string | null
   sourceLabel:   string
   sourceContext: string | null
+  /** Resolved property / project the lead came from. */
+  listing:       { kind: "property" | "project"; title: string; url: string } | null
+  /** Validated enrichment block — visitor's selections in the form. */
+  enrichment:    PublicLeadEnrichment
   inboxUrl:      string
 }
 
@@ -36,6 +41,8 @@ export async function sendLeadNotificationEmail(input: Input): Promise<SendResul
     message:       input.message,
     sourceLabel:   input.sourceLabel,
     sourceContext: input.sourceContext,
+    listing:       input.listing,
+    enrichment:    input.enrichment,
     inboxUrl:      input.inboxUrl,
   })
 

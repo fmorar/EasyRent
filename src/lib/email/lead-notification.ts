@@ -1,4 +1,5 @@
 import "server-only"
+import type { PublicLeadEnrichment } from "@/lib/analytics/lead-schemas"
 
 /**
  * HTML + plain-text body for the "new lead captured" email sent to the
@@ -27,8 +28,51 @@ interface Vars {
   sourceLabel:      string
   /** Short context blurb, e.g. "Asesor: Fabs Test" or "Propiedad: Estudio …". */
   sourceContext:    string | null
+  /**
+   * Resolved property / project the lead came from — when set, the
+   * email renders a labelled link card so the agent sees the listing
+   * title + can jump straight to the page. Falls back to
+   * `sourceContext` text when null.
+   */
+  listing:          { kind: "property" | "project"; title: string; url: string } | null
+  /**
+   * Visitor's enrichment selections (intent, move-in window, pets,
+   * budget…). Rendered as a small data table under the message
+   * block so the agent doesn't have to open the kanban to see them.
+   */
+  enrichment:       PublicLeadEnrichment
   /** Absolute URL where the agent can open their leads inbox. */
   inboxUrl:         string
+}
+
+// Spanish labels for the enrichment enum values. The email body is
+// Spanish-only today; if we ever localize emails this becomes a
+// per-locale map.
+const INQUIRY_TYPE_LABELS_ES: Record<string, string> = {
+  availability: "Consultar disponibilidad",
+  visit:        "Coordinar visita",
+  info:         "Solicitar más información",
+}
+const MOVE_IN_WINDOW_LABELS_ES: Record<string, string> = {
+  immediate:           "De inmediato",
+  one_month:           "En menos de un mes",
+  one_to_three_months: "Entre 1 y 3 meses",
+  three_to_six_months: "Entre 3 y 6 meses",
+  browsing:            "Solo investigando",
+}
+const PETS_LABELS_ES: Record<string, string> = {
+  none:      "Sin mascotas",
+  small_dog: "Perro pequeño",
+  large_dog: "Perro grande",
+  cat:       "Gato",
+  multiple:  "Varias mascotas",
+}
+const BUDGET_LABELS_ES: Record<string, string> = {
+  under_1000:         "Menos de $1.000",
+  between_1000_1500:  "$1.000 – $1.500",
+  between_1500_2000:  "$1.500 – $2.000",
+  between_2000_3000:  "$2.000 – $3.000",
+  above_3000:         "Más de $3.000",
 }
 
 const PRIMARY    = "#FACC15"  // brand yellow
@@ -46,6 +90,37 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
   const agentFirstName = v.agentName.trim().split(/\s+/)[0] || v.agentName
   const subject        = `Nueva consulta de ${leadFirstName} · ${v.sourceLabel}`
 
+  // ── Resolved enrichment rows (label + value) ────────────────
+  // Used by both the plain-text body and the HTML table below.
+  const enrichmentRows: Array<{ label: string; value: string }> = []
+  const e = v.enrichment
+  if (e.inquiry_type) {
+    enrichmentRows.push({ label: "Intención", value: INQUIRY_TYPE_LABELS_ES[e.inquiry_type] ?? e.inquiry_type })
+  }
+  if (e.move_in_window) {
+    enrichmentRows.push({ label: "Mudanza", value: MOVE_IN_WINDOW_LABELS_ES[e.move_in_window] ?? e.move_in_window })
+  }
+  if (e.has_pets) {
+    enrichmentRows.push({ label: "Mascotas", value: PETS_LABELS_ES[e.has_pets] ?? e.has_pets })
+  }
+  if (e.party_size != null) {
+    enrichmentRows.push({
+      label: "Personas",
+      value: e.party_size >= 5 ? "5+" : String(e.party_size),
+    })
+  }
+  if (e.budget_range) {
+    enrichmentRows.push({ label: "Presupuesto", value: BUDGET_LABELS_ES[e.budget_range] ?? e.budget_range })
+  }
+
+  // Prefer the resolved listing title when available; fall back to the
+  // bare source_context string the form passed (typically a slug).
+  const listingLine = v.listing
+    ? `${v.listing.kind === "property" ? "Propiedad" : "Proyecto"}: ${v.listing.title}\n${v.listing.url}`
+    : v.sourceContext
+      ? `Contexto: ${v.sourceContext}`
+      : null
+
   // ── Plain text ───────────────────────────────────────────────
   const text = [
     `Hola ${agentFirstName},`,
@@ -53,12 +128,15 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
     `Recibiste una nueva consulta en easyrent.`,
     ``,
     `Origen: ${v.sourceLabel}`,
-    v.sourceContext ? `Contexto: ${v.sourceContext}` : null,
+    listingLine,
     ``,
     `Nombre: ${v.leadName}`,
     v.leadEmail ? `Correo: ${v.leadEmail}` : null,
     v.leadPhone ? `Teléfono: ${v.leadPhone}` : null,
     v.message   ? `\nMensaje:\n${v.message}` : null,
+    enrichmentRows.length > 0
+      ? `\nRespuestas del formulario:\n${enrichmentRows.map((r) => `  · ${r.label}: ${r.value}`).join("\n")}`
+      : null,
     ``,
     `Respondé desde tu inbox: ${v.inboxUrl}`,
     ``,
@@ -79,8 +157,32 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
   </svg>`
 
   // ── Rows that only render when their data is present ─────────
-  const contextRow = v.sourceContext
+  // ── Listing card ───────────────────────────────────────────
+  // When we resolved a property / project the lead came from, render
+  // a labelled link card. The title is the actual listing title (not
+  // a bare slug) and the URL is clickable in any modern mail client.
+  // Falls back to the legacy plain-text sourceContext when null.
+  const listingBlock = v.listing
     ? `
+            <tr>
+              <td style="padding:8px 36px 16px 36px;">
+                <a href="${escapeAttr(v.listing.url)}" style="display:block;text-decoration:none;color:inherit;">
+                  <div style="border:1px solid ${BORDER};border-radius:12px;padding:14px 16px;">
+                    <p style="margin:0 0 4px 0;font-size:10px;line-height:1;color:${MUTED};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">
+                      ${v.listing.kind === "property" ? "Propiedad" : "Proyecto"}
+                    </p>
+                    <p style="margin:0;font-size:16px;line-height:1.3;font-weight:600;color:${FOREGROUND};">
+                      ${escapeHtml(v.listing.title)}
+                    </p>
+                    <p style="margin:6px 0 0 0;font-size:12px;line-height:1.4;color:${LINK};word-break:break-all;">
+                      ${escapeHtml(v.listing.url)}
+                    </p>
+                  </div>
+                </a>
+              </td>
+            </tr>`
+    : v.sourceContext
+      ? `
             <tr>
               <td style="padding:0 36px 8px 36px;">
                 <p style="margin:0;font-size:13px;line-height:1.5;color:${MUTED};">
@@ -88,7 +190,7 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
                 </p>
               </td>
             </tr>`
-    : ""
+      : ""
 
   const emailRow = v.leadEmail
     ? `
@@ -119,6 +221,31 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
                     Mensaje
                   </p>
                   <p style="margin:0;font-size:14px;line-height:1.6;color:${FOREGROUND};white-space:pre-line;">${escapeHtml(v.message)}</p>
+                </div>
+              </td>
+            </tr>`
+    : ""
+
+  // ── Form-enrichment block ──────────────────────────────────
+  // The lead form on property pages collects intent, move-in window,
+  // pets, party size, and budget. Showing these in the email lets
+  // the agent qualify before opening the kanban — they often decide
+  // priority based on these in the first 5 seconds.
+  const enrichmentBlock = enrichmentRows.length > 0
+    ? `
+            <tr>
+              <td style="padding:8px 36px 0 36px;">
+                <div style="border-top:1px dashed ${BORDER};padding-top:16px;">
+                  <p style="margin:0 0 10px 0;font-size:11px;line-height:1;color:${MUTED};text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">
+                    Respuestas del formulario
+                  </p>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    ${enrichmentRows.map((row) => `
+                    <tr>
+                      <td style="padding:4px 0;font-size:13px;line-height:1.5;color:${MUTED};width:120px;vertical-align:top;">${escapeHtml(row.label)}</td>
+                      <td style="padding:4px 0;font-size:14px;line-height:1.5;color:${FOREGROUND};font-weight:500;">${escapeHtml(row.value)}</td>
+                    </tr>`).join("")}
+                  </table>
                 </div>
               </td>
             </tr>`
@@ -161,10 +288,10 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
               </td>
             </tr>
 
-            ${contextRow}
+            ${listingBlock}
 
             <tr>
-              <td style="padding:16px 36px 0 36px;">
+              <td style="padding:8px 36px 0 36px;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td style="padding:6px 0;font-size:13px;line-height:1.5;color:${MUTED};width:80px;vertical-align:top;">Nombre</td>
@@ -177,6 +304,8 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
             </tr>
 
             ${messageBlock}
+
+            ${enrichmentBlock}
 
             <tr>
               <td style="padding:28px 36px 12px 36px;">
