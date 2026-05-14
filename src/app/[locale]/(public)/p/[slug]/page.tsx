@@ -21,7 +21,7 @@ import { PropertyLocationMap } from "@/components/property/property-location-map
 import { MarketplaceCard } from "@/components/property/marketplace-card"
 import { getSimilarProperties } from "@/lib/similar-properties"
 import { MapPinIcon as MapPin, ArrowsPointingOutIcon as Maximize2, TruckIcon as Car } from "@heroicons/react/24/outline"
-import { buildPropertyJsonLd, jsonLdScript } from "@/lib/seo/json-ld"
+import { buildPropertyJsonLd, buildBreadcrumbJsonLd, jsonLdScript } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
 import type { MarketplaceProperty, Profile } from "@/types"
 import type { VideoRow } from "@/lib/actions/media.actions"
@@ -464,6 +464,11 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
     canonicalUrl,
     locale,
   })
+  const breadcrumbs = buildBreadcrumbJsonLd([
+    { name: locale === "en" ? "Home"        : "Inicio",       url: `${appUrl}/${locale}` },
+    { name: locale === "en" ? "Marketplace" : "Marketplace",  url: `${appUrl}/${locale}/marketplace` },
+    { name: displayTitle ?? "Propiedad", url: canonicalUrl },
+  ])
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major) space-y-(--spacing-section)">
@@ -474,6 +479,10 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbs) }}
       />
 
       {/* Fires property_viewed + deep_engagement after a short delay */}

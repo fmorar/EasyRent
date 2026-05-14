@@ -202,6 +202,93 @@ export function buildOrganizationJsonLd(baseUrl: string) {
 }
 
 /**
+ * BreadcrumbList — surfaces site hierarchy in the SERP listing.
+ * Google renders these as a stacked path under the page title
+ * (Home › Marketplace › Apartamento en Escazú) which both helps
+ * users orient and is shown to bump click-through rate.
+ *
+ * Items must be passed in display order (root → current).
+ */
+export function buildBreadcrumbJsonLd(items: Array<{ name: string; url: string }>) {
+  return {
+    "@context":       "https://schema.org",
+    "@type":          "BreadcrumbList",
+    itemListElement:  items.map((item, idx) => ({
+      "@type":    "ListItem",
+      position:   idx + 1,
+      name:       item.name,
+      item:       item.url,
+    })),
+  }
+}
+
+interface AgentSchemaInput {
+  name:         string
+  url:          string                  // canonical agent profile URL
+  imageUrl?:    string | null
+  description?: string | null           // bio
+  phone?:       string | null
+  email?:       string | null
+}
+
+/**
+ * RealEstateAgent schema for public agent profile pages. Helps the
+ * profile rank for queries like "agente inmobiliario en San José" by
+ * giving Google a structured business entity it can map into the
+ * local-results pack.
+ *
+ * We omit telephone/email by default — those are PII the agent may
+ * not want indexed verbatim. Callers can opt in per-agent.
+ */
+export function buildAgentJsonLd(input: AgentSchemaInput) {
+  const schema: Record<string, unknown> = {
+    "@context":   "https://schema.org",
+    "@type":      "RealEstateAgent",
+    name:         input.name,
+    url:          input.url,
+    areaServed: {
+      "@type":  "Country",
+      name:     "Costa Rica",
+    },
+  }
+  if (input.imageUrl)     schema.image       = input.imageUrl
+  if (input.description)  schema.description = input.description
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 2000)
+  if (input.phone)        schema.telephone   = input.phone
+  if (input.email)        schema.email       = input.email
+  return schema
+}
+
+/**
+ * hreflang + canonical builder for next-intl routes. Pass the path
+ * WITHOUT the locale prefix (`/marketplace`, `/p/some-slug`) and the
+ * current locale; we return the shape the Next `Metadata.alternates`
+ * field expects.
+ *
+ * `x-default` always points at the Spanish version — that's the home
+ * locale and what we want crawlers to surface to non-mapped locales.
+ */
+export function buildHreflangAlternates(args: {
+  path:    string
+  locale:  string
+  baseUrl: string
+}) {
+  const path    = args.path.startsWith("/") ? args.path : `/${args.path}`
+  const baseUrl = args.baseUrl.replace(/\/$/, "")
+  return {
+    canonical: `${baseUrl}/${args.locale}${path}`,
+    languages: {
+      es:          `${baseUrl}/es${path}`,
+      en:          `${baseUrl}/en${path}`,
+      "x-default": `${baseUrl}/es${path}`,
+    },
+  }
+}
+
+/**
  * Convenience: returns a stringified `<script>`-ready payload. JSX
  * consumers should pass `dangerouslySetInnerHTML={{ __html: ... }}`
  * to avoid React escaping the JSON.

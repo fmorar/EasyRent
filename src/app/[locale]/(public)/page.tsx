@@ -24,11 +24,52 @@ import { GoogleReviewsEditorial } from "@/components/project/google-reviews-edit
 import { SAMPLE_REVIEWS_AGGREGATE } from "@/lib/sample-reviews"
 import { MarketplaceFaq } from "@/components/marketplace/marketplace-faq"
 import { PublicFooter } from "@/components/layout/public-footer"
+import { getLocale } from "next-intl/server"
+import { buildHreflangAlternates } from "@/lib/seo/json-ld"
+import type { Metadata } from "next"
 import type { MarketplaceProperty } from "@/types"
 
 const FEATURED_LIMIT = 6
 const PROJECTS_LIMIT = 6
 const AGENTS_LIMIT   = 6
+
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+  ?? "https://www.easyrent.house"
+)
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const title  = locale === "en"
+    ? "easyrent · Real estate in Costa Rica · Apartments, houses, projects"
+    : "easyrent · Inmuebles en Costa Rica · Apartamentos, casas, proyectos"
+  const description = locale === "en"
+    ? "Browse apartments and houses for rent and sale in Costa Rica. Verified listings, vetted agents, transparent pricing."
+    : "Encontrá apartamentos y casas en alquiler y venta en Costa Rica. Listados verificados, agentes seleccionados, precios transparentes."
+
+  return {
+    title,
+    description,
+    alternates: buildHreflangAlternates({
+      path:    "/",
+      locale,
+      baseUrl: SITE_URL,
+    }),
+    openGraph: {
+      type:        "website",
+      title,
+      description,
+      url:         `${SITE_URL}/${locale}`,
+      siteName:    "easyrent",
+      locale:      locale === "en" ? "en_US" : "es_CR",
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title,
+      description,
+    },
+  }
+}
 
 export default async function LandingPage() {
   const supabase = await createClient()

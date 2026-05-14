@@ -17,20 +17,46 @@
 //   └──────────────────────────────────────────────────────────┘
 
 import { createClient } from "@/lib/supabase/server"
-import { getTranslations } from "next-intl/server"
+import { getLocale, getTranslations } from "next-intl/server"
 import type { Metadata } from "next"
 import { OwnerLeadForm } from "@/components/contact/owner-lead-form"
 import { PublicFooter } from "@/components/layout/public-footer"
 import { CheckCircleIcon } from "@heroicons/react/24/outline"
 import { EnvelopeIcon, PhoneIcon } from "@heroicons/react/24/outline"
+import { buildHreflangAlternates } from "@/lib/seo/json-ld"
 
 export const revalidate = 600
 
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+  ?? "https://www.easyrent.house"
+)
+
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const title  = locale === "en"
+    ? "List your property · Sell or rent in Costa Rica · easyrent"
+    : "Contacto · vendé o alquilá tu propiedad · easyrent"
+  const description = locale === "en"
+    ? "Connect your property with verified buyers and tenants in Costa Rica. Free valuation, professional marketing, paperwork handled."
+    : "Conectamos tu propiedad con compradores e inquilinos verificados en Costa Rica. Valoración sin compromiso, marketing profesional y documentación al día."
+
   return {
-    title:       "Contacto · vendé o alquilá tu propiedad",
-    description:
-      "Conectamos tu propiedad con compradores e inquilinos verificados en Costa Rica. Valoración sin compromiso, marketing profesional y documentación al día.",
+    title,
+    description,
+    alternates: buildHreflangAlternates({
+      path:    "/contacto",
+      locale,
+      baseUrl: SITE_URL,
+    }),
+    openGraph: {
+      type:        "website",
+      title,
+      description,
+      url:         `${SITE_URL}/${locale}/contacto`,
+      siteName:    "easyrent",
+      locale:      locale === "en" ? "en_US" : "es_CR",
+    },
   }
 }
 

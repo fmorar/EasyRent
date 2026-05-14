@@ -9,15 +9,41 @@ import { Link } from "@/i18n/navigation"
 import { listPublishedPosts } from "@/lib/actions/blog.actions"
 import { PublicFooter } from "@/components/layout/public-footer"
 import { Badge } from "@/components/ui/badge"
+import { buildHreflangAlternates } from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
 
 export const revalidate = 300  // ISR — refresh every 5 min
 
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+  ?? "https://www.easyrent.house"
+)
+
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const title  = locale === "en"
+    ? "Blog · Costa Rica real estate market analysis · easyrent"
+    : "Blog · análisis del mercado inmobiliario en Costa Rica · easyrent"
+  const description = locale === "en"
+    ? "Guides, market analysis, and advice for buyers, renters, and investors in Costa Rica."
+    : "Guías, mercado y consejos para quienes compran, alquilan o invierten en propiedades en Costa Rica."
+
   return {
-    title:       "Blog · análisis del mercado inmobiliario en Costa Rica",
-    description:
-      "Guías, mercado y consejos para quienes compran, alquilan o invierten en propiedades en Costa Rica.",
+    title,
+    description,
+    alternates: buildHreflangAlternates({
+      path:    "/blog",
+      locale,
+      baseUrl: SITE_URL,
+    }),
+    openGraph: {
+      type:        "website",
+      title,
+      description,
+      url:         `${SITE_URL}/${locale}/blog`,
+      siteName:    "easyrent",
+      locale:      locale === "en" ? "en_US" : "es_CR",
+    },
   }
 }
 

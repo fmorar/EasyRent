@@ -6,15 +6,55 @@
 // get straight to the search experience.
 
 import { createClient } from "@/lib/supabase/server"
-import { getTranslations } from "next-intl/server"
+import { getLocale, getTranslations } from "next-intl/server"
 import { MarketplaceCard } from "@/components/property/marketplace-card"
 import { MarketplaceFilterBar } from "@/components/marketplace/filter-bar"
 import { MarketplacePagination } from "@/components/marketplace/pagination"
 import { PublicFooter } from "@/components/layout/public-footer"
 import { rankPropertiesByRelevance } from "@/lib/ai/search-fallback"
+import { buildHreflangAlternates } from "@/lib/seo/json-ld"
+import type { Metadata } from "next"
 import type { MarketplaceProperty } from "@/types"
 
 export const revalidate = 60
+
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+  ?? "https://www.easyrent.house"
+)
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  const title  = locale === "en"
+    ? "Marketplace · Properties for rent & sale in Costa Rica · easyrent"
+    : "Marketplace · Propiedades en alquiler y venta en Costa Rica · easyrent"
+  const description = locale === "en"
+    ? "Search apartments, houses, offices, and land across Costa Rica. Filter by price, bedrooms, location, and operation type."
+    : "Buscá apartamentos, casas, oficinas y terrenos en Costa Rica. Filtrá por precio, habitaciones, zona y tipo de operación."
+
+  return {
+    title,
+    description,
+    alternates: buildHreflangAlternates({
+      path:    "/marketplace",
+      locale,
+      baseUrl: SITE_URL,
+    }),
+    openGraph: {
+      type:        "website",
+      title,
+      description,
+      url:         `${SITE_URL}/${locale}/marketplace`,
+      siteName:    "easyrent",
+      locale:      locale === "en" ? "en_US" : "es_CR",
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title,
+      description,
+    },
+  }
+}
 
 interface SearchParams {
   q?:         string

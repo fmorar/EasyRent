@@ -14,6 +14,13 @@ import {
   ArrowRightIcon,
 } from "@heroicons/react/24/outline"
 import { StarIcon } from "@heroicons/react/24/solid"
+import { getLocale } from "next-intl/server"
+import {
+  buildAgentJsonLd,
+  buildBreadcrumbJsonLd,
+  buildHreflangAlternates,
+  jsonLdScript,
+} from "@/lib/seo/json-ld"
 import type { Metadata } from "next"
 import type { Profile, MarketplaceProperty } from "@/types"
 
@@ -21,9 +28,15 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+  ?? "https://www.easyrent.house"
+)
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const supabase  = await createClient()
+  const locale   = await getLocale()
+  const supabase = await createClient()
 
   const { data } = await supabase
     .from("profiles")
@@ -34,9 +47,44 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!data) return {}
 
+  // Title formula — name + role + locale-aware tail. The tail is
+  // important: it differentiates the page from social profiles with
+  // the same name and gives Google a hook for "Agente inmobiliario
+  // Costa Rica" type queries.
+  const title = locale === "en"
+    ? `${data.full_name} · Real Estate Agent in Costa Rica · easyrent`
+    : `${data.full_name} · Agente inmobiliario en Costa Rica · easyrent`
+
+  // Description: prefer the agent's bio (stripped). Fall back to a
+  // generated descriptor so we never ship empty meta.
+  const stripHtml = (html: string) =>
+    html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+  const fallbackDesc = locale === "en"
+    ? `Browse the listings managed by ${data.full_name}. Consult availability, schedule viewings, and request property details.`
+    : `Explorá las propiedades publicadas por ${data.full_name}. Consultá disponibilidad, agendá visitas y pedí información detallada.`
+  const description = data.bio ? stripHtml(data.bio).slice(0, 160) : fallbackDesc
+
   return {
-    title:       `${data.full_name} — Real Estate Agent`,
-    description: data.bio ?? undefined,
+    title,
+    description,
+    alternates: buildHreflangAlternates({
+      path:    `/agents/${slug}`,
+      locale,
+      baseUrl: SITE_URL,
+    }),
+    openGraph: {
+      type:        "profile",
+      title,
+      description,
+      siteName:    "easyrent",
+      locale:      locale === "en" ? "en_US" : "es_CR",
+      url:         `${SITE_URL}/${locale}/agents/${slug}`,
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title,
+      description,
+    },
   }
 }
 
@@ -118,8 +166,35 @@ export default async function AgentProfilePage({ params }: Props) {
     ? `${zonesCount} ${zonesCount === 1 ? "zona" : "zonas"} en el GAM`
     : null
 
+  // ── SEO structured data ─────────────────────────────────────────
+  // The agent page exposes two schemas: RealEstateAgent (so Google
+  // recognizes the page as a business entity for local-pack queries)
+  // and BreadcrumbList (so the SERP entry renders Home › Agentes ›
+  // Agent name instead of a flat URL).
+  const locale       = await getLocale()
+  const profileUrl   = `${SITE_URL}/${locale}/agents/${agent.slug ?? slug}`
+  const agentSchema  = buildAgentJsonLd({
+    name:        agent.full_name,
+    url:         profileUrl,
+    imageUrl:    agent.avatar_url,
+    description: agent.bio,
+  })
+  const breadcrumbs  = buildBreadcrumbJsonLd([
+    { name: locale === "en" ? "Home"   : "Inicio",  url: `${SITE_URL}/${locale}` },
+    { name: locale === "en" ? "Agents" : "Agentes", url: `${SITE_URL}/${locale}/agents` },
+    { name: agent.full_name, url: profileUrl },
+  ])
+
   return (
     <div className="bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(agentSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbs) }}
+      />
 
       {/* ─── HERO BANNER ────────────────────────────────────────
               Cover photo is full-bleed (edge to edge); the avatar

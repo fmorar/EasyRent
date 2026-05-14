@@ -20,15 +20,27 @@ import { ProjectContactBand } from "@/components/project/project-contact-band"
 import { GoogleReviewsEditorial } from "@/components/project/google-reviews-editorial"
 import { PublicFooter } from "@/components/layout/public-footer"
 import { fetchGoogleReviews } from "@/lib/google-places"
+import { getLocale } from "next-intl/server"
+import {
+  buildBreadcrumbJsonLd,
+  buildHreflangAlternates,
+  jsonLdScript,
+} from "@/lib/seo/json-ld"
 
 interface Props {
   params: Promise<{ slug: string }>
 }
 
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+  ?? "https://www.easyrent.house"
+)
+
 // ── Metadata ──────────────────────────────────────────────────────
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const supabase  = await createClient()
+  const locale   = await getLocale()
+  const supabase = await createClient()
 
   const { data } = await supabase
     .from("projects")
@@ -41,9 +53,36 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .maybeSingle()
 
   if (!data) return {}
+
+  const stripHtml = (s: string) =>
+    s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+  const description = data.description
+    ? stripHtml(data.description).slice(0, 160)
+    : (locale === "en"
+        ? `Browse the residential project ${data.title}. View units, amenities, and request a private viewing.`
+        : `Explorá el proyecto residencial ${data.title}. Conocé unidades disponibles, amenidades y agendá una visita.`)
+
   return {
-    title: data.title,
-    description: data.description ?? undefined,
+    title:       data.title,
+    description,
+    alternates:  buildHreflangAlternates({
+      path:    `/projects/${slug}`,
+      locale,
+      baseUrl: SITE_URL,
+    }),
+    openGraph: {
+      type:        "website",
+      title:       data.title,
+      description,
+      url:         `${SITE_URL}/${locale}/projects/${slug}`,
+      siteName:    "easyrent",
+      locale:      locale === "en" ? "en_US" : "es_CR",
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title:       data.title,
+      description,
+    },
   }
 }
 
@@ -162,8 +201,22 @@ export default async function ProjectPublicPage({ params }: Props) {
     })
   }
 
+  // ── SEO: BreadcrumbList ─────────────────────────────────────────
+  // Surfaces hierarchy in the SERP entry: Home › Projects › <Name>.
+  const locale      = await getLocale()
+  const projectUrl  = `${SITE_URL}/${locale}/projects/${project.slug ?? slug}`
+  const breadcrumbs = buildBreadcrumbJsonLd([
+    { name: locale === "en" ? "Home"     : "Inicio",     url: `${SITE_URL}/${locale}` },
+    { name: locale === "en" ? "Projects" : "Proyectos",  url: `${SITE_URL}/${locale}` },
+    { name: project.title, url: projectUrl },
+  ])
+
   return (
     <div className="bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbs) }}
+      />
 
       {/* ─── HERO ────────────────────────────────────────────── */}
       <section className="relative h-[80vh] min-h-[480px] sm:min-h-[560px] lg:min-h-[620px] lg:h-[88vh] w-full overflow-hidden">
