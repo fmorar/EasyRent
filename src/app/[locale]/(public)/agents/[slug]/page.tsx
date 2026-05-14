@@ -253,7 +253,10 @@ export default async function AgentProfilePage({ params }: Props) {
           {/* Overlapping info row */}
           <div className="-mt-12 sm:-mt-16 lg:-mt-20 flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 lg:gap-8 relative z-10">
           <Avatar className="h-24 w-24 sm:h-32 sm:w-32 lg:h-36 lg:w-36 border-4 border-background shadow-lg shrink-0">
-            <AvatarImage src={agent.avatar_url ?? undefined} alt={agent.full_name} />
+            {/* thumbWidth=144 (lg rendered width) → Supabase serves a
+                ~288px WebP instead of the 2000×2000 PNG original.
+                Drops the avatar payload from ~400 KiB to ~15 KiB. */}
+            <AvatarImage src={agent.avatar_url ?? undefined} alt={agent.full_name} thumbWidth={144} />
             <AvatarFallback className="text-2xl sm:text-3xl">{initials}</AvatarFallback>
           </Avatar>
 

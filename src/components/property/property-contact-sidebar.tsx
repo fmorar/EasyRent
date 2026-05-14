@@ -68,7 +68,7 @@ export function PropertyContactSidebar({
             className="flex items-start gap-3 group"
           >
             <Avatar className="h-12 w-12 shrink-0 ring-1 ring-transparent group-hover:ring-foreground/10 transition-[box-shadow] duration-(--duration-state) ease-(--ease-out-quart)">
-              <AvatarImage src={agent.avatar_url ?? undefined} />
+              <AvatarImage src={agent.avatar_url ?? undefined} thumbWidth={48} />
               <AvatarFallback className="text-sm">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">

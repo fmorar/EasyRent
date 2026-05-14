@@ -61,7 +61,7 @@ export function AgentsShowcase({ agents }: Props) {
               <article className="group rounded-2xl bg-background ring-1 ring-foreground/5 hover:ring-foreground/15 hover:shadow-md transition-all p-5 sm:p-6 h-full flex flex-col gap-4">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-14 w-14 ring-2 ring-background shadow-sm">
-                    <AvatarImage src={a.avatar_url ?? undefined} alt={a.full_name} />
+                    <AvatarImage src={a.avatar_url ?? undefined} alt={a.full_name} thumbWidth={56} />
                     <AvatarFallback className="text-sm">{initials || "?"}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1 space-y-0.5">

@@ -17,11 +17,16 @@ interface Props {
   className?: string
 }
 
-const SIZES: Record<NonNullable<Props["size"]>, { avatar: string; text: string; initials: string }> = {
-  xs: { avatar: "h-6 w-6",  text: "text-xs",  initials: "text-[9px]" },
-  sm: { avatar: "h-7 w-7",  text: "text-sm",  initials: "text-[10px]" },
-  md: { avatar: "h-8 w-8",  text: "text-sm",  initials: "text-xs" },
-  lg: { avatar: "h-10 w-10",text: "text-sm",  initials: "text-sm" },
+const SIZES: Record<NonNullable<Props["size"]>, {
+  avatar:     string
+  text:       string
+  initials:   string
+  thumbWidth: number    // rendered px width — fed to Supabase image transform
+}> = {
+  xs: { avatar: "h-6 w-6",  text: "text-xs",  initials: "text-[9px]",  thumbWidth: 24 },
+  sm: { avatar: "h-7 w-7",  text: "text-sm",  initials: "text-[10px]", thumbWidth: 28 },
+  md: { avatar: "h-8 w-8",  text: "text-sm",  initials: "text-xs",     thumbWidth: 32 },
+  lg: { avatar: "h-10 w-10",text: "text-sm",  initials: "text-sm",     thumbWidth: 40 },
 }
 
 /**
@@ -38,7 +43,7 @@ export function AgentChip({ agent, withName = true, size = "sm", meta, className
   return (
     <div className={cn("flex items-center gap-2 min-w-0", className)}>
       <Avatar className={cn(cls.avatar, "shrink-0")}>
-        <AvatarImage src={agent.avatar_url ?? undefined} />
+        <AvatarImage src={agent.avatar_url ?? undefined} thumbWidth={cls.thumbWidth} />
         <AvatarFallback className={cls.initials}>{initials}</AvatarFallback>
       </Avatar>
       {withName && (

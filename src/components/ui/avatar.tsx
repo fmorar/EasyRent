@@ -4,6 +4,7 @@ import * as React from "react"
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
 
 import { cn } from "@/lib/utils"
+import { supabaseThumbnail } from "@/lib/supabase-image"
 
 function Avatar({
   className,
@@ -25,10 +26,31 @@ function Avatar({
   )
 }
 
-function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
+function AvatarImage({
+  className,
+  src,
+  thumbWidth,
+  ...props
+}: AvatarPrimitive.Image.Props & {
+  /**
+   * Opt-in: when set, rewrite a Supabase Storage `src` through the
+   * `/render/image/public/` endpoint so Supabase serves a pre-sized
+   * WebP instead of the full 2000×2000 original. Pass the rendered
+   * CSS width — the helper doubles it for HiDPI. Non-Supabase URLs
+   * (e.g. Google Places avatars) pass through unchanged.
+   *
+   * Fixes the PageSpeed "Properly size images" + "Serve images in
+   * next-gen formats" audits on every public avatar surface.
+   */
+  thumbWidth?: number
+}) {
+  const finalSrc = thumbWidth && typeof src === "string"
+    ? supabaseThumbnail(src, { width: thumbWidth })
+    : src
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
+      src={finalSrc}
       className={cn(
         "aspect-square size-full rounded-full object-cover",
         className
