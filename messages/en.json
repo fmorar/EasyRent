@@ -1360,5 +1360,16 @@
     "projectFallbackLocation": "Greater Metro Area",
     "unitsOne": "unit",
     "unitsMany": "units"
+  },
+  "heroSearch": {
+    "eyebrow": "Real estate · Costa Rica · 2026",
+    "headlinePrefix": "Find your",
+    "headlineEmphasis": "next home",
+    "cta": "Schedule a viewing",
+    "subheadlinePrefix": "Validated paperwork, vetted advisors, and legal support before every viewing —",
+    "subheadlineEmphasis": "verified data",
+    "subheadlineSuffix": "on every listing in the Greater Metropolitan Area.",
+    "projectChip": "Project",
+    "ariaLabel": "Primary search"
   }
 }

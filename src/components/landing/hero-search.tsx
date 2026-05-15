@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { getTranslations } from "next-intl/server"
 import {
   ArrowRightIcon,
 } from "@heroicons/react/24/outline"
@@ -50,31 +51,32 @@ export interface HeroSearchProps {
  * visitor straight into `/marketplace?…` with the chosen filters
  * applied. Single source of truth for the filter UI.
  */
-export function HeroSearch({ locations, project }: HeroSearchProps) {
+export async function HeroSearch({ locations, project }: HeroSearchProps) {
+  const t = await getTranslations("heroSearch")
   return (
     <section
-      aria-label="Buscador principal"
+      aria-label={t("ariaLabel")}
       className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--spacing-section) sm:pt-(--spacing-major) pb-(--spacing-section) sm:pb-(--spacing-major)"
     >
       {/* ── Editorial header — split: headline left, subtitle right ── */}
       <header className="grid grid-cols-1 lg:grid-cols-12 gap-(--spacing-block) lg:gap-(--spacing-section) mb-(--spacing-section) sm:mb-(--spacing-major)">
         <div className="lg:col-span-7 space-y-(--spacing-cluster)">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Casa Costa Rica · 2026
+            {t("eyebrow")}
           </p>
           <h1
             className="font-heading font-bold tracking-tight leading-[0.98] text-foreground"
             style={{ fontSize: "clamp(2.25rem, 6vw, 5rem)" }}
           >
-            Encontrá tu{" "}
-            <span className="text-foreground/40">próximo hogar</span>
+            {t("headlinePrefix")}{" "}
+            <span className="text-foreground/40">{t("headlineEmphasis")}</span>
           </h1>
           <div className="pt-(--spacing-tight)">
             <Link
               href="/marketplace"
               className="inline-flex items-center gap-2 h-10 px-4 rounded-full bg-foreground text-background text-xs font-medium hover:bg-foreground/90 transition-colors duration-(--duration-state) ease-(--ease-out-quart)"
             >
-              Coordinar visita
+              {t("cta")}
               <ArrowRightIcon className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -82,9 +84,9 @@ export function HeroSearch({ locations, project }: HeroSearchProps) {
 
         <div className="lg:col-span-5 lg:pt-(--spacing-block) flex items-end">
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-md">
-            Documentación validada, asesores acreditados y acompañamiento legal antes de cada visita —{" "}
-            <span className="font-semibold text-foreground">datos verificados</span>
-            {" "}sobre las propiedades del Gran Área Metropolitana.
+            {t("subheadlinePrefix")}{" "}
+            <span className="font-semibold text-foreground">{t("subheadlineEmphasis")}</span>
+            {" "}{t("subheadlineSuffix")}
           </p>
         </div>
       </header>
@@ -119,7 +121,7 @@ export function HeroSearch({ locations, project }: HeroSearchProps) {
             className="absolute bottom-(--spacing-cluster) left-(--spacing-cluster) sm:bottom-(--spacing-block) sm:left-(--spacing-block) inline-flex items-center gap-2 h-8 sm:h-9 pl-1.5 pr-3 rounded-full bg-background/95 backdrop-blur ring-1 ring-foreground/10 shadow-sm hover:bg-background transition-colors duration-(--duration-state) ease-(--ease-out-quart) max-w-[80%]"
           >
             <span className="inline-flex items-center h-6 px-2 rounded-full bg-foreground text-background text-[10px] uppercase tracking-[0.16em] font-medium shrink-0">
-              Proyecto
+              {t("projectChip")}
             </span>
             <span className="text-xs sm:text-sm font-medium truncate min-w-0">
               {project.title}

@@ -1360,5 +1360,16 @@
     "projectFallbackLocation": "Gran Área Metropolitana",
     "unitsOne": "unidad",
     "unitsMany": "unidades"
+  },
+  "heroSearch": {
+    "eyebrow": "Casa Costa Rica · 2026",
+    "headlinePrefix": "Encontrá tu",
+    "headlineEmphasis": "próximo hogar",
+    "cta": "Coordinar visita",
+    "subheadlinePrefix": "Documentación validada, asesores acreditados y acompañamiento legal antes de cada visita —",
+    "subheadlineEmphasis": "datos verificados",
+    "subheadlineSuffix": "sobre las propiedades del Gran Área Metropolitana.",
+    "projectChip": "Proyecto",
+    "ariaLabel": "Buscador principal"
   }
 }
