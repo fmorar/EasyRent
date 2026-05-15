@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useTranslations } from "next-intl"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -46,6 +47,7 @@ interface Props {
  * a brand moment, not a separate target — the whole card is clickable.
  */
 export function FeaturedProjects({ projects }: Props) {
+  const t = useTranslations("featuredProjects")
   const [activeIdx, setActiveIdx] = useState(0)
   const total = projects.length
 
@@ -71,21 +73,21 @@ export function FeaturedProjects({ projects }: Props) {
 
   return (
     <section
-      aria-label="Proyectos destacados"
+      aria-label={t("ariaLabel")}
       className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major)"
     >
       {/* Header — left-aligned title, paginators top-right */}
       <header className="flex items-end justify-between gap-(--spacing-block) mb-(--spacing-section)">
         <div className="space-y-(--spacing-tight) max-w-2xl">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Proyectos
+            {t("eyebrow")}
           </p>
           <h2
             className="font-heading font-bold tracking-tight leading-[1.05]"
             style={{ fontSize: "clamp(1.875rem, 4.5vw, 3.25rem)" }}
           >
-            Descubrí los proyectos{" "}
-            <span className="text-foreground/40">más recientes</span>
+            {t("headlinePrefix")}{" "}
+            <span className="text-foreground/40">{t("headlineEmphasis")}</span>
           </h2>
         </div>
 
@@ -94,7 +96,7 @@ export function FeaturedProjects({ projects }: Props) {
             <button
               type="button"
               onClick={prev}
-              aria-label="Proyecto anterior"
+              aria-label={t("prevProject")}
               className="h-10 w-10 rounded-full border border-border flex items-center justify-center text-foreground hover:bg-muted transition-colors duration-(--duration-state) ease-(--ease-out-quart)"
             >
               <ChevronLeftIcon className="h-4 w-4" />
@@ -102,7 +104,7 @@ export function FeaturedProjects({ projects }: Props) {
             <button
               type="button"
               onClick={next}
-              aria-label="Siguiente proyecto"
+              aria-label={t("nextProject")}
               className="h-10 w-10 rounded-full border border-border flex items-center justify-center text-foreground hover:bg-muted transition-colors duration-(--duration-state) ease-(--ease-out-quart)"
             >
               <ChevronRightIcon className="h-4 w-4" />
@@ -134,6 +136,7 @@ function ProjectCard({
   project: FeaturedProjectCard
   variant: "active" | "compact"
 }) {
+  const t = useTranslations("featuredProjects")
   const href = `/projects/${project.slug}`
   // Trim description to ~3 lines worth of body — the panel handles
   // overflow with line-clamp anyway, but stripping HTML keeps the
@@ -143,7 +146,7 @@ function ProjectCard({
     .replace(/\s+/g, " ")
     .trim()
   const blurbWithDeveloper = project.developer_name
-    ? `Desarrollado por ${project.developer_name}. ${blurb}`
+    ? `${t("developerPrefix", { name: project.developer_name })} ${blurb}`
     : blurb
 
   // Compact cards collapse on mobile so they don't compete with the
@@ -169,7 +172,9 @@ function ProjectCard({
         <div className="absolute inset-0 bg-hero-fallback" />
       )}
 
-      {variant === "active" ? <ActiveOverlay project={project} blurb={blurbWithDeveloper} /> : <CompactOverlay project={project} />}
+      {variant === "active"
+        ? <ActiveOverlay project={project} blurb={blurbWithDeveloper} moreInfoLabel={t("moreInfoPill")} />
+        : <CompactOverlay project={project} />}
     </Link>
   )
 }
@@ -177,10 +182,11 @@ function ProjectCard({
 // ── Active overlay — white info panel + rotated CTA pill ──────────
 
 function ActiveOverlay({
-  project, blurb,
+  project, blurb, moreInfoLabel,
 }: {
-  project: FeaturedProjectCard
-  blurb: string
+  project:       FeaturedProjectCard
+  blurb:         string
+  moreInfoLabel: string
 }) {
   return (
     <div className="absolute inset-x-3 bottom-3 sm:inset-x-4 sm:bottom-4 rounded-xl bg-background/95 backdrop-blur shadow-sm flex">
@@ -210,7 +216,7 @@ function ActiveOverlay({
             className="text-[10px] uppercase tracking-[0.2em] font-medium whitespace-nowrap"
             style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
           >
-            Más información
+            {moreInfoLabel}
           </span>
           <ArrowUpRightIcon className="h-3 w-3 shrink-0" />
         </div>

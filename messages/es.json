@@ -1383,5 +1383,15 @@
     "emptySubhead": "Probá otro tipo o explorá el marketplace completo.",
     "emptyCta": "Ir al marketplace",
     "ariaLabel": "Propiedades destacadas"
+  },
+  "featuredProjects": {
+    "eyebrow": "Proyectos",
+    "headlinePrefix": "Descubrí los proyectos",
+    "headlineEmphasis": "más recientes",
+    "moreInfoPill": "Más información",
+    "developerPrefix": "Desarrollado por {name}.",
+    "ariaLabel": "Proyectos destacados",
+    "prevProject": "Proyecto anterior",
+    "nextProject": "Siguiente proyecto"
   }
 }

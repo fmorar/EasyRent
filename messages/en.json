@@ -1383,5 +1383,15 @@
     "emptySubhead": "Try another type or browse the full marketplace.",
     "emptyCta": "Go to marketplace",
     "ariaLabel": "Featured properties"
+  },
+  "featuredProjects": {
+    "eyebrow": "Projects",
+    "headlinePrefix": "Discover the latest",
+    "headlineEmphasis": "projects",
+    "moreInfoPill": "More info",
+    "developerPrefix": "Developed by {name}.",
+    "ariaLabel": "Featured projects",
+    "prevProject": "Previous project",
+    "nextProject": "Next project"
   }
 }
