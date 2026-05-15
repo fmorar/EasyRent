@@ -1406,5 +1406,12 @@
     "fallbackBio": "Asesor verificado en la plataforma. Especializado en acompañamiento personalizado, validación de documentos y coordinación de visitas.",
     "viewProfile": "Ver perfil",
     "ariaLabel": "Equipo de asesores"
+  },
+  "googleReviews": {
+    "headlinePrefix": "Reseñas",
+    "headlineEmphasis": "de Google",
+    "reviewsCount": "{count, plural, =1 {# reseña} other {# reseñas}}",
+    "viaGoogleMaps": "Reseñas vía Google Maps",
+    "ariaLabel": "Reseñas en Google"
   }
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { ReviewerAvatar } from "@/components/project/reviewer-avatar"
 import { StarIcon } from "@heroicons/react/24/solid"
 import { cn } from "@/lib/utils"
@@ -37,6 +38,7 @@ const QUOTE_LINES   = 8   // line-clamp on the featured quote body
  * larger avatar + bolder name + a leading hairline for emphasis.
  */
 export function GoogleReviewsEditorial({ reviews, rating, totalCount }: Props) {
+  const t = useTranslations("googleReviews")
   const [activeIdx, setActiveIdx] = useState(0)
   if (reviews.length === 0) return null
 
@@ -50,14 +52,14 @@ export function GoogleReviewsEditorial({ reviews, rating, totalCount }: Props) {
 
   return (
     <section
-      aria-label="Reseñas en Google"
+      aria-label={t("ariaLabel")}
       className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major)"
     >
       {/* Header — heading + meta */}
       <header className="mb-(--spacing-section)">
         <h2 className="text-xl sm:text-2xl font-heading font-bold tracking-tight">
-          Reseñas{" "}
-          <span className="text-foreground/40">de Google</span>
+          {t("headlinePrefix")}{" "}
+          <span className="text-foreground/40">{t("headlineEmphasis")}</span>
         </h2>
         {rating != null && (
           <p className="mt-(--spacing-tight) flex items-center gap-2 text-sm text-muted-foreground">
@@ -68,9 +70,8 @@ export function GoogleReviewsEditorial({ reviews, rating, totalCount }: Props) {
               </span>
             </span>
             <span className="text-foreground/30">·</span>
-            <span>
-              <span className="font-numeric tabular-nums">{totalCount ?? reviews.length}</span>
-              {" "}reseñas
+            <span className="font-numeric tabular-nums">
+              {t("reviewsCount", { count: totalCount ?? reviews.length })}
             </span>
           </p>
         )}
@@ -170,7 +171,7 @@ export function GoogleReviewsEditorial({ reviews, rating, totalCount }: Props) {
       </div>
 
       <p className="mt-(--spacing-section) text-xs text-muted-foreground">
-        Reseñas vía Google Maps
+        {t("viaGoogleMaps")}
       </p>
     </section>
   )
