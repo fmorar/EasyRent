@@ -299,7 +299,11 @@
     "closedCta": "See similar options"
   },
   "publicProject": {
-    "shareCta": "Share"
+    "shareCta": "Share",
+    "listingsEyebrow": "Listings",
+    "listingsHeadlinePrefix": "Available",
+    "listingsHeadlineEmphasis": "units",
+    "listingsSubheadline": "Detailed information and high-quality images."
   },
   "blog": {
     "eyebrow": "Blog",

@@ -21,7 +21,7 @@ import { ProjectContactBand } from "@/components/project/project-contact-band"
 import { GoogleReviewsEditorial } from "@/components/project/google-reviews-editorial"
 import { PublicFooter } from "@/components/layout/public-footer"
 import { fetchGoogleReviews } from "@/lib/google-places"
-import { getLocale } from "next-intl/server"
+import { getLocale, getTranslations } from "next-intl/server"
 import {
   buildBreadcrumbJsonLd,
   buildFaqJsonLd,
@@ -94,13 +94,6 @@ const STATUS_LABELS: Record<string, string> = {
   under_construction: "En construcción",
   completed:          "Completado",
   on_hold:            "En pausa",
-}
-
-const PROP_STATUS_LABELS: Record<string, string> = {
-  available:  "En venta",
-  reserved:   "Reservado",
-  sold:       "Vendido",
-  off_market: "Fuera de mercado",
 }
 
 // ── Page ──────────────────────────────────────────────────────────
@@ -211,8 +204,11 @@ export default async function ProjectPublicPage({ params }: Props) {
   //     in the knowledge graph (carries address, amenities, total
   //     units, year built)
   //   - FAQPage (when present) unlocks the SERP accordion of Q&As
-  const locale      = await getLocale()
-  const projectUrl  = `${SITE_URL}/${locale}/projects/${project.slug ?? slug}`
+  const locale         = await getLocale()
+  const tListings      = await getTranslations("publicProject")
+  const tListingTypes  = await getTranslations("properties.listingTypes")
+  const tPublicStatus  = await getTranslations("properties.publicStatuses")
+  const projectUrl     = `${SITE_URL}/${locale}/projects/${project.slug ?? slug}`
   const breadcrumbs = buildBreadcrumbJsonLd([
     { name: locale === "en" ? "Home"     : "Inicio",     url: `${SITE_URL}/${locale}` },
     { name: locale === "en" ? "Projects" : "Proyectos",  url: `${SITE_URL}/${locale}` },
@@ -424,15 +420,15 @@ export default async function ProjectPublicPage({ params }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-(--spacing-block) lg:gap-(--spacing-section) mb-(--spacing-section)">
               <div className="lg:col-span-7">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-(--spacing-cluster)">
-                  Listings
+                  {tListings("listingsEyebrow")}
                 </p>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold tracking-tight leading-[1.05]">
-                  Unidades{" "}
-                  <span className="text-foreground/40">disponibles</span>
+                  {tListings("listingsHeadlinePrefix")}{" "}
+                  <span className="text-foreground/40">{tListings("listingsHeadlineEmphasis")}</span>
                 </h2>
               </div>
               <p className="lg:col-span-5 lg:pt-(--spacing-block) text-sm text-muted-foreground leading-relaxed max-w-md lg:text-right lg:ml-auto">
-                Información detallada e imágenes de alta calidad.
+                {tListings("listingsSubheadline")}
               </p>
             </div>
 
@@ -463,7 +459,18 @@ export default async function ProjectPublicPage({ params }: Props) {
                       )}
                       <div className="absolute top-3 left-3">
                         <Badge variant="secondary" className="text-xs bg-white/95 backdrop-blur shadow-sm">
-                          {PROP_STATUS_LABELS[p.status] ?? p.status}
+                          {/* Headline state combines listing_type +
+                              status, mirroring <MarketplaceCard>. The
+                              previous version showed "En venta" for
+                              every available unit regardless of intent
+                              — rentals included. Now: available + rent
+                              → "En alquiler"; sold + rent → "Alquilado";
+                              everything else → the public status label. */}
+                          {p.status === "available"
+                            ? tListingTypes(p.listing_type)
+                            : p.status === "sold"
+                              ? tPublicStatus(p.listing_type === "rent" ? "rented" : "sold")
+                              : tPublicStatus(p.status)}
                         </Badge>
                       </div>
                     </div>
