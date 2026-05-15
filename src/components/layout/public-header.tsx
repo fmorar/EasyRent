@@ -61,21 +61,21 @@ export function PublicHeader({ projects, isSignedIn = false }: Props) {
         <Link
           href="/"
           className="flex items-center shrink-0 group transition-opacity duration-(--duration-state) ease-(--ease-out-quart) hover:opacity-80"
-          aria-label="easyrent — inicio"
+          aria-label={t("brandHomeAriaLabel")}
         >
           <EasyrentLogo className="h-7 w-auto text-foreground" />
         </Link>
 
         {/* ── Center pill nav (md+) ───────────────────────────────── */}
         <nav
-          aria-label="Principal"
+          aria-label={t("primaryNavAriaLabel")}
           className="hidden md:flex items-center bg-muted rounded-full p-1 gap-0.5"
         >
           <PillLink
             href="/"
             active={isHome}
           >
-            Inicio
+            {t("home")}
           </PillLink>
           {/* The "Marketplace" pill used to live here. We removed it
               because the "Explorar propiedades" CTA on the right
@@ -86,17 +86,17 @@ export function PublicHeader({ projects, isSignedIn = false }: Props) {
               href={`/projects/${projects[0].slug}`}
               active={isProjects}
             >
-              Proyectos
+              {t("projects")}
             </PillLink>
           )}
           {projects.length >= 2 && (
-            <PillProjectsMenu projects={projects} active={isProjects} />
+            <PillProjectsMenu projects={projects} active={isProjects} label={t("projects")} />
           )}
           <PillLink
             href="/blog"
             active={isBlog}
           >
-            Blog
+            {t("blog")}
           </PillLink>
           {/* Owner-intake CTA — same pill register so it reads as
               navigation, not a marketing button. */}
@@ -104,7 +104,7 @@ export function PublicHeader({ projects, isSignedIn = false }: Props) {
             href="/contacto"
             active={isContact}
           >
-            Vendé o alquilá
+            {t("sellOrRentShort")}
           </PillLink>
         </nav>
 
@@ -121,7 +121,7 @@ export function PublicHeader({ projects, isSignedIn = false }: Props) {
             {isSignedIn ? (
               <>
                 <Squares2X2Icon className="h-4 w-4" />
-                Dashboard
+                {t("dashboard")}
               </>
             ) : (
               <>
@@ -138,14 +138,14 @@ export function PublicHeader({ projects, isSignedIn = false }: Props) {
             href="/marketplace"
             className="hidden lg:inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors duration-(--duration-state) ease-(--ease-out-quart)"
           >
-            Explorar propiedades
+            {t("explorePropertiesCta")}
             <ArrowRightIcon className="h-3.5 w-3.5" />
           </Link>
 
           {/* Mobile sheet trigger lives inside the existing component */}
           <PublicMobileMenu
             marketplaceLabel={t("marketplace")}
-            signInLabel={isSignedIn ? "Dashboard" : t("signIn")}
+            signInLabel={isSignedIn ? t("dashboard") : t("signIn")}
             signInHref={isSignedIn ? "/dashboard" : "/login"}
             projects={projects}
           />
@@ -184,10 +184,11 @@ function PillLink({
 }
 
 function PillProjectsMenu({
-  projects, active,
+  projects, active, label,
 }: {
   projects: PublicProjectLink[]
   active:   boolean
+  label:    string
 }) {
   return (
     <DropdownMenu>
@@ -203,7 +204,7 @@ function PillProjectsMenu({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            Proyectos
+            {label}
             <ChevronDownIcon className="h-3.5 w-3.5" />
           </button>
         }

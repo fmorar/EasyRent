@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import {
   Sheet,
   SheetContent,
@@ -43,13 +44,14 @@ export function PublicMobileMenu({
   projects,
 }: Props) {
   const [open, setOpen] = useState(false)
+  const t = useTranslations("nav")
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger render={
         <button
           type="button"
-          aria-label="Abrir menú"
+          aria-label={t("openMenu")}
           className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-full border bg-background hover:bg-muted transition-colors duration-(--duration-state) ease-(--ease-out-quart)"
         >
           <Bars3Icon className="h-5 w-5" />
@@ -64,12 +66,12 @@ export function PublicMobileMenu({
         {/* Header */}
         <div className="flex items-center justify-between px-5 h-16 border-b">
           <SheetTitle className="text-base font-heading font-semibold tracking-tight">
-            Menú
+            {t("mobileMenuTitle")}
           </SheetTitle>
           <SheetClose render={
             <button
               type="button"
-              aria-label="Cerrar"
+              aria-label={t("closeMenu")}
               className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <XMarkIcon className="h-5 w-5" />
@@ -89,7 +91,7 @@ export function PublicMobileMenu({
           {projects.length > 0 && (
             <div className="pt-4">
               <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Proyectos
+                {t("projects")}
               </p>
               {projects.map((p) => (
                 <DrawerLink
@@ -107,7 +109,7 @@ export function PublicMobileMenu({
             <DrawerLink
               href="/blog"
               icon={<NewspaperIcon className="h-5 w-5" />}
-              label="Blog"
+              label={t("blog")}
               onClick={() => setOpen(false)}
             />
             {/* Owner-intake link — visible to every visitor so an owner
@@ -116,7 +118,7 @@ export function PublicMobileMenu({
             <DrawerLink
               href="/contacto"
               icon={<HomeModernIcon className="h-5 w-5" />}
-              label="Vendé o alquilá tu propiedad"
+              label={t("sellOrRent")}
               onClick={() => setOpen(false)}
             />
           </div>

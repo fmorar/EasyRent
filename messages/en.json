@@ -4,7 +4,17 @@
     "projects": "Projects",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "mobileMenuTitle": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close",
+    "sellOrRent": "Sell or rent your property",
+    "blog": "Blog",
+    "home": "Home",
+    "sellOrRentShort": "Sell or rent",
+    "explorePropertiesCta": "Explore properties",
+    "primaryNavAriaLabel": "Primary",
+    "brandHomeAriaLabel": "easyrent — home"
   },
   "sidebar": {
     "platformLabel": "Platform",
