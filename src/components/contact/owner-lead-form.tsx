@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { useLocale } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -22,33 +22,14 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CountryCodeSelect } from "@/components/shared/country-code-select"
 
-const INTENT_OPTIONS = [
-  { value: "sale", label: "Vender mi propiedad" },
-  { value: "rent", label: "Alquilar mi propiedad" },
-  { value: "both", label: "Aún estoy decidiendo" },
-] as const
+// Property type enum values — labels resolved from the shared
+// `properties.types` namespace at render. Keeps the type label in
+// lockstep with the rest of the site (marketplace chips, schema, etc.)
+const PROPERTY_TYPE_VALUES = ["apartment", "house", "land", "commercial", "office", "warehouse"] as const
+type PropertyTypeValue = (typeof PROPERTY_TYPE_VALUES)[number]
 
-const PROPERTY_TYPES = [
-  { value: "apartment",  label: "Apartamento" },
-  { value: "house",      label: "Casa" },
-  { value: "land",       label: "Terreno" },
-  { value: "commercial", label: "Local comercial" },
-  { value: "office",     label: "Oficina" },
-  { value: "warehouse",  label: "Bodega" },
-] as const
-
-const schema = z.object({
-  full_name: z.string().min(2, "Escribí tu nombre completo."),
-  email: z.union([z.literal(""), z.string().email("Revisá el formato del correo.")]).optional(),
-  phone: z.string()
-    .min(7, "Ingresá un teléfono donde te podamos contactar.")
-    .max(40, "Revisá el formato del teléfono."),
-  intent:        z.enum(["sale", "rent", "both"]),
-  property_type: z.enum(["apartment", "house", "land", "commercial", "office", "warehouse"]).optional(),
-  zone:          z.string().max(120).optional(),
-  message:       z.string().max(2000).optional(),
-})
-type FormValues = z.infer<typeof schema>
+const INTENT_VALUES = ["sale", "rent", "both"] as const
+type IntentValue = (typeof INTENT_VALUES)[number]
 
 /**
  * Owner-intake form — compact 2-col layout matching the contact-page
@@ -61,6 +42,8 @@ type FormValues = z.infer<typeof schema>
 export function OwnerLeadForm() {
   const locale    = useLocale()
   const pathname  = usePathname()
+  const t         = useTranslations("contactOwner.form")
+  const tTypes    = useTranslations("properties.types")
   const [done,        setDone]    = useState(false)
   const [error,       setError]   = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -68,6 +51,33 @@ export function OwnerLeadForm() {
   // input on submit. Default to Costa Rica since that's where the
   // platform operates.
   const [dialCode, setDialCode] = useState("+506")
+
+  // Schema lives inside the component so zod error messages can come
+  // from i18n — moving it outside would freeze them at module-load.
+  const schema = z.object({
+    full_name: z.string().min(2, t("nameRequired")),
+    email: z.union([z.literal(""), z.string().email(t("emailInvalid"))]).optional(),
+    phone: z.string()
+      .min(7, t("phoneMin"))
+      .max(40, t("phoneMax")),
+    intent:        z.enum(INTENT_VALUES),
+    property_type: z.enum(PROPERTY_TYPE_VALUES).optional(),
+    zone:          z.string().max(120).optional(),
+    message:       z.string().max(2000).optional(),
+  })
+  type FormValues = z.infer<typeof schema>
+
+  // Build option arrays from i18n. The shared `properties.types`
+  // namespace owns the type labels site-wide — reusing it here
+  // keeps the dropdown in lockstep with the marketplace chips and
+  // schema labels.
+  const intentOptions: Array<{ value: IntentValue; label: string }> = [
+    { value: "sale", label: t("intentSale") },
+    { value: "rent", label: t("intentRent") },
+    { value: "both", label: t("intentBoth") },
+  ]
+  const propertyTypeOptions: Array<{ value: PropertyTypeValue; label: string }> =
+    PROPERTY_TYPE_VALUES.map((v) => ({ value: v, label: tTypes(v) }))
 
   const {
     register,
@@ -108,11 +118,11 @@ export function OwnerLeadForm() {
         locale,
       })
       if (!result.success) {
-        toast.error(result.error ?? "No pudimos enviar tu consulta. Probá de nuevo.")
+        toast.error(result.error ?? t("errorGeneric"))
         setError(result.error ?? null)
         return
       }
-      toast.success("Listo. Te contactamos en menos de 24 horas.")
+      toast.success(t("toastSuccess"))
       setDone(true)
     })
   }
@@ -122,12 +132,10 @@ export function OwnerLeadForm() {
       <div className="rounded-2xl border bg-success-soft p-(--spacing-block) space-y-(--spacing-tight)">
         <div className="flex items-center gap-2 text-success">
           <CheckCircleIcon className="h-5 w-5" />
-          <p className="font-heading font-semibold text-base">¡Listo! Recibimos tu solicitud.</p>
+          <p className="font-heading font-semibold text-base">{t("successHeadline")}</p>
         </div>
         <p className="text-sm text-foreground/80 leading-relaxed">
-          Vamos a revisar la información de tu propiedad y te contactamos en menos
-          de 24 horas para coordinar una valoración. Si querés adelantar, escribinos
-          por WhatsApp.
+          {t("successBody")}
         </p>
       </div>
     )
@@ -143,15 +151,15 @@ export function OwnerLeadForm() {
 
       {/* Row 1 — name + phone */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-(--spacing-cluster)">
-        <Field id="full_name" label="Nombre" error={errors.full_name?.message}>
+        <Field id="full_name" label={t("nameLabel")} error={errors.full_name?.message}>
           <Input
             id="full_name"
             autoComplete="name"
-            placeholder="María Castro"
+            placeholder={t("namePlaceholder")}
             {...register("full_name")}
           />
         </Field>
-        <Field id="phone" label="WhatsApp" error={errors.phone?.message}>
+        <Field id="phone" label={t("phoneLabel")} error={errors.phone?.message}>
           {/* Two-control input: a searchable country-code combobox
               on the left + a digits-only text input on the right.
               We compose them at submit time so the schema still
@@ -167,7 +175,7 @@ export function OwnerLeadForm() {
               type="tel"
               inputMode="tel"
               autoComplete="tel-national"
-              placeholder="0000 0000"
+              placeholder={t("phonePlaceholder")}
               className="flex-1 min-w-0"
               {...register("phone")}
             />
@@ -177,19 +185,19 @@ export function OwnerLeadForm() {
 
       {/* Row 2 — email + zone */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-(--spacing-cluster)">
-        <Field id="email" label="Correo (opcional)" error={errors.email?.message}>
+        <Field id="email" label={t("emailLabel")} error={errors.email?.message}>
           <Input
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="maria@correo.com"
+            placeholder={t("emailPlaceholder")}
             {...register("email")}
           />
         </Field>
-        <Field id="zone" label="Zona" error={errors.zone?.message}>
+        <Field id="zone" label={t("zoneLabel")} error={errors.zone?.message}>
           <Input
             id="zone"
-            placeholder="San Rafael de Escazú"
+            placeholder={t("zonePlaceholder")}
             {...register("zone")}
           />
         </Field>
@@ -197,37 +205,37 @@ export function OwnerLeadForm() {
 
       {/* Row 3 — intent + property type (both selects, full width pair) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-(--spacing-cluster)">
-        <Field id="intent" label="¿Qué querés hacer?" error={errors.intent?.message}>
+        <Field id="intent" label={t("intentLabel")} error={errors.intent?.message}>
           <Select
             value={intent}
             onValueChange={(v) => setValue("intent", v as FormValues["intent"], { shouldValidate: true })}
           >
             <SelectTrigger id="intent">
               <SelectValue>
-                {INTENT_OPTIONS.find((o) => o.value === intent)?.label}
+                {intentOptions.find((o) => o.value === intent)?.label}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {INTENT_OPTIONS.map((o) => (
+              {intentOptions.map((o) => (
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
-        <Field id="property_type" label="Tipo de propiedad" error={errors.property_type?.message}>
+        <Field id="property_type" label={t("propertyTypeLabel")} error={errors.property_type?.message}>
           <Select
             value={propertyType ?? ""}
             onValueChange={(v) => setValue("property_type", v as FormValues["property_type"], { shouldValidate: true })}
           >
             <SelectTrigger id="property_type">
-              <SelectValue placeholder="Seleccioná…">
+              <SelectValue placeholder={t("propertyTypePlaceholder")}>
                 {propertyType
-                  ? PROPERTY_TYPES.find((p) => p.value === propertyType)?.label
+                  ? propertyTypeOptions.find((p) => p.value === propertyType)?.label
                   : null}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {PROPERTY_TYPES.map((p) => (
+              {propertyTypeOptions.map((p) => (
                 <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
               ))}
             </SelectContent>
@@ -236,12 +244,12 @@ export function OwnerLeadForm() {
       </div>
 
       {/* Row 4 — message (full width) */}
-      <Field id="message" label="Mensaje" error={errors.message?.message}>
+      <Field id="message" label={t("messageLabel")} error={errors.message?.message}>
         <Textarea
           id="message"
           rows={4}
           maxLength={2000}
-          placeholder="Contanos detalles que sumen — área, habitaciones, condición, documentación, urgencia…"
+          placeholder={t("messagePlaceholder")}
           {...register("message")}
         />
       </Field>
@@ -254,7 +262,7 @@ export function OwnerLeadForm() {
           aria-busy={pending}
           className="gap-2 h-11 px-6 rounded-full"
         >
-          {pending ? "Enviando…" : "Solicitar valoración"}
+          {pending ? t("submitSending") : t("submitDefault")}
           {!pending && <ArrowRightIcon className="h-4 w-4" />}
         </Button>
       </div>
