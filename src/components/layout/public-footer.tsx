@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { getTranslations } from "next-intl/server"
 import { NewsletterForm } from "@/components/layout/newsletter-form"
 import { EasyrentLogo } from "@/components/shared/easyrent-logo"
 
@@ -9,26 +10,6 @@ interface FooterLink {
   /** Set when the link points outside the app (open in new tab). */
   external?: boolean
 }
-
-const COMPANY: FooterLink[] = [
-  { label: "Inicio",                       href: "/" },
-  { label: "Marketplace",                  href: "/marketplace" },
-  { label: "Asesores",                     href: "/agents" },
-  { label: "Blog",                         href: "/blog" },
-  { label: "Vendé o alquilá tu propiedad", href: "/contacto" },
-]
-
-const RESOURCES: FooterLink[] = [
-  { label: "Comprar propiedad",  href: "/marketplace?op=sale" },
-  { label: "Alquilar propiedad", href: "/marketplace?op=rent" },
-  { label: "Iniciar sesión",     href: "/login" },
-]
-
-const SOCIAL: FooterLink[] = [
-  { label: "Instagram", href: "https://instagram.com",      external: true },
-  { label: "Facebook",  href: "https://facebook.com",       external: true },
-  { label: "WhatsApp",  href: "https://wa.me/50600000000",  external: true },
-]
 
 interface PublicFooterProps {
   /** Optional architectural photo URL shown BEHIND the giant wordmark.
@@ -49,11 +30,34 @@ interface PublicFooterProps {
  * Only used on `(public)` routes. Dashboard surfaces use the sidebar
  * shell and don't need this.
  */
-export function PublicFooter({ wordmarkPhotoUrl = null }: PublicFooterProps = {}) {
+export async function PublicFooter({ wordmarkPhotoUrl = null }: PublicFooterProps = {}) {
   const year = new Date().getFullYear()
+  const t = await getTranslations("publicFooter")
+
+  // Link columns — labels resolved from i18n. Hrefs stay locale-
+  // agnostic; the next-intl Link wrapper attaches the prefix at
+  // render time.
+  const company: FooterLink[] = [
+    { label: t("linkHome"),        href: "/" },
+    { label: t("linkMarketplace"), href: "/marketplace" },
+    { label: t("linkAgents"),      href: "/agents" },
+    { label: t("linkBlog"),        href: "/blog" },
+    { label: t("linkSellRent"),    href: "/contacto" },
+  ]
+  const resources: FooterLink[] = [
+    { label: t("linkBuyProperty"),  href: "/marketplace?op=sale" },
+    { label: t("linkRentProperty"), href: "/marketplace?op=rent" },
+    { label: t("linkLogin"),        href: "/login" },
+  ]
+  // Social brand names are proper nouns — same in both languages.
+  const social: FooterLink[] = [
+    { label: "Instagram", href: "https://instagram.com",      external: true },
+    { label: "Facebook",  href: "https://facebook.com",       external: true },
+    { label: "WhatsApp",  href: "https://wa.me/50600000000",  external: true },
+  ]
 
   return (
-    <footer className="relative overflow-hidden bg-background border-t" aria-label="Pie de página">
+    <footer className="relative overflow-hidden bg-background border-t" aria-label={t("ariaLabel")}>
       {/* ── Top: newsletter + link columns ─────────────────────────
               Bottom padding is intentionally tight — the wordmark
               band below already has its own breathing room from the
@@ -67,10 +71,10 @@ export function PublicFooter({ wordmarkPhotoUrl = null }: PublicFooterProps = {}
                 className="font-heading font-bold tracking-tight leading-[1.05] text-foreground"
                 style={{ fontSize: "clamp(1.75rem, 3vw, 2.25rem)" }}
               >
-                Suscribite al boletín
+                {t("newsletterHeadline")}
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-                Recibí novedades del mercado, propiedades nuevas y consejos para tomar decisiones con datos verificados.
+                {t("newsletterSubheadline")}
               </p>
             </div>
             <NewsletterForm />
@@ -78,12 +82,12 @@ export function PublicFooter({ wordmarkPhotoUrl = null }: PublicFooterProps = {}
 
           {/* Three link columns — right rail */}
           <nav
-            aria-label="Enlaces del pie"
+            aria-label={t("navAriaLabel")}
             className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-(--spacing-block) lg:gap-(--spacing-section) lg:pl-(--spacing-section)"
           >
-            <FooterColumn heading="Empresa" links={COMPANY} />
-            <FooterColumn heading="Recursos" links={RESOURCES} />
-            <FooterColumn heading="Redes sociales" links={SOCIAL} />
+            <FooterColumn heading={t("columnCompany")}   links={company} />
+            <FooterColumn heading={t("columnResources")} links={resources} />
+            <FooterColumn heading={t("columnSocial")}    links={social} />
           </nav>
         </div>
       </div>
@@ -100,7 +104,7 @@ export function PublicFooter({ wordmarkPhotoUrl = null }: PublicFooterProps = {}
             · Costa Rica
           </p>
           <p className="leading-relaxed text-center sm:text-right max-w-md">
-            Las publicaciones tienen carácter informativo. Verificá siempre la documentación registral antes de firmar contrato.
+            {t("legalDisclaimer")}
           </p>
         </div>
       </div>

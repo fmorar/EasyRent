@@ -1413,5 +1413,34 @@
     "reviewsCount": "{count, plural, =1 {# review} other {# reviews}}",
     "viaGoogleMaps": "Reviews via Google Maps",
     "ariaLabel": "Google reviews"
+  },
+  "publicFooter": {
+    "newsletterHeadline": "Subscribe to our newsletter",
+    "newsletterSubheadline": "Get market updates, new listings, and tips to make decisions backed by verified data.",
+    "columnCompany": "Company",
+    "columnResources": "Resources",
+    "columnSocial": "Social",
+    "linkHome": "Home",
+    "linkMarketplace": "Marketplace",
+    "linkAgents": "Advisors",
+    "linkBlog": "Blog",
+    "linkSellRent": "Sell or rent your property",
+    "linkBuyProperty": "Buy property",
+    "linkRentProperty": "Rent property",
+    "linkLogin": "Sign in",
+    "ariaLabel": "Site footer",
+    "navAriaLabel": "Footer links",
+    "legalDisclaimer": "Listings are informational. Always verify registry documentation before signing a contract."
+  },
+  "newsletter": {
+    "emailPlaceholder": "you@email.com",
+    "subscribeCta": "Subscribe",
+    "sendingState": "Sending…",
+    "successPill": "Subscribed",
+    "successToast": "Done. We'll let you know when there's news.",
+    "errorMissingEmail": "Enter your email to subscribe.",
+    "errorInvalidEmail": "Check your email format.",
+    "errorGeneric": "Couldn't subscribe. Please try again.",
+    "privacyNote": "We'll only use your email to send you market updates. You can unsubscribe any time."
   }
 }

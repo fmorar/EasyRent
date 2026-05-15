@@ -1413,5 +1413,34 @@
     "reviewsCount": "{count, plural, =1 {# reseña} other {# reseñas}}",
     "viaGoogleMaps": "Reseñas vía Google Maps",
     "ariaLabel": "Reseñas en Google"
+  },
+  "publicFooter": {
+    "newsletterHeadline": "Suscribite al boletín",
+    "newsletterSubheadline": "Recibí novedades del mercado, propiedades nuevas y consejos para tomar decisiones con datos verificados.",
+    "columnCompany": "Empresa",
+    "columnResources": "Recursos",
+    "columnSocial": "Redes sociales",
+    "linkHome": "Inicio",
+    "linkMarketplace": "Marketplace",
+    "linkAgents": "Asesores",
+    "linkBlog": "Blog",
+    "linkSellRent": "Vendé o alquilá tu propiedad",
+    "linkBuyProperty": "Comprar propiedad",
+    "linkRentProperty": "Alquilar propiedad",
+    "linkLogin": "Iniciar sesión",
+    "ariaLabel": "Pie de página",
+    "navAriaLabel": "Enlaces del pie",
+    "legalDisclaimer": "Las publicaciones tienen carácter informativo. Verificá siempre la documentación registral antes de firmar contrato."
+  },
+  "newsletter": {
+    "emailPlaceholder": "tu@correo.com",
+    "subscribeCta": "Suscribirme",
+    "sendingState": "Enviando…",
+    "successPill": "Suscripción registrada",
+    "successToast": "Listo. Te avisamos cuando haya novedades.",
+    "errorMissingEmail": "Escribí tu correo para suscribirte.",
+    "errorInvalidEmail": "Revisá el formato del correo.",
+    "errorGeneric": "No pudimos registrar tu correo. Probá de nuevo.",
+    "privacyNote": "Usaremos tu correo solo para enviarte novedades del mercado. Podés darte de baja cuando quieras."
   }
 }
