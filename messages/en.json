@@ -1371,5 +1371,17 @@
     "subheadlineSuffix": "on every listing in the Greater Metropolitan Area.",
     "projectChip": "Project",
     "ariaLabel": "Primary search"
+  },
+  "featuredProperties": {
+    "eyebrow": "Recent selection",
+    "headlinePrefix": "Properties",
+    "headlineEmphasis": "just listed",
+    "subheadline": "The latest additions to the portfolio. Quick filters by type; for a detailed search, open the marketplace.",
+    "viewAllCta": "View all",
+    "filterAll": "All",
+    "emptyHeadline": "No properties of this type in the recent selection.",
+    "emptySubhead": "Try another type or browse the full marketplace.",
+    "emptyCta": "Go to marketplace",
+    "ariaLabel": "Featured properties"
   }
 }

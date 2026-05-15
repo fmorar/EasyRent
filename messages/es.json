@@ -1371,5 +1371,17 @@
     "subheadlineSuffix": "sobre las propiedades del Gran Área Metropolitana.",
     "projectChip": "Proyecto",
     "ariaLabel": "Buscador principal"
+  },
+  "featuredProperties": {
+    "eyebrow": "Selección reciente",
+    "headlinePrefix": "Propiedades",
+    "headlineEmphasis": "recién publicadas",
+    "subheadline": "Las últimas adiciones al portafolio. Filtros rápidos por tipo; para una búsqueda detallada, abrí el marketplace.",
+    "viewAllCta": "Ver todas",
+    "filterAll": "Todas",
+    "emptyHeadline": "No hay propiedades de este tipo en la selección reciente.",
+    "emptySubhead": "Probá otro tipo o explorá el marketplace completo.",
+    "emptyCta": "Ir al marketplace",
+    "ariaLabel": "Propiedades destacadas"
   }
 }

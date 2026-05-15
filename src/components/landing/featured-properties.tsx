@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { MarketplaceCard } from "@/components/property/marketplace-card"
 import { buttonVariants } from "@/components/ui/button"
 import { ArrowRightIcon } from "@heroicons/react/24/outline"
@@ -21,13 +22,10 @@ interface Props {
   photosByProperty?: Record<string, Array<{ url: string; caption?: string | null }>>
 }
 
-const TYPE_FILTERS = [
-  { value: "",           label: "Todas"        },
-  { value: "house",      label: "Casa"         },
-  { value: "apartment",  label: "Apartamento"  },
-  { value: "land",       label: "Terreno"      },
-  { value: "commercial", label: "Comercial"    },
-] as const
+// Type filter values map to property_type enum. Labels come from the
+// shared `properties.types` namespace (already i18n'd) plus
+// `featuredProperties.filterAll` for the "All" pseudo-value.
+const TYPE_FILTER_VALUES = ["", "house", "apartment", "land", "commercial"] as const
 
 /**
  * Featured-properties section for the landing.
@@ -42,6 +40,8 @@ const TYPE_FILTERS = [
  * actual search tool.
  */
 export function FeaturedProperties({ properties, coverByProperty, photosByProperty }: Props) {
+  const t      = useTranslations("featuredProperties")
+  const tTypes = useTranslations("properties.types")
   const [filter, setFilter] = useState<string>("")
 
   const filtered = useMemo(() => {
@@ -51,32 +51,32 @@ export function FeaturedProperties({ properties, coverByProperty, photosByProper
 
   return (
     <section
-      aria-label="Propiedades destacadas"
+      aria-label={t("ariaLabel")}
       className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major)"
     >
       {/* ── Header — asymmetric: eyebrow/title left rail, copy + link offset right ── */}
       <header className="grid grid-cols-1 lg:grid-cols-12 gap-(--spacing-block) lg:gap-(--spacing-section) mb-(--spacing-section)">
         <div className="lg:col-span-7 space-y-(--spacing-cluster)">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Selección reciente
+            {t("eyebrow")}
           </p>
           <h2
             className="font-heading font-bold tracking-tight leading-[1.05]"
             style={{ fontSize: "clamp(1.875rem, 4.5vw, 3.25rem)" }}
           >
-            Propiedades{" "}
-            <span className="text-foreground/40">recién publicadas</span>
+            {t("headlinePrefix")}{" "}
+            <span className="text-foreground/40">{t("headlineEmphasis")}</span>
           </h2>
         </div>
         <div className="lg:col-span-5 lg:pt-(--spacing-block) flex flex-col items-start gap-(--spacing-cluster) lg:items-end lg:text-right">
           <p className="text-sm text-muted-foreground leading-relaxed max-w-sm lg:max-w-none">
-            Las últimas adiciones al portafolio. Filtros rápidos por tipo; para una búsqueda detallada, abrí el marketplace.
+            {t("subheadline")}
           </p>
           <Link
             href="/marketplace"
             className={cn(buttonVariants({ variant: "outline" }))}
           >
-            Ver todas
+            {t("viewAllCta")}
             <ArrowRightIcon className="h-4 w-4" />
           </Link>
         </div>
@@ -84,13 +84,18 @@ export function FeaturedProperties({ properties, coverByProperty, photosByProper
 
       {/* ── Type filter chips ─────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2 mb-(--spacing-block)">
-        {TYPE_FILTERS.map((f) => {
-          const isActive = filter === f.value
+        {TYPE_FILTER_VALUES.map((value) => {
+          const isActive = filter === value
+          // "" → "All" pseudo-filter; any other value → matching label
+          // from the shared properties.types namespace (already i18n'd
+          // for ES + EN and used across the marketplace, dashboard,
+          // and schema mappings).
+          const label = value === "" ? t("filterAll") : tTypes(value)
           return (
             <button
-              key={f.value || "all"}
+              key={value || "all"}
               type="button"
-              onClick={() => setFilter(f.value)}
+              onClick={() => setFilter(value)}
               className={cn(
                 "rounded-full h-9 px-4 text-sm font-medium transition-colors whitespace-nowrap",
                 // Public-surface active chip: ink pill (per the
@@ -101,7 +106,7 @@ export function FeaturedProperties({ properties, coverByProperty, photosByProper
                   : "border bg-background text-foreground/80 hover:bg-muted",
               )}
             >
-              {f.label}
+              {label}
             </button>
           )
         })}
@@ -110,10 +115,10 @@ export function FeaturedProperties({ properties, coverByProperty, photosByProper
       {/* ── Grid ──────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed py-16 text-center space-y-3">
-          <p className="text-sm font-medium">No hay propiedades de este tipo en la selección reciente.</p>
-          <p className="text-xs text-muted-foreground">Probá otro tipo o explorá el marketplace completo.</p>
+          <p className="text-sm font-medium">{t("emptyHeadline")}</p>
+          <p className="text-xs text-muted-foreground">{t("emptySubhead")}</p>
           <Link href="/marketplace" className={buttonVariants({ variant: "outline" })}>
-            Ir al marketplace
+            {t("emptyCta")}
           </Link>
         </div>
       ) : (
