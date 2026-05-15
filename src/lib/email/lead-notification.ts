@@ -6,23 +6,24 @@ import type { PublicLeadEnrichment } from "@/lib/analytics/lead-schemas"
  * agent who owns the surface where the lead came in (their public
  * profile, a property they created, a project they manage, etc.).
  *
- * Same visual vocabulary as the share-notification and auth templates:
- * brand yellow accent bar, inline-styled card, easyrent wordmark, big
- * headline, lead data block, CTA → dashboard /leads.
+ * Also reused for the owner-intake form on /contacto — owner-lead
+ * callers pass a custom headline + intent label + their own `details`
+ * rows, but the visual chrome stays identical (brand yellow accent,
+ * inline-styled card, easyrent wordmark, CTA → dashboard /leads).
  *
  * Inline styles only — Gmail / Outlook strip <style> blocks.
  */
 
 interface Vars {
-  /** Agent's display name — used in the salutation. */
+  /** Recipient agent's display name — used in the salutation. */
   agentName:        string
-  /** Lead's display name. */
+  /** Visitor's display name (lead or owner). */
   leadName:         string
-  /** Lead's email (optional). When present we render a mailto link. */
+  /** Visitor's email (optional). When present we render a mailto link. */
   leadEmail:        string | null
-  /** Lead's phone (optional). When present we render a tel link. */
+  /** Visitor's phone (optional). When present we render a tel link. */
   leadPhone:        string | null
-  /** Free-form message the lead wrote (optional). */
+  /** Free-form message the visitor wrote (optional). */
   message:          string | null
   /** Pre-translated source label, e.g. "Perfil de agente". */
   sourceLabel:      string
@@ -36,11 +37,25 @@ interface Vars {
    */
   listing:          { kind: "property" | "project"; title: string; url: string } | null
   /**
-   * Visitor's enrichment selections (intent, move-in window, pets,
-   * budget…). Rendered as a small data table under the message
-   * block so the agent doesn't have to open the kanban to see them.
+   * Generic data rows shown under the message block ("Respuestas del
+   * formulario"). For the public lead form this carries the
+   * enrichment selections (intent / move-in window / pets / budget);
+   * for the owner-intake form it carries intent / property type /
+   * zone / etc. Build with `buildEnrichmentRows()` for the public
+   * form, or hand-build per caller.
    */
-  enrichment:       PublicLeadEnrichment
+  details:          Array<{ label: string; value: string }>
+  /**
+   * Override the H1 headline. Defaults to
+   * `${leadName} quiere hablar con vos` — useful for owner-intake to
+   * read "${leadName} quiere vender / alquilar su propiedad".
+   */
+  headline?:        string
+  /**
+   * Override the subject line. Defaults to
+   * `Nueva consulta de ${firstName} · ${sourceLabel}`.
+   */
+  subject?:         string
   /** Absolute URL where the agent can open their leads inbox. */
   inboxUrl:         string
 }
@@ -75,6 +90,34 @@ const BUDGET_LABELS_ES: Record<string, string> = {
   above_3000:         "Más de $3.000",
 }
 
+/**
+ * Convert the public lead form's typed enrichment block into the
+ * generic { label, value }[] rows the email template renders.
+ * Exported so `lead.actions.ts` can transform once and pass through.
+ */
+export function buildEnrichmentRows(e: PublicLeadEnrichment): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = []
+  if (e.inquiry_type) {
+    rows.push({ label: "Intención", value: INQUIRY_TYPE_LABELS_ES[e.inquiry_type] ?? e.inquiry_type })
+  }
+  if (e.move_in_window) {
+    rows.push({ label: "Mudanza", value: MOVE_IN_WINDOW_LABELS_ES[e.move_in_window] ?? e.move_in_window })
+  }
+  if (e.has_pets) {
+    rows.push({ label: "Mascotas", value: PETS_LABELS_ES[e.has_pets] ?? e.has_pets })
+  }
+  if (e.party_size != null) {
+    rows.push({
+      label: "Personas",
+      value: e.party_size >= 5 ? "5+" : String(e.party_size),
+    })
+  }
+  if (e.budget_range) {
+    rows.push({ label: "Presupuesto", value: BUDGET_LABELS_ES[e.budget_range] ?? e.budget_range })
+  }
+  return rows
+}
+
 const PRIMARY    = "#FACC15"  // brand yellow
 const FOREGROUND = "#0A0A0A"
 const MUTED      = "#6B7280"
@@ -88,30 +131,9 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://
 export function buildLeadNotificationEmail(v: Vars): { subject: string; html: string; text: string } {
   const leadFirstName  = v.leadName.trim().split(/\s+/)[0] || v.leadName
   const agentFirstName = v.agentName.trim().split(/\s+/)[0] || v.agentName
-  const subject        = `Nueva consulta de ${leadFirstName} · ${v.sourceLabel}`
-
-  // ── Resolved enrichment rows (label + value) ────────────────
-  // Used by both the plain-text body and the HTML table below.
-  const enrichmentRows: Array<{ label: string; value: string }> = []
-  const e = v.enrichment
-  if (e.inquiry_type) {
-    enrichmentRows.push({ label: "Intención", value: INQUIRY_TYPE_LABELS_ES[e.inquiry_type] ?? e.inquiry_type })
-  }
-  if (e.move_in_window) {
-    enrichmentRows.push({ label: "Mudanza", value: MOVE_IN_WINDOW_LABELS_ES[e.move_in_window] ?? e.move_in_window })
-  }
-  if (e.has_pets) {
-    enrichmentRows.push({ label: "Mascotas", value: PETS_LABELS_ES[e.has_pets] ?? e.has_pets })
-  }
-  if (e.party_size != null) {
-    enrichmentRows.push({
-      label: "Personas",
-      value: e.party_size >= 5 ? "5+" : String(e.party_size),
-    })
-  }
-  if (e.budget_range) {
-    enrichmentRows.push({ label: "Presupuesto", value: BUDGET_LABELS_ES[e.budget_range] ?? e.budget_range })
-  }
+  const subject        = v.subject  ?? `Nueva consulta de ${leadFirstName} · ${v.sourceLabel}`
+  const headline       = v.headline ?? `${v.leadName} quiere hablar con vos`
+  const detailsRows    = v.details
 
   // Prefer the resolved listing title when available; fall back to the
   // bare source_context string the form passed (typically a slug).
@@ -134,8 +156,8 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
     v.leadEmail ? `Correo: ${v.leadEmail}` : null,
     v.leadPhone ? `Teléfono: ${v.leadPhone}` : null,
     v.message   ? `\nMensaje:\n${v.message}` : null,
-    enrichmentRows.length > 0
-      ? `\nRespuestas del formulario:\n${enrichmentRows.map((r) => `  · ${r.label}: ${r.value}`).join("\n")}`
+    detailsRows.length > 0
+      ? `\nRespuestas del formulario:\n${detailsRows.map((r) => `  · ${r.label}: ${r.value}`).join("\n")}`
       : null,
     ``,
     `Respondé desde tu inbox: ${v.inboxUrl}`,
@@ -231,7 +253,7 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
   // pets, party size, and budget. Showing these in the email lets
   // the agent qualify before opening the kanban — they often decide
   // priority based on these in the first 5 seconds.
-  const enrichmentBlock = enrichmentRows.length > 0
+  const enrichmentBlock = detailsRows.length > 0
     ? `
             <tr>
               <td style="padding:8px 36px 0 36px;">
@@ -240,7 +262,7 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
                     Respuestas del formulario
                   </p>
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                    ${enrichmentRows.map((row) => `
+                    ${detailsRows.map((row) => `
                     <tr>
                       <td style="padding:4px 0;font-size:13px;line-height:1.5;color:${MUTED};width:120px;vertical-align:top;">${escapeHtml(row.label)}</td>
                       <td style="padding:4px 0;font-size:14px;line-height:1.5;color:${FOREGROUND};font-weight:500;">${escapeHtml(row.value)}</td>
@@ -283,7 +305,7 @@ export function buildLeadNotificationEmail(v: Vars): { subject: string; html: st
                   Nuevo lead · ${escapeHtml(v.sourceLabel)}
                 </p>
                 <h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:700;letter-spacing:-0.01em;color:${FOREGROUND};">
-                  ${escapeHtml(v.leadName)} quiere hablar con vos
+                  ${escapeHtml(headline)}
                 </h1>
               </td>
             </tr>

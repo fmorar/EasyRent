@@ -1,7 +1,6 @@
 import "server-only"
 import { getResend, getEmailFrom } from "./client"
 import { buildLeadNotificationEmail } from "./lead-notification"
-import type { PublicLeadEnrichment } from "@/lib/analytics/lead-schemas"
 
 interface Input {
   /** Agent inbox to deliver to (must be a verified-able address). */
@@ -15,8 +14,16 @@ interface Input {
   sourceContext: string | null
   /** Resolved property / project the lead came from. */
   listing:       { kind: "property" | "project"; title: string; url: string } | null
-  /** Validated enrichment block — visitor's selections in the form. */
-  enrichment:    PublicLeadEnrichment
+  /**
+   * Visitor's form selections rendered as { label, value } rows. For
+   * the public lead form, build via `buildEnrichmentRows()` from the
+   * lead-notification module; for the owner-intake form, build per
+   * caller (intent / property type / zone).
+   */
+  details:       Array<{ label: string; value: string }>
+  /** Optional custom headline / subject — overrides defaults. */
+  headline?:     string
+  subject?:      string
   inboxUrl:      string
 }
 
@@ -42,7 +49,9 @@ export async function sendLeadNotificationEmail(input: Input): Promise<SendResul
     sourceLabel:   input.sourceLabel,
     sourceContext: input.sourceContext,
     listing:       input.listing,
-    enrichment:    input.enrichment,
+    details:       input.details,
+    headline:      input.headline,
+    subject:       input.subject,
     inboxUrl:      input.inboxUrl,
   })
 

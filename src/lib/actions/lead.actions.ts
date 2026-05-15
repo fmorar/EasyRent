@@ -161,6 +161,7 @@ async function notifyLeadRecipientInBackground(args: {
     const { sendLeadNotificationEmail } = await import(
       "@/lib/email/send-lead-notification"
     )
+    const { buildEnrichmentRows } = await import("@/lib/email/lead-notification")
 
     const admin = createAdminClient()
     const recipientId = await resolveLeadRecipient(admin, {
@@ -211,7 +212,7 @@ async function notifyLeadRecipientInBackground(args: {
       sourceLabel:   LEAD_SOURCE_LABELS[args.source] ?? args.source,
       sourceContext: args.sourceContext,
       listing:       listingContext,
-      enrichment:    args.enrichment,
+      details:       buildEnrichmentRows(args.enrichment),
       inboxUrl,
     })
   } catch (err) {
