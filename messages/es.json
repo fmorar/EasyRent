@@ -1393,5 +1393,18 @@
     "ariaLabel": "Proyectos destacados",
     "prevProject": "Proyecto anterior",
     "nextProject": "Siguiente proyecto"
+  },
+  "agentsShowcase": {
+    "eyebrow": "Quiénes te acompañan",
+    "headlinePrefix": "Conocé a",
+    "headlineEmphasis": "tu asesor",
+    "subheadline": "Cada propiedad la atiende un asesor verificado, con experiencia local y disponibilidad para coordinar visitas y resolver dudas.",
+    "roleAgent": "Agente",
+    "roleAgency": "Agencia",
+    "verifiedAgent": "verificado",
+    "verifiedAgency": "verificada",
+    "fallbackBio": "Asesor verificado en la plataforma. Especializado en acompañamiento personalizado, validación de documentos y coordinación de visitas.",
+    "viewProfile": "Ver perfil",
+    "ariaLabel": "Equipo de asesores"
   }
 }

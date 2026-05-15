@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { getTranslations } from "next-intl/server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowRightIcon, CheckBadgeIcon } from "@heroicons/react/24/outline"
 
@@ -9,8 +10,10 @@ export interface AgentCard {
   avatar_url: string | null
   /** Short bio (first sentence) — falls back to a generic byline. */
   bio:        string | null
-  /** "Agente" / "Agencia" — derived from `role` server-side. */
-  role_label: string
+  /** Kind of profile — "agency" covers super_admin + owner_admin, "agent"
+   *  covers everything else. The component resolves the display label
+   *  (and the gendered "verificado/verificada" suffix in ES) from i18n. */
+  roleKind:   "agency" | "agent"
 }
 
 interface Props {
@@ -25,25 +28,27 @@ interface Props {
  * The server is expected to limit/sort agents — this component just
  * renders what it gets.
  */
-export function AgentsShowcase({ agents }: Props) {
+export async function AgentsShowcase({ agents }: Props) {
   if (agents.length === 0) return null
+
+  const t = await getTranslations("agentsShowcase")
 
   return (
     <section
-      aria-label="Equipo de asesores"
+      aria-label={t("ariaLabel")}
       className="py-(--spacing-section) md:py-(--spacing-major)"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <header className="max-w-2xl mb-(--spacing-section)">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Quiénes te acompañan
+            {t("eyebrow")}
           </p>
           <h2 className="mt-(--spacing-cluster) text-3xl sm:text-4xl lg:text-5xl font-heading font-bold tracking-tight leading-[1.05]">
-            Conocé a{" "}
-            <span className="text-foreground/40">tu asesor</span>
+            {t("headlinePrefix")}{" "}
+            <span className="text-foreground/40">{t("headlineEmphasis")}</span>
           </h2>
           <p className="mt-(--spacing-block) text-sm text-muted-foreground leading-relaxed max-w-md">
-            Cada propiedad la atiende un asesor verificado, con experiencia local y disponibilidad para coordinar visitas y resolver dudas.
+            {t("subheadline")}
           </p>
         </header>
 
@@ -56,6 +61,12 @@ export function AgentsShowcase({ agents }: Props) {
               .slice(0, 2)
               .join("")
               .toUpperCase()
+            // Role + gender agreement resolved per locale. In ES the
+            // suffix matches the noun ("Agencia verificada" /
+            // "Agente verificado"); in EN both collapse to "verified".
+            const roleLabel = a.roleKind === "agency"
+              ? `${t("roleAgency")} ${t("verifiedAgency")}`
+              : `${t("roleAgent")} ${t("verifiedAgent")}`
 
             const card = (
               <article className="group rounded-2xl bg-background ring-1 ring-foreground/5 hover:ring-foreground/15 hover:shadow-md transition-all p-5 sm:p-6 h-full flex flex-col gap-4">
@@ -70,16 +81,15 @@ export function AgentsShowcase({ agents }: Props) {
                     </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <CheckBadgeIcon className="h-3.5 w-3.5 text-foreground shrink-0" />
-                      {/* Agreement: "Agencia verificada" / "Agente verificado". */}
-                      {a.role_label} {a.role_label === "Agencia" ? "verificada" : "verificado"}
+                      {roleLabel}
                     </p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 flex-1">
-                  {a.bio ?? "Asesor verificado en la plataforma. Especializado en acompañamiento personalizado, validación de documentos y coordinación de visitas."}
+                  {a.bio ?? t("fallbackBio")}
                 </p>
                 <div className="flex items-center gap-1.5 text-sm font-medium text-foreground group-hover:gap-2 transition-all">
-                  Ver perfil
+                  {t("viewProfile")}
                   <ArrowRightIcon className="h-3.5 w-3.5" />
                 </div>
               </article>

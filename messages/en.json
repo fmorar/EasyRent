@@ -1393,5 +1393,18 @@
     "ariaLabel": "Featured projects",
     "prevProject": "Previous project",
     "nextProject": "Next project"
+  },
+  "agentsShowcase": {
+    "eyebrow": "Who you’ll work with",
+    "headlinePrefix": "Meet your",
+    "headlineEmphasis": "advisor",
+    "subheadline": "Every listing is handled by a verified advisor — local expertise plus availability to schedule viewings and answer questions.",
+    "roleAgent": "Agent",
+    "roleAgency": "Agency",
+    "verifiedAgent": "verified",
+    "verifiedAgency": "verified",
+    "fallbackBio": "Verified advisor on the platform. Specialized in personal guidance, document validation, and scheduling viewings.",
+    "viewProfile": "View profile",
+    "ariaLabel": "Advisory team"
   }
 }
