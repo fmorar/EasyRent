@@ -313,7 +313,12 @@
     "statAmenities": "AMENIDADES\nINCLUIDAS",
     "statDeliveryYear": "AÑO\nDE ENTREGA",
     "deliveryDateLabel": "Entrega",
-    "unitsCount": "{count, plural, =1 {# unidad} other {# unidades}}"
+    "unitsCount": "{count, plural, =1 {# unidad} other {# unidades}}",
+    "galleryEyebrow": "Galería",
+    "galleryHeadlinePrefix": "Conocé",
+    "galleryHeadlineEmphasis": "el proyecto",
+    "aboutProjectHeading": "Sobre el proyecto",
+    "amenitiesHeading": "Amenidades"
   },
   "blog": {
     "eyebrow": "Blog",

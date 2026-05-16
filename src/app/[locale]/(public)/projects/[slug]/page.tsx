@@ -357,8 +357,13 @@ export default async function ProjectPublicPage({ params }: Props) {
       {galleryPhotos.length > 0 && (
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major)">
           <SectionHeader
-            eyebrow="Galería"
-            heading={<>Conocé <span className="text-foreground/40">el proyecto</span></>}
+            eyebrow={tListings("galleryEyebrow")}
+            heading={
+              <>
+                {tListings("galleryHeadlinePrefix")}{" "}
+                <span className="text-foreground/40">{tListings("galleryHeadlineEmphasis")}</span>
+              </>
+            }
           />
           <LightboxProvider
             photos={photos.map((p) => ({ url: p.url, caption: p.caption }))}
@@ -414,13 +419,19 @@ export default async function ProjectPublicPage({ params }: Props) {
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-(--spacing-section) md:py-(--spacing-major) space-y-(--spacing-section)">
           <HtmlDescription
             html={project.description}
-            heading="Sobre el proyecto"
+            heading={tListings("aboutProjectHeading")}
             width="full"
             size="base"
           />
           <AmenitiesList
             amenities={amenities}
-            heading="Amenidades"
+            heading={tListings("amenitiesHeading")}
+            // Pass the active locale so the EN page renders translated
+            // amenity names ("Piscina" → "Pool") via the shared
+            // amenity-translations dictionary. Property page already
+            // passes this; project page used to drop it and default
+            // to "es" → no translation.
+            locale={locale}
           />
         </section>
       )}
