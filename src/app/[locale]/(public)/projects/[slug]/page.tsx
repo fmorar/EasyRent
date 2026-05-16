@@ -127,6 +127,7 @@ export default async function ProjectPublicPage({ params }: Props) {
     .from("properties")
     .select(`
       id, slug, title, description, price, currency, property_type, status,
+      listing_type,
       bedrooms, bathrooms, area_sqm, display_address,
       property_photos(url, is_cover, order_index)
     `)
