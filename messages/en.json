@@ -303,7 +303,17 @@
     "listingsEyebrow": "Listings",
     "listingsHeadlinePrefix": "Available",
     "listingsHeadlineEmphasis": "units",
-    "listingsSubheadline": "Detailed information and high-quality images."
+    "listingsSubheadline": "Detailed information and high-quality images.",
+    "statusPreLaunch": "Pre-launch",
+    "statusUnderConstruction": "Under construction",
+    "statusCompleted": "Completed",
+    "statusOnHold": "On hold",
+    "statTotalUnits": "TOTAL\nUNITS",
+    "statAvailableUnits": "AVAILABLE\nFOR RESERVATION",
+    "statAmenities": "AMENITIES\nINCLUDED",
+    "statDeliveryYear": "DELIVERY\nYEAR",
+    "deliveryDateLabel": "Delivery",
+    "unitsCount": "{count, plural, =1 {# unit} other {# units}}"
   },
   "blog": {
     "eyebrow": "Blog",

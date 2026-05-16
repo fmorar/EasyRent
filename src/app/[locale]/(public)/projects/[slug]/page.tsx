@@ -89,11 +89,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pre_launch:         "Pre-lanzamiento",
-  under_construction: "En construcción",
-  completed:          "Completado",
-  on_hold:            "En pausa",
+// Map project_status enum values → i18n message keys under
+// `publicProject.status*`. The component resolves at render time so
+// the label tracks the active locale.
+const STATUS_KEY: Record<string, "statusPreLaunch" | "statusUnderConstruction" | "statusCompleted" | "statusOnHold"> = {
+  pre_launch:         "statusPreLaunch",
+  under_construction: "statusUnderConstruction",
+  completed:          "statusCompleted",
+  on_hold:            "statusOnHold",
 }
 
 // ── Page ──────────────────────────────────────────────────────────
@@ -165,8 +168,20 @@ export default async function ProjectPublicPage({ params }: Props) {
   const totalUnits     = project.total_units ?? 0
   const availableUnits = project.available_units ?? 0
   const propsCount     = properties?.length ?? 0
+  // Resolve i18n early so stats labels + date formatting below can
+  // pick up the active locale. publicProject owns hero / stats /
+  // status strings; listingTypes & publicStatuses are reused from
+  // the existing site-wide property namespaces.
+  const locale         = await getLocale()
+  const tListings      = await getTranslations("publicProject")
+  const tListingTypes  = await getTranslations("properties.listingTypes")
+  const tPublicStatus  = await getTranslations("properties.publicStatuses")
+
+  // Locale-aware date + number formatting. es-CR keeps the Costa
+  // Rican month format ("ene 2022") for Spanish; en-US for English.
+  const numberLocale = locale === "en" ? "en-US" : "es-CR"
   const completionTxt  = project.completion_date
-    ? new Date(project.completion_date).toLocaleDateString("es-CR", { year: "numeric", month: "short" })
+    ? new Date(project.completion_date).toLocaleDateString(numberLocale, { year: "numeric", month: "short" })
     : null
 
   // Editorial stats strip — only include the cells we have real data
@@ -175,26 +190,26 @@ export default async function ProjectPublicPage({ params }: Props) {
   const projectStats: Array<{ number: string; label: string }> = []
   if (project.total_units != null) {
     projectStats.push({
-      number: project.total_units.toLocaleString("es-CR"),
-      label:  "UNIDADES\nTOTALES",
+      number: project.total_units.toLocaleString(numberLocale),
+      label:  tListings("statTotalUnits"),
     })
   }
   if (project.available_units != null && project.total_units != null && project.total_units > 0) {
     projectStats.push({
-      number: project.available_units.toLocaleString("es-CR"),
-      label:  "DISPONIBLES\nPARA RESERVA",
+      number: project.available_units.toLocaleString(numberLocale),
+      label:  tListings("statAvailableUnits"),
     })
   }
   if (amenities.length > 0) {
     projectStats.push({
-      number: amenities.length.toLocaleString("es-CR"),
-      label:  "AMENIDADES\nINCLUIDAS",
+      number: amenities.length.toLocaleString(numberLocale),
+      label:  tListings("statAmenities"),
     })
   }
   if (project.completion_date) {
     projectStats.push({
       number: new Date(project.completion_date).getFullYear().toString(),
-      label:  "AÑO\nDE ENTREGA",
+      label:  tListings("statDeliveryYear"),
     })
   }
 
@@ -205,10 +220,6 @@ export default async function ProjectPublicPage({ params }: Props) {
   //     in the knowledge graph (carries address, amenities, total
   //     units, year built)
   //   - FAQPage (when present) unlocks the SERP accordion of Q&As
-  const locale         = await getLocale()
-  const tListings      = await getTranslations("publicProject")
-  const tListingTypes  = await getTranslations("properties.listingTypes")
-  const tPublicStatus  = await getTranslations("properties.publicStatuses")
   const projectUrl     = `${SITE_URL}/${locale}/projects/${project.slug ?? slug}`
   const breadcrumbs = buildBreadcrumbJsonLd([
     { name: locale === "en" ? "Home"     : "Inicio",     url: `${SITE_URL}/${locale}` },
@@ -269,7 +280,9 @@ export default async function ProjectPublicPage({ params }: Props) {
           <div className="flex flex-wrap items-center gap-2 mb-4 sm:mb-6">
             <span className="h-px w-8 sm:w-10 bg-white/40" />
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-white/80">
-              {STATUS_LABELS[project.status] ?? project.status}
+              {STATUS_KEY[project.status]
+                ? tListings(STATUS_KEY[project.status])
+                : project.status}
             </span>
             {project.developer_name && (
               <>
@@ -300,10 +313,10 @@ export default async function ProjectPublicPage({ params }: Props) {
               </span>
             )}
             {completionTxt && (
-              <span>Entrega · <span className="font-numeric">{completionTxt}</span></span>
+              <span>{tListings("deliveryDateLabel")} · <span className="font-numeric">{completionTxt}</span></span>
             )}
             {totalUnits > 0 && (
-              <span><span className="font-numeric">{totalUnits}</span> unidades</span>
+              <span className="font-numeric">{tListings("unitsCount", { count: totalUnits })}</span>
             )}
           </div>
 

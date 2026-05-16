@@ -303,7 +303,17 @@
     "listingsEyebrow": "Listings",
     "listingsHeadlinePrefix": "Unidades",
     "listingsHeadlineEmphasis": "disponibles",
-    "listingsSubheadline": "Información detallada e imágenes de alta calidad."
+    "listingsSubheadline": "Información detallada e imágenes de alta calidad.",
+    "statusPreLaunch": "Pre-lanzamiento",
+    "statusUnderConstruction": "En construcción",
+    "statusCompleted": "Completado",
+    "statusOnHold": "En pausa",
+    "statTotalUnits": "UNIDADES\nTOTALES",
+    "statAvailableUnits": "DISPONIBLES\nPARA RESERVA",
+    "statAmenities": "AMENIDADES\nINCLUIDAS",
+    "statDeliveryYear": "AÑO\nDE ENTREGA",
+    "deliveryDateLabel": "Entrega",
+    "unitsCount": "{count, plural, =1 {# unidad} other {# unidades}}"
   },
   "blog": {
     "eyebrow": "Blog",
