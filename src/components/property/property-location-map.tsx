@@ -120,55 +120,61 @@ export function PropertyLocationMap({
   const icon   = useMemo(() => makeHouseIcon(), [])
 
   return (
-    <div className={className} style={{ height }}>
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        scrollWheelZoom={false}
-        zoomControl
-        attributionControl
-        className="h-full w-full rounded-xl overflow-hidden border"
-      >
-        {/* Base layer — buildings, roads, parks */}
-        <TileLayer
-          url={TILE_URL_VOYAGER}
-          attribution={TILE_ATTRIBUTION}
-          // High-DPI tiles when supported for crispness on retina screens
-          detectRetina
-        />
-        {/* Top labels layer — keeps text crisp over the markers */}
-        <TileLayer
-          url={TILE_URL_VOYAGER_LABELS_OVER}
-          detectRetina
-          // Allow blank attribution since the base layer already attributes
-          attribution=""
-        />
-
-        {/* Marker is shown in BOTH modes — in approximate mode the
-            position has already been snapped server-side (~1 km grid)
-            so the visual pin doesn't reveal the exact street. */}
-        <Marker position={center} icon={icon} />
-
-        {/* Circle reinforces "approximate area" in approximate mode. */}
-        {!isExact && (
-          <Circle
-            center={center}
-            radius={approxRadius}
-            pathOptions={{
-              color:       "#222222",
-              fillColor:   "#222222",
-              fillOpacity: 0.12,
-              weight:      2,
-              opacity:     0.5,
-            }}
+    // Outer wrapper has NO fixed height — only the map gets the fixed
+    // height. Previously the address `<p>` was inside a 360px-tall
+    // container, so long Costa Rica addresses (3 lines on mobile)
+    // overflowed and visually overlapped the next section's heading.
+    <div className={className}>
+      <div style={{ height }}>
+        <MapContainer
+          center={center}
+          zoom={zoom}
+          scrollWheelZoom={false}
+          zoomControl
+          attributionControl
+          className="h-full w-full rounded-xl overflow-hidden border"
+        >
+          {/* Base layer — buildings, roads, parks */}
+          <TileLayer
+            url={TILE_URL_VOYAGER}
+            attribution={TILE_ATTRIBUTION}
+            // High-DPI tiles when supported for crispness on retina screens
+            detectRetina
           />
-        )}
+          {/* Top labels layer — keeps text crisp over the markers */}
+          <TileLayer
+            url={TILE_URL_VOYAGER_LABELS_OVER}
+            detectRetina
+            // Allow blank attribution since the base layer already attributes
+            attribution=""
+          />
 
-        <Recenter lat={lat} lng={lng} zoom={zoom} />
-      </MapContainer>
+          {/* Marker is shown in BOTH modes — in approximate mode the
+              position has already been snapped server-side (~1 km grid)
+              so the visual pin doesn't reveal the exact street. */}
+          <Marker position={center} icon={icon} />
+
+          {/* Circle reinforces "approximate area" in approximate mode. */}
+          {!isExact && (
+            <Circle
+              center={center}
+              radius={approxRadius}
+              pathOptions={{
+                color:       "#222222",
+                fillColor:   "#222222",
+                fillOpacity: 0.12,
+                weight:      2,
+                opacity:     0.5,
+              }}
+            />
+          )}
+
+          <Recenter lat={lat} lng={lng} zoom={zoom} />
+        </MapContainer>
+      </div>
 
       {address && (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs text-muted-foreground leading-relaxed break-words">
           {address}
           {!isExact && (
             <span className="ml-1 italic opacity-70">· zona aproximada</span>
