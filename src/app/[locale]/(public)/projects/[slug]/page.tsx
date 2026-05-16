@@ -465,12 +465,19 @@ export default async function ProjectPublicPage({ params }: Props) {
                               every available unit regardless of intent
                               — rentals included. Now: available + rent
                               → "En alquiler"; sold + rent → "Alquilado";
-                              everything else → the public status label. */}
-                          {p.status === "available"
-                            ? tListingTypes(p.listing_type)
-                            : p.status === "sold"
-                              ? tPublicStatus(p.listing_type === "rent" ? "rented" : "sold")
-                              : tPublicStatus(p.status)}
+                              everything else → the public status label.
+                              Defaults guard against legacy rows whose
+                              listing_type / status came back null —
+                              next-intl crashes if we pass undefined
+                              as a key. */}
+                          {(() => {
+                            const listingType = p.listing_type ?? "sale"
+                            const status      = p.status       ?? "available"
+                            if (status === "available") return tListingTypes(listingType)
+                            if (status === "sold")
+                              return tPublicStatus(listingType === "rent" ? "rented" : "sold")
+                            return tPublicStatus(status)
+                          })()}
                         </Badge>
                       </div>
                     </div>
