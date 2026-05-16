@@ -568,14 +568,14 @@ export default async function ProjectPublicPage({ params }: Props) {
                 stack used elsewhere on the page. */}
             <div className="max-w-2xl mb-(--spacing-section)">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-(--spacing-cluster)">
-                FAQ
+                {tListings("faqEyebrow")}
               </p>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold tracking-tight leading-[1.05]">
-                Preguntas{" "}
-                <span className="text-foreground/40">frecuentes</span>
+                {tListings("faqHeadlinePrefix")}{" "}
+                <span className="text-foreground/40">{tListings("faqHeadlineEmphasis")}</span>
               </h2>
               <p className="mt-(--spacing-block) text-sm text-muted-foreground leading-relaxed max-w-xl">
-                Resolvemos las dudas más comunes sobre este proyecto.
+                {tListings("faqSubheadline")}
               </p>
             </div>
             <ProjectFaqSection

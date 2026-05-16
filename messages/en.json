@@ -318,7 +318,11 @@
     "galleryHeadlinePrefix": "Explore",
     "galleryHeadlineEmphasis": "the project",
     "aboutProjectHeading": "About the project",
-    "amenitiesHeading": "Amenities"
+    "amenitiesHeading": "Amenities",
+    "faqEyebrow": "FAQ",
+    "faqHeadlinePrefix": "Frequently asked",
+    "faqHeadlineEmphasis": "questions",
+    "faqSubheadline": "We answer the most common questions about this project."
   },
   "blog": {
     "eyebrow": "Blog",

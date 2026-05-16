@@ -318,7 +318,11 @@
     "galleryHeadlinePrefix": "Conocé",
     "galleryHeadlineEmphasis": "el proyecto",
     "aboutProjectHeading": "Sobre el proyecto",
-    "amenitiesHeading": "Amenidades"
+    "amenitiesHeading": "Amenidades",
+    "faqEyebrow": "FAQ",
+    "faqHeadlinePrefix": "Preguntas",
+    "faqHeadlineEmphasis": "frecuentes",
+    "faqSubheadline": "Resolvemos las dudas más comunes sobre este proyecto."
   },
   "blog": {
     "eyebrow": "Blog",
