@@ -50,11 +50,27 @@ export function getTwilioWhatsAppFrom(): string {
 
 /**
  * Feature flag — whether the inbound AI agent is allowed to reply.
- * When false, the webhook still persists messages but the agent
- * runner is skipped. Useful for: ramping the bot on a few accounts,
- * killing it fast during an incident, holding traffic during a
- * maintenance window.
+ *
+ * Inverted gate: default is ON, opt-out via WHATSAPP_AGENT_DISABLED=true.
+ * Rationale:
+ *   • Production behavior should default to "agent on" once the route
+ *     and OpenAI key are in place — otherwise leads get a static
+ *     placeholder every time we forget to flip a flag after deploy.
+ *   • Vercel's `vercel env add` is fiddly with empty-string values for
+ *     plain-text flags, and an opt-IN flag silently broke once already.
+ *     Opt-OUT is the safer default (worst case: agent runs).
+ *   • Kill switch is still one env var away: set
+ *     WHATSAPP_AGENT_DISABLED=true to mute the bot during an incident
+ *     without redeploying.
+ *
+ * We also require OPENAI_API_KEY at runtime — if it's missing, the
+ * runner throws and the webhook falls back to a graceful message,
+ * so the flag isn't load-bearing for safety.
  */
 export function isAgentEnabled(): boolean {
-  return process.env.WHATSAPP_AGENT_ENABLED === "true"
+  if (process.env.WHATSAPP_AGENT_DISABLED === "true") return false
+  // Defensive: don't try to call OpenAI without a key — let the
+  // static placeholder reply instead.
+  if (!process.env.OPENAI_API_KEY) return false
+  return true
 }
