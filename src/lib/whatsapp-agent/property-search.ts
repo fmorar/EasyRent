@@ -93,10 +93,20 @@ export async function searchPropertiesForAgent(
 
   // Skip broader tiers if we already have enough.
   let combined = dedupe(t1)
+  const t1Count = combined.length
+  let t2Count   = 0
   if (combined.length < 3) {
     const t2 = await runQuery(admin, input, "broad")
+    t2Count = t2.length
     combined = dedupe([...combined, ...t2])
   }
+
+  // Observability — when leads complain "but you have X in the
+  // catalog!" we need to see which filter knocked it out. The args
+  // line is the smallest thing we can log that lets us replay.
+  console.log(
+    `[whatsapp-agent.search] args=${JSON.stringify(input)} t1=${t1Count} t2=${t2Count} combined=${combined.length}`,
+  )
 
   // Tier 3 — LLM re-rank when free_text is present and results are
   // still thin. We keep the candidate pool to T1+T2 instead of
@@ -225,14 +235,26 @@ async function runQuery(
     // surface them. Detail page handles closed-listing messaging.
     .eq("status", "available" as never)
 
-  // Hard filters — kept on both tiers.
+  // Hard filters — kept on both tiers. These represent strong intent
+  // the lead expressed explicitly:
+  //   • listing_type (rent vs sale) — almost always implicit from
+  //     where they entered the funnel; getting it wrong wastes the turn.
+  //   • property_type (apartment vs house vs land) — a "lote en Escazú"
+  //     search should never return apartments.
+  // Everything else (including `furnished`) is soft — leads are often
+  // flexible, especially when the catalog is small. Treating
+  // `furnished` as hard meant a lead who landed on a furnished
+  // listing got zero results when they asked "y sin muebles?", because
+  // the model carried over `furnished:true` and even the broad tier
+  // kept that filter alive.
   if (input.listing_type)  q = q.eq("listing_type",  input.listing_type as never)
   if (input.property_type) q = q.eq("property_type", input.property_type as never)
-  if (input.furnished === true)  q = q.eq("is_furnished", true)
-  if (input.furnished === false) q = q.eq("is_furnished", false)
 
-  // Soft filters — dropped on the broad tier.
+  // Soft filters — dropped on the broad tier so we can offer
+  // alternatives when the strict tier doesn't have enough matches.
   if (tier === "strict") {
+    if (input.furnished === true)   q = q.eq("is_furnished", true)
+    if (input.furnished === false)  q = q.eq("is_furnished", false)
     if (input.min_bedrooms != null) q = q.gte("bedrooms", input.min_bedrooms)
     if (input.max_bedrooms != null) q = q.lte("bedrooms", input.max_bedrooms)
     if (input.min_price    != null) q = q.gte("price",    input.min_price)
