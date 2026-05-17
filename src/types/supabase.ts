@@ -14,6 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      blog_posts: {
+        Row: {
+          author_id: string
+          body_html: string | null
+          category: string | null
+          cover_alt: string | null
+          cover_url: string | null
+          created_at: string
+          deleted_at: string | null
+          excerpt: string | null
+          id: string
+          locale: string
+          og_image_url: string | null
+          published_at: string | null
+          reading_minutes: number | null
+          seo_description: string | null
+          seo_title: string | null
+          slug: string
+          status: Database["public"]["Enums"]["blog_post_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          body_html?: string | null
+          category?: string | null
+          cover_alt?: string | null
+          cover_url?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          excerpt?: string | null
+          id?: string
+          locale?: string
+          og_image_url?: string | null
+          published_at?: string | null
+          reading_minutes?: number | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug: string
+          status?: Database["public"]["Enums"]["blog_post_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          body_html?: string | null
+          category?: string | null
+          cover_alt?: string | null
+          cover_url?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          excerpt?: string | null
+          id?: string
+          locale?: string
+          og_image_url?: string | null
+          published_at?: string | null
+          reading_minutes?: number | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string
+          status?: Database["public"]["Enums"]["blog_post_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_events: {
         Row: {
           contract_id: string
@@ -622,6 +696,7 @@ export type Database = {
           notes: string | null
           party_size: number | null
           phone: string | null
+          phone_e164: string | null
           preferred_visit_at: string | null
           project_id: string | null
           property_id: string | null
@@ -664,6 +739,7 @@ export type Database = {
           notes?: string | null
           party_size?: number | null
           phone?: string | null
+          phone_e164?: string | null
           preferred_visit_at?: string | null
           project_id?: string | null
           property_id?: string | null
@@ -706,6 +782,7 @@ export type Database = {
           notes?: string | null
           party_size?: number | null
           phone?: string | null
+          phone_e164?: string | null
           preferred_visit_at?: string | null
           project_id?: string | null
           property_id?: string | null
@@ -1129,6 +1206,113 @@ export type Database = {
           },
         ]
       }
+      newsletter_subscribers: {
+        Row: {
+          email: string
+          id: string
+          locale: string
+          source_context: string | null
+          subscribed_at: string
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          email: string
+          id?: string
+          locale?: string
+          source_context?: string | null
+          subscribed_at?: string
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          email?: string
+          id?: string
+          locale?: string
+          source_context?: string | null
+          subscribed_at?: string
+          unsubscribed_at?: string | null
+        }
+        Relationships: []
+      }
+      owner_leads: {
+        Row: {
+          area_sqm: number | null
+          assigned_to: string | null
+          bathrooms: number | null
+          bedrooms: number | null
+          created_at: string
+          currency: string | null
+          deleted_at: string | null
+          email: string | null
+          expected_price: number | null
+          full_name: string
+          id: string
+          intent: Database["public"]["Enums"]["owner_lead_intent"]
+          locale: string
+          message: string | null
+          notes: string | null
+          phone: string
+          property_type: string | null
+          source_context: string | null
+          status: Database["public"]["Enums"]["owner_lead_status"]
+          updated_at: string
+          zone: string | null
+        }
+        Insert: {
+          area_sqm?: number | null
+          assigned_to?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          created_at?: string
+          currency?: string | null
+          deleted_at?: string | null
+          email?: string | null
+          expected_price?: number | null
+          full_name: string
+          id?: string
+          intent: Database["public"]["Enums"]["owner_lead_intent"]
+          locale?: string
+          message?: string | null
+          notes?: string | null
+          phone: string
+          property_type?: string | null
+          source_context?: string | null
+          status?: Database["public"]["Enums"]["owner_lead_status"]
+          updated_at?: string
+          zone?: string | null
+        }
+        Update: {
+          area_sqm?: number | null
+          assigned_to?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          created_at?: string
+          currency?: string | null
+          deleted_at?: string | null
+          email?: string | null
+          expected_price?: number | null
+          full_name?: string
+          id?: string
+          intent?: Database["public"]["Enums"]["owner_lead_intent"]
+          locale?: string
+          message?: string | null
+          notes?: string | null
+          phone?: string
+          property_type?: string | null
+          source_context?: string | null
+          status?: Database["public"]["Enums"]["owner_lead_status"]
+          updated_at?: string
+          zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       owner_report_public_views: {
         Row: {
           id: string
@@ -1207,171 +1391,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      newsletter_subscribers: {
-        Row: {
-          id:              string
-          email:           string
-          source_context:  string | null
-          locale:          string
-          subscribed_at:   string
-          unsubscribed_at: string | null
-        }
-        Insert: {
-          id?:              string
-          email:            string
-          source_context?:  string | null
-          locale?:          string
-          subscribed_at?:   string
-          unsubscribed_at?: string | null
-        }
-        Update: {
-          id?:              string
-          email?:           string
-          source_context?:  string | null
-          locale?:          string
-          subscribed_at?:   string
-          unsubscribed_at?: string | null
-        }
-        Relationships: []
-      }
-      blog_posts: {
-        Row: {
-          id:              string
-          slug:            string
-          locale:          string
-          title:           string
-          excerpt:         string | null
-          body_html:       string | null
-          cover_url:       string | null
-          cover_alt:       string | null
-          category:        string | null
-          reading_minutes: number | null
-          seo_title:       string | null
-          seo_description: string | null
-          og_image_url:    string | null
-          author_id:       string
-          status:          "draft" | "published" | "archived"
-          published_at:    string | null
-          created_at:      string
-          updated_at:      string
-          deleted_at:      string | null
-        }
-        Insert: {
-          id?:              string
-          slug:             string
-          locale?:          string
-          title:            string
-          excerpt?:         string | null
-          body_html?:       string | null
-          cover_url?:       string | null
-          cover_alt?:       string | null
-          category?:        string | null
-          reading_minutes?: number | null
-          seo_title?:       string | null
-          seo_description?: string | null
-          og_image_url?:    string | null
-          author_id:        string
-          status?:          "draft" | "published" | "archived"
-          published_at?:    string | null
-          created_at?:      string
-          updated_at?:      string
-          deleted_at?:      string | null
-        }
-        Update: {
-          id?:              string
-          slug?:            string
-          locale?:          string
-          title?:            string
-          excerpt?:         string | null
-          body_html?:       string | null
-          cover_url?:       string | null
-          cover_alt?:       string | null
-          category?:        string | null
-          reading_minutes?: number | null
-          seo_title?:       string | null
-          seo_description?: string | null
-          og_image_url?:    string | null
-          author_id?:       string
-          status?:          "draft" | "published" | "archived"
-          published_at?:    string | null
-          created_at?:      string
-          updated_at?:      string
-          deleted_at?:      string | null
-        }
-        Relationships: []
-      }
-      owner_leads: {
-        Row: {
-          id:              string
-          full_name:       string
-          phone:           string
-          email:           string | null
-          intent:          "sale" | "rent" | "both"
-          property_type:   string | null
-          zone:            string | null
-          bedrooms:        number | null
-          bathrooms:       number | null
-          area_sqm:        number | null
-          expected_price:  number | null
-          currency:        string | null
-          message:         string | null
-          source_context:  string | null
-          locale:          string
-          status:          "new" | "contacted" | "valuation_scheduled" | "listed" | "declined" | "nurturing"
-          assigned_to:     string | null
-          notes:           string | null
-          created_at:      string
-          updated_at:      string
-          deleted_at:      string | null
-        }
-        Insert: {
-          id?:              string
-          full_name:        string
-          phone:            string
-          email?:           string | null
-          intent:           "sale" | "rent" | "both"
-          property_type?:   string | null
-          zone?:            string | null
-          bedrooms?:        number | null
-          bathrooms?:       number | null
-          area_sqm?:        number | null
-          expected_price?:  number | null
-          currency?:        string | null
-          message?:         string | null
-          source_context?:  string | null
-          locale?:          string
-          status?:          "new" | "contacted" | "valuation_scheduled" | "listed" | "declined" | "nurturing"
-          assigned_to?:     string | null
-          notes?:           string | null
-          created_at?:      string
-          updated_at?:      string
-          deleted_at?:      string | null
-        }
-        Update: {
-          id?:              string
-          full_name?:       string
-          phone?:           string
-          email?:           string | null
-          intent?:          "sale" | "rent" | "both"
-          property_type?:   string | null
-          zone?:            string | null
-          bedrooms?:        number | null
-          bathrooms?:       number | null
-          area_sqm?:        number | null
-          expected_price?:  number | null
-          currency?:        string | null
-          message?:         string | null
-          source_context?:  string | null
-          locale?:          string
-          status?:          "new" | "contacted" | "valuation_scheduled" | "listed" | "declined" | "nurturing"
-          assigned_to?:     string | null
-          notes?:           string | null
-          created_at?:      string
-          updated_at?:      string
-          deleted_at?:      string | null
-        }
-        Relationships: []
       }
       profiles: {
         Row: {
@@ -2437,6 +2456,7 @@ export type Database = {
       }
       v_properties_anonymous: {
         Row: {
+          amenities: string[] | null
           anonymous_slug: string | null
           area_sqm: number | null
           bathrooms: number | null
@@ -2461,6 +2481,7 @@ export type Database = {
           total_floors: number | null
         }
         Insert: {
+          amenities?: string[] | null
           anonymous_slug?: string | null
           area_sqm?: number | null
           bathrooms?: number | null
@@ -2485,6 +2506,7 @@ export type Database = {
           total_floors?: number | null
         }
         Update: {
+          amenities?: string[] | null
           anonymous_slug?: string | null
           area_sqm?: number | null
           bathrooms?: number | null
@@ -2561,6 +2583,7 @@ export type Database = {
       }
       is_in_my_network: { Args: { other_id: string }; Returns: boolean }
       is_owner_admin: { Args: never; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       user_has_forked: { Args: { p_project_id: string }; Returns: boolean }
       user_has_share: { Args: { p_project_id: string }; Returns: boolean }
       user_owns_non_template: {
@@ -2570,6 +2593,7 @@ export type Database = {
       user_owns_project: { Args: { p_project_id: string }; Returns: boolean }
     }
     Enums: {
+      blog_post_status: "draft" | "published" | "archived"
       commission_type: "percentage" | "fixed"
       contract_status:
         | "draft"
@@ -2651,6 +2675,14 @@ export type Database = {
         | "property_detail_page"
         | "unsupported"
       message_direction: "inbound" | "outbound"
+      owner_lead_intent: "sale" | "rent" | "both"
+      owner_lead_status:
+        | "new"
+        | "contacted"
+        | "valuation_scheduled"
+        | "listed"
+        | "declined"
+        | "nurturing"
       perf_health_status:
         | "strong"
         | "healthy"
@@ -2832,6 +2864,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      blog_post_status: ["draft", "published", "archived"],
       commission_type: ["percentage", "fixed"],
       contract_status: [
         "draft",
@@ -2923,6 +2956,15 @@ export const Constants = {
         "unsupported",
       ],
       message_direction: ["inbound", "outbound"],
+      owner_lead_intent: ["sale", "rent", "both"],
+      owner_lead_status: [
+        "new",
+        "contacted",
+        "valuation_scheduled",
+        "listed",
+        "declined",
+        "nurturing",
+      ],
       perf_health_status: [
         "strong",
         "healthy",

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAuth } from "@/lib/auth"
+import { toE164 } from "@/lib/phone"
 import { isAdminRole } from "@/lib/roles"
 import { revalidatePath } from "next/cache"
 import {
@@ -66,12 +67,19 @@ export async function capturePublicLead(
     }
   }
 
+  // Normalize phone to E.164 so future WhatsApp / SMS lookups can
+  // match this lead by canonical number, regardless of how the
+  // visitor formatted it on the form ("+506 8888 8888", "88888888",
+  // etc.). Free-form `phone` stays as the human-readable source.
+  const phoneE164 = toE164(input.phone)
+
   const { data, error } = await admin
     .from("leads")
     .insert({
       full_name:      input.full_name,
       email:          input.email ?? null,
       phone:          input.phone ?? null,
+      phone_e164:     phoneE164,
       notes:          input.message ?? null,
       source:         input.source,
       source_context: input.source_context ?? null,
