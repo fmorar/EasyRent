@@ -153,20 +153,47 @@ export async function updateLeadFromAgent(args: {
   if (patch.has_pets       !== undefined) { dbPatch.has_pets       = patch.has_pets       ?? null;                  updated.push("has_pets") }
   if (patch.party_size     !== undefined) { dbPatch.party_size     = patch.party_size     ?? null;                  updated.push("party_size") }
 
-  // Merge preferred_zones into extracted_data without clobbering
-  // other keys (e.g. thread_summary, AI-extracted questions/objections).
+  // Merge JSONB fields into extracted_data without clobbering other
+  // keys (e.g. thread_summary, AI-extracted questions/objections).
+  //
+  // Why JSONB and not real columns: the visit-prerequisite fields
+  // (id_number, parking, occupation) are CR-rental-specific and may
+  // evolve as landlords change requirements. Keeping them in
+  // extracted_data avoids a schema migration per tweak and they
+  // never join with anything else in the CRM.
+  const extractedPatch: Record<string, unknown> = {}
   if (patch.preferred_zones !== undefined) {
+    extractedPatch.preferred_zones = patch.preferred_zones.filter(
+      (z) => typeof z === "string" && z.trim(),
+    )
+  }
+  if (patch.id_number !== undefined) {
+    extractedPatch.id_number = patch.id_number?.trim() || null
+  }
+  if (patch.parking_needed !== undefined) {
+    extractedPatch.parking_needed = patch.parking_needed
+  }
+  if (patch.parking_count !== undefined) {
+    extractedPatch.parking_count = patch.parking_count
+  }
+  if (patch.occupation !== undefined) {
+    extractedPatch.occupation = patch.occupation?.trim() || null
+  }
+
+  if (Object.keys(extractedPatch).length > 0) {
     const cur = await admin
       .from("leads")
       .select("extracted_data")
       .eq("id", args.leadId)
       .single()
-    const next = {
+    // Cast through unknown: the generated Supabase Json type is a
+    // recursive union that TS can't infer from a spread literal, but
+    // the values we put in are all JSON-safe primitives / arrays.
+    dbPatch.extracted_data = {
       ...((cur.data?.extracted_data ?? {}) as Record<string, unknown>),
-      preferred_zones: patch.preferred_zones.filter((z) => typeof z === "string" && z.trim()),
-    }
-    dbPatch.extracted_data = next
-    updated.push("preferred_zones")
+      ...extractedPatch,
+    } as Database["public"]["Tables"]["leads"]["Update"]["extracted_data"]
+    for (const k of Object.keys(extractedPatch)) updated.push(k)
   }
 
   if (Object.keys(dbPatch).length === 0) {
@@ -189,8 +216,16 @@ export async function updateLeadFromAgent(args: {
 
 /** Patch type the agent tool can send. Mirrors the lead enums but
  *  every field is optional. Validation happens via Zod in the tool
- *  layer; this type is for the action signature. */
+ *  layer; this type is for the action signature.
+ *
+ *  Columns vs. JSONB:
+ *    • The first block (full_name…party_size) maps to real `leads`
+ *      columns — searchable from the CRM, used by reporting.
+ *    • The second block (preferred_zones…occupation) lives in
+ *      `extracted_data` JSONB. Visit-prerequisite data the agent
+ *      gathers but the CRM doesn't filter on. Cheap to add/remove. */
 export type AgentLeadPatch = {
+  // Real columns
   full_name?:       string | null
   email?:           string | null
   inquiry_type?:    Database["public"]["Enums"]["lead_inquiry_type"]    | null
@@ -198,6 +233,16 @@ export type AgentLeadPatch = {
   budget_range?:    Database["public"]["Enums"]["lead_budget_range"]    | null
   has_pets?:        Database["public"]["Enums"]["lead_pets_status"]     | null
   party_size?:      number | null
+
+  // extracted_data (JSONB)
   preferred_zones?: string[]
+  /** Cédula nacional, DIMEX o pasaporte — string libre, lo valida el
+   *  asesor humano antes de firmar contrato. */
+  id_number?:       string | null
+  parking_needed?:  boolean | null
+  parking_count?:   number  | null
+  /** Profesión o lugar de trabajo (free text — "ingeniero", "BAC San
+   *  José", "freelance diseño", etc.). */
+  occupation?:      string  | null
 }
 

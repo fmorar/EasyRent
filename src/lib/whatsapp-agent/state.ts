@@ -47,11 +47,25 @@ export interface CollectedSnapshot {
    *  set via `update_lead_profile`). Stored under
    *  `extracted_data.preferred_zones`. */
   preferred_zones:  string[]
+  /** Visit-prerequisite data — CR landlords always ask for these
+   *  before agreeing to a visit. All live in `extracted_data` JSONB. */
+  id_number:        string  | null
+  parking_needed:   boolean | null
+  parking_count:    number  | null
+  occupation:       string  | null
   /** Field names that are still null. Used to seed the agent's
    *  next-question prompt. */
   pending:          Array<
-    "full_name" | "inquiry_type" | "move_in_window" |
-    "budget_range" | "has_pets" | "party_size" | "preferred_zones"
+    | "full_name" | "inquiry_type" | "move_in_window"
+    | "budget_range" | "has_pets" | "party_size" | "preferred_zones"
+    | "id_number" | "parking_needed" | "occupation"
+  >
+  /** Convenience: the subset of `pending` the agent MUST resolve
+   *  before triggering `create_visit_request`. The prompt references
+   *  this to keep the visit gate honest. */
+  missingForVisit:  Array<
+    | "full_name" | "id_number" | "party_size" | "has_pets"
+    | "parking_needed" | "occupation"
   >
 }
 
@@ -113,13 +127,32 @@ export async function loadAgentContext(conversationId: string): Promise<AgentCon
 
   // ── Derived state ──────────────────────────────────────────────
   const extracted = (lead.extracted_data ?? null) as
-    | { preferred_zones?: string[]; thread_summary?: string }
+    | {
+        preferred_zones?: string[]
+        thread_summary?:  string
+        id_number?:       string | null
+        parking_needed?:  boolean | null
+        parking_count?:   number  | null
+        occupation?:      string  | null
+      }
     | null
   const preferred_zones = Array.isArray(extracted?.preferred_zones)
     ? extracted!.preferred_zones.filter((z): z is string => typeof z === "string")
     : []
   const threadSummary = typeof extracted?.thread_summary === "string"
     ? extracted.thread_summary
+    : null
+  const id_number      = typeof extracted?.id_number === "string" && extracted.id_number.trim()
+    ? extracted.id_number.trim()
+    : null
+  const parking_needed = typeof extracted?.parking_needed === "boolean"
+    ? extracted.parking_needed
+    : null
+  const parking_count  = typeof extracted?.parking_count === "number"
+    ? extracted.parking_count
+    : null
+  const occupation     = typeof extracted?.occupation === "string" && extracted.occupation.trim()
+    ? extracted.occupation.trim()
     : null
 
   // `full_name === "Sin nombre"` is our default for newly-created
@@ -128,13 +161,30 @@ export async function loadAgentContext(conversationId: string): Promise<AgentCon
   const namePending = !lead.full_name || lead.full_name === "Sin nombre"
 
   const pending: CollectedSnapshot["pending"] = []
-  if (namePending)              pending.push("full_name")
-  if (!lead.inquiry_type)       pending.push("inquiry_type")
-  if (!lead.move_in_window)     pending.push("move_in_window")
-  if (!lead.budget_range)       pending.push("budget_range")
-  if (!lead.has_pets)           pending.push("has_pets")
-  if (!lead.party_size)         pending.push("party_size")
+  if (namePending)                  pending.push("full_name")
+  if (!lead.inquiry_type)           pending.push("inquiry_type")
+  if (!lead.move_in_window)         pending.push("move_in_window")
+  if (!lead.budget_range)           pending.push("budget_range")
+  if (!lead.has_pets)               pending.push("has_pets")
+  if (!lead.party_size)             pending.push("party_size")
   if (preferred_zones.length === 0) pending.push("preferred_zones")
+  if (!id_number)                   pending.push("id_number")
+  if (parking_needed == null)       pending.push("parking_needed")
+  if (!occupation)                  pending.push("occupation")
+
+  // Subset of `pending` that GATES the visit-coordination step. The
+  // agent must collect ALL of these before calling create_visit_request
+  // (Phase 6 tool; meanwhile the prompt asks for them in a checklist).
+  // Note: `move_in_window`, `budget_range`, `email`, and zones are
+  // helpful but NOT mandatory at the visit gate — landlords care
+  // primarily about who/with what/with how many cars/pets.
+  const missingForVisit: CollectedSnapshot["missingForVisit"] = []
+  if (namePending)             missingForVisit.push("full_name")
+  if (!id_number)              missingForVisit.push("id_number")
+  if (!lead.party_size)        missingForVisit.push("party_size")
+  if (!lead.has_pets)           missingForVisit.push("has_pets")
+  if (parking_needed == null)  missingForVisit.push("parking_needed")
+  if (!occupation)             missingForVisit.push("occupation")
 
   return {
     lead,
@@ -155,7 +205,12 @@ export async function loadAgentContext(conversationId: string): Promise<AgentCon
       has_pets:        lead.has_pets,
       party_size:      lead.party_size,
       preferred_zones,
+      id_number,
+      parking_needed,
+      parking_count,
+      occupation,
       pending,
+      missingForVisit,
     },
     threadSummary,
   }
@@ -169,15 +224,22 @@ export async function loadAgentContext(conversationId: string): Promise<AgentCon
 export function renderCollectedSnapshot(c: CollectedSnapshot, phoneE164: string | null): string {
   const lines: string[] = []
   lines.push("## Perfil del lead (lo que ya sabemos)")
-  if (c.full_name)             lines.push(`- Nombre: ${c.full_name}`)
-  if (phoneE164)               lines.push(`- WhatsApp: ${formatPhoneDisplay(phoneE164)}`)
-  if (c.email)                 lines.push(`- Correo: ${c.email}`)
-  if (c.inquiry_type)          lines.push(`- Intención: ${INQUIRY_LABELS[c.inquiry_type]}`)
-  if (c.move_in_window)        lines.push(`- Ventana de mudanza: ${MOVE_IN_LABELS[c.move_in_window]}`)
-  if (c.budget_range)          lines.push(`- Presupuesto: ${BUDGET_LABELS[c.budget_range]}`)
-  if (c.has_pets)              lines.push(`- Mascotas: ${PETS_LABELS[c.has_pets]}`)
-  if (c.party_size != null)    lines.push(`- Personas: ${c.party_size}`)
+  if (c.full_name)              lines.push(`- Nombre: ${c.full_name}`)
+  if (phoneE164)                lines.push(`- WhatsApp: ${formatPhoneDisplay(phoneE164)}`)
+  if (c.email)                  lines.push(`- Correo: ${c.email}`)
+  if (c.inquiry_type)           lines.push(`- Intención: ${INQUIRY_LABELS[c.inquiry_type]}`)
+  if (c.move_in_window)         lines.push(`- Ventana de mudanza: ${MOVE_IN_LABELS[c.move_in_window]}`)
+  if (c.budget_range)           lines.push(`- Presupuesto: ${BUDGET_LABELS[c.budget_range]}`)
+  if (c.has_pets)               lines.push(`- Mascotas: ${PETS_LABELS[c.has_pets]}`)
+  if (c.party_size != null)     lines.push(`- Personas: ${c.party_size}`)
   if (c.preferred_zones.length) lines.push(`- Zonas de interés: ${c.preferred_zones.join(", ")}`)
+  if (c.id_number)              lines.push(`- Identificación: ${c.id_number}`)
+  if (c.parking_needed != null) {
+    lines.push(
+      `- Parqueo: ${c.parking_needed ? `sí${c.parking_count ? ` (${c.parking_count} carro${c.parking_count === 1 ? "" : "s"})` : ""}` : "no necesita"}`,
+    )
+  }
+  if (c.occupation)             lines.push(`- Profesión / trabajo: ${c.occupation}`)
 
   if (lines.length === 1) {
     // Only the heading — brand-new lead.
@@ -188,6 +250,18 @@ export function renderCollectedSnapshot(c: CollectedSnapshot, phoneE164: string 
     lines.push("")
     lines.push("## Datos que aún NO tenemos")
     for (const p of c.pending) lines.push(`- ${PENDING_LABELS[p]}`)
+  }
+
+  if (c.missingForVisit.length > 0) {
+    lines.push("")
+    lines.push("## Faltantes para COORDINAR VISITA (gating)")
+    lines.push("Estos los pide el dueño antes de aprobar una visita. NO ofrezcas agendar visita hasta tenerlos todos:")
+    for (const p of c.missingForVisit) lines.push(`- ${VISIT_GATE_LABELS[p]}`)
+  } else if (c.full_name) {
+    // Only declare "ready" once we actually have the basics.
+    lines.push("")
+    lines.push("## Estado para visita: completo")
+    lines.push("Ya tenés todos los datos que el dueño pide. Si el lead confirma, podés coordinar la visita.")
   }
   return lines.join("\n")
 }
@@ -221,11 +295,23 @@ const PETS_LABELS: Record<NonNullable<LeadRow["has_pets"]>, string> = {
   multiple:  "varias mascotas",
 }
 const PENDING_LABELS: Record<CollectedSnapshot["pending"][number], string> = {
-  full_name:       "nombre",
+  full_name:       "nombre completo",
   inquiry_type:    "intención (alquiler, compra, visita)",
   move_in_window:  "cuándo se quiere mudar",
   budget_range:    "presupuesto",
   has_pets:        "mascotas",
   party_size:      "cuántas personas",
   preferred_zones: "zona(s) de interés",
+  id_number:       "número de identificación (cédula, DIMEX o pasaporte)",
+  parking_needed:  "si necesita parqueo (y cuántos carros)",
+  occupation:      "profesión o lugar de trabajo",
+}
+
+const VISIT_GATE_LABELS: Record<CollectedSnapshot["missingForVisit"][number], string> = {
+  full_name:      "nombre completo",
+  id_number:      "número de identificación",
+  party_size:     "cuántas personas vivirán",
+  has_pets:       "si tiene mascotas (y de qué tipo)",
+  parking_needed: "si necesita parqueo (y cuántos carros)",
+  occupation:     "profesión o lugar de trabajo",
 }

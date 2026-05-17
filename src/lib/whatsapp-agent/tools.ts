@@ -49,6 +49,15 @@ const UpdateLeadProfileSchema = z.object({
     .describe("How many people will live in the unit."),
   preferred_zones:  z.array(z.string().min(1).max(80)).max(8).optional()
     .describe("Free-form Costa Rican zones the lead mentioned (e.g. ['Escazú', 'Santa Ana']). Replace, don't append."),
+  // ── Visit-prerequisite fields (CR rental owners always ask for these) ──
+  id_number:        z.string().min(5).max(40).optional()
+    .describe("Número de identificación: cédula nacional ('1-2345-6789'), DIMEX (12 dígitos) o pasaporte. Texto libre, lo valida el asesor humano."),
+  parking_needed:   z.boolean().optional()
+    .describe("Si el lead necesita parqueo. true = sí, false = no."),
+  parking_count:    z.number().int().min(0).max(5).optional()
+    .describe("Cuántos carros tiene el lead. Pasalo solo si parking_needed=true."),
+  occupation:       z.string().min(2).max(120).optional()
+    .describe("Profesión o lugar de trabajo (free text). Ej: 'ingeniero', 'BAC San José', 'freelance diseño'."),
 })
 
 const SearchPropertiesSchema = z.object({

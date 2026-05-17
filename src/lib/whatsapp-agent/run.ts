@@ -48,7 +48,11 @@ function getClient(): OpenAI {
 }
 
 export interface AgentTurnResult {
-  reply:           string
+  /** Text to send to the lead, OR `null` when the agent chose to stay
+   *  silent (e.g. lead said "ok" and there's nothing useful to add).
+   *  The webhook treats `null` as "don't send anything; conversation
+   *  pauses until the lead writes back". */
+  reply:           string | null
   toolCallsMade:   number
   iterations:      number
   /** True when we hit MAX_ITERATIONS without a final assistant text.
@@ -150,7 +154,9 @@ export async function runAgentTurn(conversationId: string): Promise<AgentTurnRes
     }
   }
 
-  // Loop cap hit without a clean exit → graceful fallback.
+  // Loop cap hit without a clean exit → graceful fallback. This is the
+  // only case where we make up a reply the model didn't write; it's a
+  // bug signal we want visible to the user instead of silence.
   if (finalReply == null) {
     return {
       reply:         "Disculpá, me trabé un momento. ¿Me lo podés repetir?",
@@ -160,16 +166,12 @@ export async function runAgentTurn(conversationId: string): Promise<AgentTurnRes
     }
   }
 
-  // Empty reply (model returned only tool calls then went silent).
-  // Should not happen with our prompt, but we guard so the user
-  // never sees a blank WhatsApp.
+  // Empty reply = intentional silence. The prompt explicitly allows
+  // this for low-information turns ("ok" / "dale" / "gracias") so the
+  // bot doesn't feel robotic with reflexive acknowledgments. The
+  // webhook treats null as "don't send".
   if (!finalReply) {
-    return {
-      reply:         "Listo, ya guardé esa info. ¿En qué más te ayudo?",
-      toolCallsMade,
-      iterations,
-      hitCap:        false,
-    }
+    return { reply: null, toolCallsMade, iterations, hitCap: false }
   }
 
   return { reply: finalReply, toolCallsMade, iterations, hitCap: false }

@@ -170,36 +170,45 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // Decide the reply:
-  //   • Audio that failed to transcribe (too-large / noisy / API
-  //     error) → audioFallback explains the specific failure mode.
-  //   • Non-audio media with no caption (photo / video / sticker /
-  //     vCard) → still unsupported in v1; ask them to write.
+  //   • Audio that failed to transcribe → audioFallback explains the
+  //     specific failure mode.
+  //   • Non-audio media with no caption (photo / video / sticker) →
+  //     still unsupported in v1; ask them to write.
   //   • Otherwise the agent handles it (text body or transcribed audio).
-  let reply: string
+  //
+  // `null` means "intentional silence — don't send anything". The
+  // agent uses that for low-information turns ("ok" / "dale") to
+  // stop feeling robotic. Static-fallback strings are never null.
+  let reply: string | null
   if (audioFallback) {
     reply = audioFallback
   } else if (!effectiveBody && numMedia > 0) {
     reply = "Por ahora puedo leer texto y audios de voz. ¿Me lo podés escribir o mandar como nota de voz?"
   } else if (isAgentEnabled()) {
     // ── AI agent path ───────────────────────────────────────────
-    // Feature-flagged so we can dark-launch + roll back without
-    // touching code. Falls back to the static greeting if the agent
-    // throws — the conversation stays alive, the lead doesn't see a
-    // hard error, and the Sentry / Vercel log captures the trace.
+    // Feature-gated; falls back to a graceful message on throw so the
+    // conversation stays alive and Vercel logs capture the trace.
     try {
       const turn = await runAgentTurn(conversationId)
       reply = turn.reply
       console.log(
-        `[whatsapp.agent] conv=${conversationId} iterations=${turn.iterations} tools=${turn.toolCallsMade}${turn.hitCap ? " hit-cap" : ""}`,
+        `[whatsapp.agent] conv=${conversationId} iterations=${turn.iterations} tools=${turn.toolCallsMade}${turn.hitCap ? " hit-cap" : ""}${turn.reply == null ? " silent" : ""}`,
       )
     } catch (err) {
       console.error("[whatsapp.agent] turn failed", err)
       reply = "Gracias por escribirnos. Te respondemos en un rato."
     }
   } else {
-    // Agent disabled: legacy placeholder. Keeps the channel alive
-    // while the flag is off (e.g. during model upgrades).
+    // Agent disabled (kill switch on or no OpenAI key): generic
+    // placeholder so the channel stays alive while we sort it out.
     reply = "¡Hola! Soy el asistente de easyrent. Ya recibí tu mensaje, en un momento te respondo con info de propiedades. 🏠"
+  }
+
+  // Silent turn — agent decided no reply adds value. Return 200 to
+  // Twilio without sending. The inbound message is already persisted
+  // so the dashboard reflects it.
+  if (reply == null) {
+    return new NextResponse("ok", { status: 200 })
   }
 
   // ── 6. Send + persist outbound ──────────────────────────────────
