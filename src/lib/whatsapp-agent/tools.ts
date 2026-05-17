@@ -140,6 +140,12 @@ export async function executeTool(
       case "update_lead_profile": {
         const args = UpdateLeadProfileSchema.parse(rawArgs)
         const res  = await updateLeadFromAgent({ leadId: ctx.lead.id, patch: args })
+        // Observability — pairs with [whatsapp-agent.search]. Lets us
+        // see at a glance whether the agent is actually persisting the
+        // facts the lead just shared (vs. asking for them again later).
+        console.log(
+          `[whatsapp-agent.tools] update_lead_profile lead=${ctx.lead.id} args=${JSON.stringify(args)} updated=${res.updated.join(",") || "(none)"}`,
+        )
         return { ok: true, data: { updated_fields: res.updated } }
       }
       case "search_properties": {
