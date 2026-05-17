@@ -9,6 +9,7 @@ import {
 } from "@/lib/conversations"
 import { toE164 } from "@/lib/phone"
 import { runAgentTurn } from "@/lib/whatsapp-agent/run"
+import { transcribeWhatsAppAudio } from "@/lib/whatsapp-agent/transcribe"
 
 /**
  * Twilio WhatsApp inbound webhook.
@@ -62,11 +63,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // ── 2. Pull the bits we care about ──────────────────────────────
-  const from        = params.From         ?? ""    // "whatsapp:+50688888888"
-  const body        = (params.Body ?? "").trim()
-  const messageSid  = params.MessageSid   ?? null  // unique across Twilio
-  const numMedia    = parseInt(params.NumMedia ?? "0", 10) || 0
-  const mediaUrl0   = params.MediaUrl0    ?? null
+  const from              = params.From              ?? ""    // "whatsapp:+50688888888"
+  const body              = (params.Body ?? "").trim()
+  const messageSid        = params.MessageSid        ?? null  // unique across Twilio
+  const numMedia          = parseInt(params.NumMedia ?? "0", 10) || 0
+  const mediaUrl0         = params.MediaUrl0         ?? null
+  const mediaContentType0 = params.MediaContentType0 ?? null
 
   if (!from || !messageSid) {
     console.warn("[whatsapp.inbound] missing From/MessageSid", { from: !!from, sid: !!messageSid })
@@ -79,12 +81,51 @@ export async function POST(request: Request): Promise<Response> {
     return new NextResponse("ok", { status: 200 })
   }
 
+  // ── 2b. Transcribe audio (if any) ───────────────────────────────
+  // WhatsApp voice notes are wildly common in CR. We run Whisper
+  // BEFORE persisting so the conversation row stores the transcript
+  // as `content` — much more useful in the dashboard than "[media]",
+  // and the agent loads context from the DB so it'll see the
+  // transcript naturally on the next loop turn.
+  //
+  // We keep `mediaUrl` populated either way so the human-handoff
+  // dashboard can still play the original audio for verification.
+  //
+  // Opt-out via WHATSAPP_AUDIO_TRANSCRIBE_DISABLED=true (matches the
+  // agent kill-switch pattern). Without an OpenAI key we silently
+  // skip — the static fallback below handles the lead gracefully.
+  let effectiveBody    = body
+  let audioFallback: string | null = null
+  const isAudio        = !!mediaUrl0 && mediaContentType0?.toLowerCase().startsWith("audio/")
+  const transcribeOn   =
+    process.env.WHATSAPP_AUDIO_TRANSCRIBE_DISABLED !== "true" &&
+    !!process.env.OPENAI_API_KEY
+  if (isAudio && mediaUrl0 && transcribeOn) {
+    const t = await transcribeWhatsAppAudio(mediaUrl0)
+    if (t.ok) {
+      // Preserve any text caption sent alongside the audio. Rare on
+      // WhatsApp but possible from some clients.
+      effectiveBody = body
+        ? `${body}\n\n[transcripción de audio]: ${t.text}`
+        : t.text
+      console.log(
+        `[whatsapp.audio] transcribed ${t.byteLength}B in ${t.durationMs}ms (${t.text.length} chars)`,
+      )
+    } else if (t.reason === "too_large") {
+      console.warn("[whatsapp.audio] too_large — falling back")
+      audioFallback = "Recibí tu audio pero es muy largo para procesarlo. ¿Me lo podés resumir por texto?"
+    } else {
+      console.warn(`[whatsapp.audio] ${t.reason} — falling back`, t.error ?? "")
+      audioFallback = "Recibí tu audio pero no logré entenderlo bien. ¿Me lo podés escribir?"
+    }
+  }
+
   // ── 3. Resolve lead + conversation ──────────────────────────────
   let leadId: string
   let conversationId: string
   let conversationStatus: "open" | "closed" | "pending"
   try {
-    const lead = await findOrCreateWhatsAppLead({ fromRaw: from, firstMessage: body })
+    const lead = await findOrCreateWhatsAppLead({ fromRaw: from, firstMessage: effectiveBody })
     leadId = lead.leadId
 
     const conv = await findOrCreateWhatsAppConversation({
@@ -102,10 +143,14 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // ── 4. Persist inbound message (idempotent on MessageSid) ───────
+  // `effectiveBody` is the transcribed text when the inbound was a
+  // voice note (so the agent loads real Spanish text on next turn).
+  // We still keep the original audio URL on `mediaUrl` for the human
+  // dashboard to play back when verifying.
   const persisted = await appendConversationMessage({
     conversationId,
     direction:     "inbound",
-    content:       body || (numMedia > 0 ? "[media]" : ""),
+    content:       effectiveBody || (numMedia > 0 ? "[media]" : ""),
     mediaUrl:      mediaUrl0,
     externalMsgId: messageSid,
   })
@@ -124,12 +169,17 @@ export async function POST(request: Request): Promise<Response> {
     return new NextResponse("ok", { status: 200 })
   }
 
-  // Media-only inbound: v1 doesn't understand pictures or audio.
-  // Surface a friendly note so the visitor doesn't think we ignored
-  // them.
+  // Decide the reply:
+  //   • Audio that failed to transcribe (too-large / noisy / API
+  //     error) → audioFallback explains the specific failure mode.
+  //   • Non-audio media with no caption (photo / video / sticker /
+  //     vCard) → still unsupported in v1; ask them to write.
+  //   • Otherwise the agent handles it (text body or transcribed audio).
   let reply: string
-  if (!body && numMedia > 0) {
-    reply = "Por ahora puedo leer mensajes de texto. ¿Me lo podés escribir?"
+  if (audioFallback) {
+    reply = audioFallback
+  } else if (!effectiveBody && numMedia > 0) {
+    reply = "Por ahora puedo leer texto y audios de voz. ¿Me lo podés escribir o mandar como nota de voz?"
   } else if (isAgentEnabled()) {
     // ── AI agent path ───────────────────────────────────────────
     // Feature-flagged so we can dark-launch + roll back without
