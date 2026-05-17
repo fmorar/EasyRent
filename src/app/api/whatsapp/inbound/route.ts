@@ -221,6 +221,20 @@ export async function POST(request: Request): Promise<Response> {
     externalMsgId: result.externalId ?? null,
   })
 
+  // Final per-request log line. Vercel's runtime-logs table shows the
+  // LAST console call per request — keeping this one terminal makes
+  // send failures visible at a glance instead of being hidden behind
+  // an earlier "agent succeeded" line.
+  if (result.sent) {
+    console.log(
+      `[whatsapp.inbound] conv=${conversationId} sent sid=${result.externalId ?? "?"} chars=${reply.length}`,
+    )
+  } else {
+    console.error(
+      `[whatsapp.inbound] conv=${conversationId} send FAILED chars=${reply.length} err=${result.error ?? "unknown"}`,
+    )
+  }
+
   return new NextResponse("ok", { status: 200 })
 }
 

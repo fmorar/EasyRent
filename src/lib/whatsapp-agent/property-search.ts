@@ -164,12 +164,25 @@ export async function getPropertySummaryForAgent(slug: string): Promise<AgentSea
  * Resolve a single property by slug. Mirrors the public `/p/[slug]`
  * page query — minimal columns the agent needs to answer follow-up
  * questions.
+ *
+ * What we do NOT return (and why):
+ *   • `photos` — WhatsApp doesn't render Markdown images and the model
+ *     was happily pasting `![Imagen](supabase-url)` into bodies. Some
+ *     of those messages were silently rejected by Twilio's WhatsApp
+ *     gateway (multi-URL spam / unsupported media-in-body), breaking
+ *     the conversation. If the lead wants to see photos they click
+ *     the property URL.
+ *   • `amenities` (full list) — bloats the prompt, and the lead can
+ *     see them on the page. We trim to the top 6 strings for a
+ *     "highlights" feel; that's enough for the agent to mention
+ *     "tiene piscina y BBQ" without dumping a wall of bullets.
  */
+const AMENITIES_HIGHLIGHT_LIMIT = 6
+
 export async function getPropertyDetailsForAgent(slug: string): Promise<
   | (AgentSearchResult & {
       description: string | null
       amenities:   string[]
-      photos:      string[]
     })
   | null
 > {
@@ -188,19 +201,10 @@ export async function getPropertyDetailsForAgent(slug: string): Promise<
     .eq("id", base.id!)
     .maybeSingle()
 
-  const photosRes = await admin
-    .from("property_photos")
-    .select("url, is_cover, order_index")
-    .eq("property_id", base.id!)
-    .order("is_cover", { ascending: false })
-    .order("order_index", { ascending: true })
-    .limit(6)
-
   return {
     ...toAgentResult(base),
     description: stripHtml(base.description),
-    amenities:   propRes.data?.amenities ?? [],
-    photos:      (photosRes.data ?? []).map((p) => p.url),
+    amenities:   (propRes.data?.amenities ?? []).slice(0, AMENITIES_HIGHLIGHT_LIMIT),
   }
 }
 
