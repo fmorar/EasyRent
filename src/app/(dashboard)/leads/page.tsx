@@ -23,6 +23,22 @@ export default async function LeadsPage() {
 
   const leads = leadsRaw as Lead[] | null
 
+  // Lookup of WhatsApp conversation per lead, so cards can deep-link
+  // straight into the chat thread. RLS already scopes by the same
+  // visibility rules as the leads themselves.
+  const leadIds = (leads ?? []).map((l) => l.id)
+  const conversationsByLeadId: Record<string, string> = {}
+  if (leadIds.length > 0) {
+    const { data: convsRaw } = await supabase
+      .from("conversations")
+      .select("id, lead_id")
+      .eq("channel", "whatsapp")
+      .in("lead_id", leadIds)
+    for (const c of convsRaw ?? []) {
+      if (c.lead_id) conversationsByLeadId[c.lead_id] = c.id
+    }
+  }
+
   // Group by stage for kanban
   const leadsByStage = PIPELINE_STAGES.reduce(
     (acc, stage) => {
@@ -46,7 +62,11 @@ export default async function LeadsPage() {
         </p>
       </div>
 
-      <LeadKanban leadsByStage={leadsByStage} currentUserId={profile.id} />
+      <LeadKanban
+        leadsByStage={leadsByStage}
+        currentUserId={profile.id}
+        conversationsByLeadId={conversationsByLeadId}
+      />
     </div>
   )
 }

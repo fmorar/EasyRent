@@ -16,6 +16,11 @@ import type { Lead } from "@/types"
 interface LeadKanbanProps {
   leadsByStage:  Record<string, Lead[]>
   currentUserId: string
+  /** Map of lead id → WhatsApp conversation id. When a lead has an
+   *  active concierge thread, the card surfaces a chat icon that
+   *  deep-links to /conversations/<id>. Empty map is fine — leads
+   *  without a thread render exactly as before. */
+  conversationsByLeadId?: Record<string, string>
 }
 
 // Lane backgrounds — semantic-soft tints. Funnel rises from neutral
@@ -41,7 +46,7 @@ const TRANSITION_MODE_BY_STAGE: Record<string, TransitionMode> = {
   lost:            "lost",
 }
 
-export function LeadKanban({ leadsByStage, currentUserId }: LeadKanbanProps) {
+export function LeadKanban({ leadsByStage, currentUserId, conversationsByLeadId = {} }: LeadKanbanProps) {
   // `currentUserId` is unused for now — the kanban inherits filtering
   // from the page-level RLS query. Keep the prop to avoid breaking
   // call sites and to support future "highlight my leads" UI.
@@ -149,6 +154,7 @@ export function LeadKanban({ leadsByStage, currentUserId }: LeadKanbanProps) {
                       key={lead.id}
                       lead={lead}
                       stage={stage}
+                      conversationId={conversationsByLeadId[lead.id]}
                     />
                   ))}
                 </div>
@@ -170,7 +176,13 @@ export function LeadKanban({ leadsByStage, currentUserId }: LeadKanbanProps) {
   )
 }
 
-function LeadCard({ lead, stage }: { lead: Lead; stage: string }) {
+function LeadCard({
+  lead, stage, conversationId,
+}: {
+  lead:            Lead
+  stage:           string
+  conversationId?: string
+}) {
   return (
     <Card
       draggable
@@ -183,7 +195,26 @@ function LeadCard({ lead, stage }: { lead: Lead; stage: string }) {
       className="cursor-grab active:cursor-grabbing shadow-none border hover:shadow-sm transition-shadow"
     >
       <CardContent className="p-3 space-y-2">
-        <p className="text-sm font-medium line-clamp-1">{lead.full_name}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium line-clamp-1 flex-1">{lead.full_name}</p>
+          {/* WhatsApp deep-link — only when the lead has an active concierge thread.
+              Click bubbles up to the card by default, which would start the drag;
+              stop propagation so the link wins. */}
+          {conversationId && (
+            <a
+              href={`/conversations/${conversationId}`}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+              title="Ver conversación de WhatsApp"
+              aria-label="Ver conversación de WhatsApp"
+            >
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              </svg>
+            </a>
+          )}
+        </div>
 
         {(lead.email || lead.phone) && (
           <p className="text-xs text-muted-foreground line-clamp-1">
