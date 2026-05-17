@@ -170,11 +170,33 @@ export default async function PublicPropertyPage({ params, searchParams }: Props
   const supabase  = await createClient()
   const locale    = await getLocale()
 
-  const { data: property } = await supabase
+  // Primary load: v_marketplace (filters by is_marketplace_visible=true
+  // AND status != off_market AND deleted_at IS NULL). Covers every
+  // public listing in our catalog.
+  const { data: marketplaceRow } = await supabase
     .from("v_marketplace")
     .select("*")
     .eq("slug", slug)
     .single() as { data: MarketplaceProperty | null }
+
+  let property: MarketplaceProperty | null = marketplaceRow
+
+  // Fallback for agent-shared deep links: when a property isn't
+  // marketplace-visible but came through `?via=<agent-slug>`, the
+  // agent has explicit authority to share it (either they created it
+  // or they have an approved property_share). v_marketplace hides
+  // these rows by design — we re-query `properties` directly and
+  // verify the agent's access before exposing it.
+  //
+  // Without this fallback the page 404s on the agent's own link to
+  // a draft / off-market / not-yet-published property, breaking the
+  // "share my portfolio" UX even when the agent is acting in good
+  // faith. (Off-market specifically still falls through to 404
+  // because we exclude that status from the lookup below — those
+  // listings shouldn't surface even via a private link.)
+  if (!property && via) {
+    property = await loadViaSharedProperty(supabase, { slug, agentSlug: via })
+  }
 
   if (!property) notFound()
 
@@ -854,4 +876,71 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="font-medium text-right truncate">{value}</span>
     </div>
   )
+}
+
+/**
+ * Resolve a property the v_marketplace view hid (because it isn't
+ * marketplace-visible) for an agent-attributed share link.
+ *
+ * Authorization is the load:
+ *   • The slug in `?via=` must resolve to an ACTIVE, non-deleted
+ *     profile.
+ *   • That profile must either OWN the property (created_by) OR
+ *     have an APPROVED property_share on it.
+ *   • The property itself must not be deleted or off_market — even a
+ *     valid agent shouldn't be able to share a withdrawn listing.
+ *
+ * Returns the same shape v_marketplace exposes so the caller can
+ * keep using `property.*` access patterns unchanged.
+ */
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
+async function loadViaSharedProperty(
+  supabase: SupabaseServerClient,
+  args:     { slug: string; agentSlug: string },
+): Promise<MarketplaceProperty | null> {
+  // Step 1: agent must exist + be active.
+  const { data: agent } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("slug", args.agentSlug)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .maybeSingle()
+  if (!agent) return null
+
+  // Step 2: load the property directly. Mirror v_marketplace's
+  // columns so the page's `property.*` reads keep working. We
+  // intentionally allow rows where is_marketplace_visible=false —
+  // that's the whole point — but still rule out deleted / off-market
+  // rows to match the marketplace's own exclusions.
+  const { data: prop } = await supabase
+    .from("properties")
+    .select(
+      "id, slug, title, description, price, currency, property_type, listing_type, is_furnished, status, bedrooms, bathrooms, area_sqm, floor, is_featured, project_id, display_address, display_lat, display_lng, created_at, created_by",
+    )
+    .eq("slug", args.slug)
+    .is("deleted_at", null)
+    .neq("status", "off_market")
+    .maybeSingle() as { data: (MarketplaceProperty & { created_by: string }) | null }
+  if (!prop) return null
+
+  // Step 3: authorize — creator OR approved share.
+  const isCreator = prop.created_by === agent.id
+  if (!isCreator) {
+    const { data: share } = await supabase
+      .from("property_shares")
+      .select("id")
+      .eq("property_id", prop.id!)
+      .eq("shared_with", agent.id)
+      .eq("status", "approved")
+      .maybeSingle()
+    if (!share) return null
+  }
+
+  // Strip `created_by` since v_marketplace doesn't expose it; downstream
+  // reads come from `propExtra` which still loads it separately.
+  const { created_by: _ignored, ...rest } = prop
+  void _ignored
+  return rest as MarketplaceProperty
 }
