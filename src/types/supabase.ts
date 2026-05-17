@@ -2491,6 +2491,103 @@ export type Database = {
           },
         ]
       }
+      search_requests: {
+        Row: {
+          candidates_count: number
+          contacted_lead: boolean
+          conversation_id: string | null
+          created_at: string
+          expired_at: string
+          filters: Json
+          fulfilled_at: string | null
+          fulfilled_external_listing_id: string | null
+          fulfilled_property_id: string | null
+          id: string
+          lead_id: string
+          scrape_attempts: number
+          scraped_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          candidates_count?: number
+          contacted_lead?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          expired_at?: string
+          filters: Json
+          fulfilled_at?: string | null
+          fulfilled_external_listing_id?: string | null
+          fulfilled_property_id?: string | null
+          id?: string
+          lead_id: string
+          scrape_attempts?: number
+          scraped_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          candidates_count?: number
+          contacted_lead?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          expired_at?: string
+          filters?: Json
+          fulfilled_at?: string | null
+          fulfilled_external_listing_id?: string | null
+          fulfilled_property_id?: string | null
+          id?: string
+          lead_id?: string
+          scrape_attempts?: number
+          scraped_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_requests_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_requests_fulfilled_external_listing_id_fkey"
+            columns: ["fulfilled_external_listing_id"]
+            isOneToOne: false
+            referencedRelation: "external_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_requests_fulfilled_property_id_fkey"
+            columns: ["fulfilled_property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_requests_fulfilled_property_id_fkey"
+            columns: ["fulfilled_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_marketplace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_requests_fulfilled_property_id_fkey"
+            columns: ["fulfilled_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_anonymous"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_requests_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       v_marketplace: {

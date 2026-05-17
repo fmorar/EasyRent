@@ -2,6 +2,7 @@ import "server-only"
 import { z } from "zod"
 import { updateLeadFromAgent } from "@/lib/actions/whatsapp-lead.actions"
 import { searchPropertiesForAgent, getPropertyDetailsForAgent } from "./property-search"
+import { createSearchRequest } from "./search-requests"
 import type { AgentContext } from "./state"
 
 /**
@@ -151,10 +152,37 @@ export async function executeTool(
       case "search_properties": {
         const args = SearchPropertiesSchema.parse(rawArgs)
         const rows = await searchPropertiesForAgent(args)
+
+        // When we come up COMPLETELY empty (internal + external both
+        // returned zero), open a search_request so the cron picks it
+        // up for deeper scraping / owner outreach. Surface the request
+        // id on the tool result so the agent flips its reply into
+        // "I'll get back to you" mode — handled by the
+        // RESULTADOS=0 prompt rule.
+        let followUpRequestId: string | null = null
+        let followUpReused                  = false
+        if (rows.length === 0) {
+          const created = await createSearchRequest({
+            leadId:         ctx.lead.id,
+            conversationId: ctx.conversation.id,
+            filters:        args,
+          })
+          if (created) {
+            followUpRequestId = created.id
+            followUpReused    = created.reused
+          }
+        }
+
         return {
           ok: true,
           data: {
             count: rows.length,
+            ...(followUpRequestId
+              ? {
+                  follow_up_request_id: followUpRequestId,
+                  follow_up_reused:     followUpReused,
+                }
+              : {}),
             // Trim to what the agent actually needs in-prompt — keep
             // tokens lean. Detail tool returns more on demand.
             results: rows.map((r) => ({
