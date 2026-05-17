@@ -1,10 +1,10 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { format } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
+import { es } from "date-fns/locale"
 import {
   ArrowLeftIcon, ArrowTopRightOnSquareIcon, PhoneIcon, UserIcon,
   BuildingOffice2Icon, MapPinIcon, CurrencyDollarIcon,
-  ChatBubbleLeftIcon,
 } from "@heroicons/react/24/outline"
 import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
@@ -12,10 +12,7 @@ import { getCandidatesForSearchRequest, type AdvertiserMeta } from "@/lib/search
 import { formatPhoneDisplay } from "@/lib/phone"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
-import { CopyTemplateButton } from "@/components/external-listings/copy-template-button"
 import type { Database } from "@/types/supabase"
 
 type SearchRequest = Database["public"]["Tables"]["search_requests"]["Row"]
@@ -270,125 +267,84 @@ function CandidateCard({
           )}
         </div>
 
-        {adv?.phone && (
-          <OutreachActions
-            phone={adv.phone}
-            advertiserName={adv.name ?? null}
-            listingType={c.listing_type as "rent" | "sale" | null}
-            listingTitle={c.title}
-          />
+        {c.outreach && <OutreachStatusBlock outreach={c.outreach} />}
+        {!c.outreach && adv?.phone && (
+          <p className="text-xs text-muted-foreground italic pt-1">
+            Sin outreach automático — confianza dueño por debajo del umbral.
+          </p>
         )}
       </CardContent>
     </Card>
   )
 }
 
-interface OutreachActionsProps {
-  phone:          string
-  advertiserName: string | null
-  listingType:    "rent" | "sale" | null
-  listingTitle:   string
-}
-
 /**
- * Per-candidate outreach affordances:
- *   1. Renders the pre-baked first-contact message (our copy, the
- *      one we agreed on with sales — owner intro, service scope,
- *      commission disclosed up front).
- *   2. "Abrir en WhatsApp" deep-links to wa.me with the message
- *      already typed; operator clicks Send.
- *   3. "Copiar texto" for the (rare) case where the operator wants
- *      to paste into a different client (WhatsApp Business app,
- *      WhatsApp Web tab they already had open with the lead, etc.).
+ * Read-only status block for the automated outreach attempt.
  *
- * Important: we never leak the lead's phone or name to the owner in
- * this first contact. The pitch is "tengo un cliente interesado" —
- * the owner reaches back out to us first and we mediate.
- *
- * Stays in sync with the user's specified script. When Phase B lands
- * (Twilio-approved WA Business templates), the body here is what
- * gets submitted to Meta for approval.
+ * No buttons. No copy-paste cockpit. The full pipeline runs without
+ * humans; this UI exists so operators can watch the state machine
+ * progress and debug edge cases (Twilio errors, owners that never
+ * respond, etc.). Anything that needs human intervention is a
+ * platform-config concern (Meta template approval, env var flip)
+ * not a per-candidate decision.
  */
-function OutreachActions({
-  phone, advertiserName, listingType, listingTitle,
-}: OutreachActionsProps) {
-  const body  = buildOutreachMessage({ advertiserName, listingType, listingTitle })
-  const waUrl = `https://wa.me/${phone.replace(/[^0-9+]/g, "").replace(/^\+/, "")}?text=${encodeURIComponent(body)}`
-
+function OutreachStatusBlock({ outreach }: { outreach: NonNullable<Awaited<ReturnType<typeof getCandidatesForSearchRequest>>[number]["outreach"]> }) {
+  const meta = OUTREACH_STATUS_META[outreach.status] ?? OUTREACH_STATUS_META.queued
   return (
-    <div className="space-y-2 pt-1">
-      <details>
-        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-          Ver plantilla
-        </summary>
-        <pre className="bg-muted/50 rounded p-2 mt-1 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
-          {body}
-        </pre>
-      </details>
-      <div className="flex items-center gap-2">
-        <a
-          href={waUrl}
-          target="_blank"
-          rel="noreferrer"
-          className={cn(buttonVariants({ variant: "default", size: "sm" }))}
-        >
-          <ChatBubbleLeftIcon className="size-4" />
-          Abrir en WhatsApp
-        </a>
-        <CopyTemplateButton text={body} />
+    <div className="pt-1 space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <Badge variant={meta.variant}>{meta.label}</Badge>
+        {outreach.send_attempts > 0 && (
+          <span className="text-[11px] text-muted-foreground font-numeric">
+            {outreach.send_attempts} intento{outreach.send_attempts === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
+      <ul className="text-[11px] text-muted-foreground space-y-0.5">
+        {outreach.sent_at && (
+          <li>Enviado {formatDistanceToNow(new Date(outreach.sent_at), { addSuffix: true, locale: es })}</li>
+        )}
+        {outreach.first_response_at && (
+          <li>Respondió {formatDistanceToNow(new Date(outreach.first_response_at), { addSuffix: true, locale: es })}</li>
+        )}
+        {outreach.accepted_at && (
+          <li className="text-primary">
+            ✅ Aceptó · {formatDistanceToNow(new Date(outreach.accepted_at), { addSuffix: true, locale: es })}
+          </li>
+        )}
+        {outreach.declined_at && (
+          <li>Declinó {formatDistanceToNow(new Date(outreach.declined_at), { addSuffix: true, locale: es })}</li>
+        )}
+        {outreach.last_error && (
+          <li className="text-destructive break-words">⚠ {outreach.last_error}</li>
+        )}
+      </ul>
+      {outreach.conversation_id && (
+        <Link
+          href={`/conversations/${outreach.conversation_id}`}
+          className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+        >
+          Ver conversación con dueño <ArrowTopRightOnSquareIcon className="size-3" />
+        </Link>
+      )}
+      {outreach.claimed_property_id && (
+        <Link
+          href={`/properties`}
+          className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+        >
+          Ver propiedad publicada <ArrowTopRightOnSquareIcon className="size-3" />
+        </Link>
+      )}
     </div>
   )
 }
 
-/**
- * Build the first-contact outreach body.
- *
- * Script (per sales): warm greeting → name the listing → state the
- * interest → ask if they want us to offer it → ask if they've worked
- * with agents → disclose commission → list service inclusions.
- *
- * Two commission variants:
- *   • rent  → equivalente a un mes de renta
- *   • sale  → 3% del precio de venta (CR market standard for the
- *             seller's-side agent; the buyer's-side cut is separate)
- *   • null  → generic "comisión estándar, te la confirmo en el chat"
- *
- * Uses "tenés" (voseo) to match the easyrent brand voice across the
- * funnel — even on first contact. Operators should feel free to
- * adjust in their WA client before sending if they have a personal
- * relationship with the owner.
- */
-function buildOutreachMessage({
-  advertiserName, listingType, listingTitle,
-}: {
-  advertiserName: string | null
-  listingType:    "rent" | "sale" | null
-  listingTitle:   string
-}): string {
-  const firstName = advertiserName?.split(/\s+/)[0]?.trim() || null
-  const greeting  = firstName ? `Hola ${firstName},` : "Hola,"
-  const commissionLine = listingType === "rent"
-    ? "Nuestra comisión por el servicio es el equivalente a un mes de renta."
-    : listingType === "sale"
-    ? "Nuestra comisión por el servicio es el 3% del precio de venta."
-    : "Te confirmo la comisión por el servicio cuando me digas si te interesa avanzar."
-
-  return `${greeting}
-
-Soy del equipo de easyrent.house. Vi que tenés esta propiedad disponible:
-
-${listingTitle}
-
-Tengo un cliente interesado en una propiedad similar y me gustaría saber si te interesa que se la ofrezca formalmente. También, ¿has trabajado con agentes antes?
-
-${commissionLine}
-
-Dentro del servicio incluye:
-- Datum (revisión de antecedentes del cliente)
-- Perfilamiento del cliente
-- Elaboración del contrato
-- Toma de fotografías y material audiovisual de ser necesario
-
-Si te interesa, contestame por acá y coordinamos los próximos pasos.`
+const OUTREACH_STATUS_META: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  queued:      { label: "En cola",       variant: "secondary" },
+  sent:        { label: "Enviado",       variant: "default" },
+  failed:      { label: "Falló",         variant: "destructive" },
+  no_response: { label: "Sin respuesta", variant: "outline" },
+  responded:   { label: "Respondió",     variant: "default" },
+  accepted:    { label: "Aceptó",        variant: "default" },
+  declined:    { label: "Declinó",       variant: "outline" },
 }

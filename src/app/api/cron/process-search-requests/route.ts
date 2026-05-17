@@ -4,6 +4,13 @@ import { crawlSource } from "@/lib/market-analysis/crawler"
 import { enrichListingsWithAdvertiser } from "@/lib/owner-prospector-enrich"
 import { normalizeListing } from "@/lib/market-analysis/normalizers"
 import { composeEncuentra24Url } from "@/lib/whatsapp-agent/external-search"
+import {
+  createOwnerOutreachAttempt,
+  sendOwnerOutreach,
+  processQueuedOutreach,
+  OUTREACH_MIN_CONFIDENCE,
+  OUTREACH_TOP_N,
+} from "@/lib/whatsapp-agent/owner-outreach"
 import type { AgentSearchInput } from "@/lib/whatsapp-agent/property-search"
 import type { Database } from "@/types/supabase"
 
@@ -75,10 +82,16 @@ export async function GET(req: Request): Promise<Response> {
     results.push(await processOne(admin, row))
   }
 
+  // Drain any outreach attempts that were stuck in `queued` because
+  // the env flags weren't on at the time. This is the path that
+  // "wakes the queue up" the FIRST cron tick after Meta approval +
+  // env-var flip — no manual intervention needed.
+  const drain = await processQueuedOutreach(admin, 20)
+
   console.log(
-    `[cron.search-requests] processed ${results.length}: ${results.map((r) => `${r.id.slice(0, 8)}=${r.status}(${r.candidates})`).join(" ")}`,
+    `[cron.search-requests] processed ${results.length}: ${results.map((r) => `${r.id.slice(0, 8)}=${r.status}(${r.candidates})`).join(" ")} drained outreach: tried=${drain.tried} sent=${drain.sent}`,
   )
-  return NextResponse.json({ ok: true, processed: results.length, results })
+  return NextResponse.json({ ok: true, processed: results.length, results, outreach: drain })
 }
 
 // ── Per-request worker ───────────────────────────────────────────────
@@ -207,6 +220,51 @@ async function processOne(
         candidates_count: upserts.length,
       })
       .eq("id", row.id)
+
+    // ── Owner outreach auto-create ────────────────────────────────
+    // Re-read the upserted rows (we need their ids + current
+    // confidence) and pick the top N high-confidence candidates to
+    // contact. The actual send is gated inside sendOwnerOutreach —
+    // when WHATSAPP_OWNER_OUTREACH_ENABLED + template SID are set
+    // the attempt fires; otherwise it stays in `queued` for later.
+    const persisted = await admin
+      .from("external_listings")
+      .select("id, title, listing_type, advertiser")
+      .contains("raw_extracted", { search_request_id: row.id })
+      .eq("is_active", true)
+    if (persisted.data && persisted.data.length > 0) {
+      const sorted = persisted.data
+        .map((r) => {
+          const adv = r.advertiser as { confidence?: number } | null
+          return { row: r, confidence: adv?.confidence ?? 0 }
+        })
+        .filter((x) => x.confidence >= OUTREACH_MIN_CONFIDENCE)
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, OUTREACH_TOP_N)
+
+      for (const { row: cand } of sorted) {
+        const created = await createOwnerOutreachAttempt(admin, {
+          searchRequestId:   row.id,
+          externalListingId: cand.id,
+          externalListing:   {
+            title:        cand.title,
+            listing_type: cand.listing_type,
+            advertiser:   cand.advertiser,
+          },
+        })
+        if (!created || created.reused) continue
+        // Try to send NOW. If gated off, this is a no-op and the row
+        // stays queued — processQueuedOutreach picks it up later.
+        const att = await admin
+          .from("owner_outreach_attempts")
+          .select("*")
+          .eq("id", created.id)
+          .single()
+        if (att.data) {
+          await sendOwnerOutreach(admin, att.data)
+        }
+      }
+    }
 
     return { id: row.id, status: "completed", candidates: upserts.length }
   } catch (err) {

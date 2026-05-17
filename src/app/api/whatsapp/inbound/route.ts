@@ -9,7 +9,9 @@ import {
 } from "@/lib/conversations"
 import { toE164 } from "@/lib/phone"
 import { runAgentTurn } from "@/lib/whatsapp-agent/run"
+import { runOwnerAgentTurn } from "@/lib/whatsapp-agent/owner-run"
 import { transcribeWhatsAppAudio } from "@/lib/whatsapp-agent/transcribe"
+import { reEngageLead } from "@/lib/whatsapp-agent/lead-reengagement"
 
 /**
  * Twilio WhatsApp inbound webhook.
@@ -124,6 +126,7 @@ export async function POST(request: Request): Promise<Response> {
   let leadId: string
   let conversationId: string
   let conversationStatus: "open" | "closed" | "pending"
+  let conversationKind: "lead" | "owner" = "lead"
   try {
     const lead = await findOrCreateWhatsAppLead({ fromRaw: from, firstMessage: effectiveBody })
     leadId = lead.leadId
@@ -134,6 +137,7 @@ export async function POST(request: Request): Promise<Response> {
     })
     conversationId     = conv.id
     conversationStatus = conv.status
+    conversationKind   = conv.kind
   } catch (err) {
     // Persistence layer broke — we'd rather drop this message than
     // tell Twilio to retry forever. Logging it for triage; if this
@@ -180,14 +184,37 @@ export async function POST(request: Request): Promise<Response> {
   // agent uses that for low-information turns ("ok" / "dale") to
   // stop feeling robotic. Static-fallback strings are never null.
   let reply: string | null
+  let triggerReEngagement: { propertyId: string; leadConversationId: string | null } | null = null
   if (audioFallback) {
     reply = audioFallback
   } else if (!effectiveBody && numMedia > 0) {
     reply = "Por ahora puedo leer texto y audios de voz. ¿Me lo podés escribir o mandar como nota de voz?"
+  } else if (conversationKind === "owner") {
+    // ── Owner-onboarding path ──────────────────────────────────
+    // This thread was opened by our outbound outreach (cron). The
+    // owner agent runs a different prompt + tool set focused on
+    // capturing consent. When it accepts, autoClaimListing already
+    // ran inside the tool — we just need to fire the lead
+    // re-engagement here, because the lead's conversation lives in
+    // a different row from this owner thread.
+    try {
+      const turn = await runOwnerAgentTurn(conversationId)
+      reply = turn.reply
+      console.log(
+        `[whatsapp.owner] conv=${conversationId} iterations=${turn.iterations} tools=${turn.toolCallsMade}${turn.accepted ? " accepted" : turn.declined ? " declined" : ""}`,
+      )
+      // If the owner accepted, queue a re-engagement to the lead
+      // AFTER we reply to the owner. We don't await it inside the
+      // owner reply path to keep latency tight.
+      if (turn.accepted) {
+        triggerReEngagement = await resolveReEngagement(conversationId)
+      }
+    } catch (err) {
+      console.error("[whatsapp.owner] turn failed", err)
+      reply = "Gracias por escribir. Te respondemos en un momento."
+    }
   } else if (isAgentEnabled()) {
-    // ── AI agent path ───────────────────────────────────────────
-    // Feature-gated; falls back to a graceful message on throw so the
-    // conversation stays alive and Vercel logs capture the trace.
+    // ── Lead concierge path (existing) ──────────────────────────
     try {
       const turn = await runAgentTurn(conversationId)
       reply = turn.reply
@@ -235,7 +262,52 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
+  // ── 7. Lead re-engagement (post-owner-accept) ──────────────────
+  // Fire-and-forget: if an owner accepted in this turn, message the
+  // original lead with the just-published property. Doing it AFTER
+  // we replied to the owner keeps Twilio's webhook turnaround tight.
+  if (triggerReEngagement) {
+    reEngageLead(triggerReEngagement).catch((err) => {
+      console.error("[whatsapp.reengage] failed", err)
+    })
+  }
+
   return new NextResponse("ok", { status: 200 })
+}
+
+/**
+ * Look up the lead's original conversation + the property we just
+ * published, so the re-engagement helper has what it needs to write
+ * the "great news, found one for you" message.
+ *
+ * Called from the owner reply path AFTER autoClaimListing has run.
+ */
+async function resolveReEngagement(
+  ownerConversationId: string,
+): Promise<{ propertyId: string; leadConversationId: string | null } | null> {
+  // The owner_outreach_attempts row was just updated to status=accepted
+  // with claimed_property_id set. Pull it to find the search_request,
+  // then resolve the lead's own conversation.
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const admin = createAdminClient()
+  const att = await admin
+    .from("owner_outreach_attempts")
+    .select("claimed_property_id, search_request_id")
+    .eq("conversation_id", ownerConversationId)
+    .eq("status", "accepted")
+    .maybeSingle()
+  if (!att.data?.claimed_property_id) return null
+
+  const search = await admin
+    .from("search_requests")
+    .select("conversation_id")
+    .eq("id", att.data.search_request_id)
+    .maybeSingle()
+
+  return {
+    propertyId:         att.data.claimed_property_id,
+    leadConversationId: search.data?.conversation_id ?? null,
+  }
 }
 
 /**

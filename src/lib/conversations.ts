@@ -19,25 +19,31 @@ type Direction = Database["public"]["Enums"]["message_direction"]
 export async function findOrCreateWhatsAppConversation(args: {
   leadId:     string
   phoneE164:  string
-}): Promise<{ id: string; created: boolean; status: Database["public"]["Enums"]["conversation_status"] }> {
+}): Promise<{
+  id:      string
+  created: boolean
+  status:  Database["public"]["Enums"]["conversation_status"]
+  /** "lead" = lead concierge agent. "owner" = owner captation agent. */
+  kind:    "lead" | "owner"
+}> {
   const admin = createAdminClient()
 
-  // Step 1: try to find. The common path on every message after the
-  // first is "conversation already exists" — keep it cheap.
   const existing = await admin
     .from("conversations")
-    .select("id, status")
+    .select("id, status, kind")
     .eq("channel", "whatsapp")
     .eq("external_id", args.phoneE164)
     .maybeSingle()
 
   if (existing.data) {
-    return { id: existing.data.id, created: false, status: existing.data.status }
+    return {
+      id:      existing.data.id,
+      created: false,
+      status:  existing.data.status,
+      kind:    (existing.data.kind ?? "lead") as "lead" | "owner",
+    }
   }
 
-  // Step 2: not found → insert. The partial unique index acts as a
-  // belt-and-suspenders against two webhooks racing the same number.
-  // If insert hits 23505 we re-read.
   const inserted = await admin
     .from("conversations")
     .insert({
@@ -47,24 +53,32 @@ export async function findOrCreateWhatsAppConversation(args: {
       status:          "open",
       last_message_at: new Date().toISOString(),
     })
-    .select("id, status")
+    .select("id, status, kind")
     .single()
 
   if (inserted.data) {
-    return { id: inserted.data.id, created: true, status: inserted.data.status }
+    return {
+      id:      inserted.data.id,
+      created: true,
+      status:  inserted.data.status,
+      kind:    (inserted.data.kind ?? "lead") as "lead" | "owner",
+    }
   }
 
-  // Insert failed — most likely because a concurrent webhook beat us
-  // to it. Read again; if STILL not there, surface the error.
   if (inserted.error?.code === "23505") {
     const retry = await admin
       .from("conversations")
-      .select("id, status")
+      .select("id, status, kind")
       .eq("channel", "whatsapp")
       .eq("external_id", args.phoneE164)
       .single()
     if (retry.data) {
-      return { id: retry.data.id, created: false, status: retry.data.status }
+      return {
+        id:      retry.data.id,
+        created: false,
+        status:  retry.data.status,
+        kind:    (retry.data.kind ?? "lead") as "lead" | "owner",
+      }
     }
   }
 

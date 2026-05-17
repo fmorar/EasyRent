@@ -461,6 +461,7 @@ export type Database = {
           created_at: string
           external_id: string | null
           id: string
+          kind: string
           last_message_at: string | null
           lead_id: string | null
           status: Database["public"]["Enums"]["conversation_status"]
@@ -472,6 +473,7 @@ export type Database = {
           created_at?: string
           external_id?: string | null
           id?: string
+          kind?: string
           last_message_at?: string | null
           lead_id?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
@@ -483,6 +485,7 @@ export type Database = {
           created_at?: string
           external_id?: string | null
           id?: string
+          kind?: string
           last_message_at?: string | null
           lead_id?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
@@ -1425,6 +1428,124 @@ export type Database = {
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_outreach_attempts: {
+        Row: {
+          accepted_at: string | null
+          channel: string
+          claimed_property_id: string | null
+          conversation_id: string | null
+          created_at: string
+          declined_at: string | null
+          external_listing_id: string
+          external_msg_id: string | null
+          first_response_at: string | null
+          id: string
+          last_error: string | null
+          search_request_id: string
+          send_attempts: number
+          sent_at: string | null
+          status: string
+          target_confidence: number | null
+          target_name: string | null
+          target_phone_e164: string
+          target_role: string | null
+          template_sid: string | null
+          template_variables: Json | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          channel?: string
+          claimed_property_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          declined_at?: string | null
+          external_listing_id: string
+          external_msg_id?: string | null
+          first_response_at?: string | null
+          id?: string
+          last_error?: string | null
+          search_request_id: string
+          send_attempts?: number
+          sent_at?: string | null
+          status?: string
+          target_confidence?: number | null
+          target_name?: string | null
+          target_phone_e164: string
+          target_role?: string | null
+          template_sid?: string | null
+          template_variables?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          channel?: string
+          claimed_property_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          declined_at?: string | null
+          external_listing_id?: string
+          external_msg_id?: string | null
+          first_response_at?: string | null
+          id?: string
+          last_error?: string | null
+          search_request_id?: string
+          send_attempts?: number
+          sent_at?: string | null
+          status?: string
+          target_confidence?: number | null
+          target_name?: string | null
+          target_phone_e164?: string
+          target_role?: string | null
+          template_sid?: string | null
+          template_variables?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_outreach_attempts_claimed_property_id_fkey"
+            columns: ["claimed_property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_outreach_attempts_claimed_property_id_fkey"
+            columns: ["claimed_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_marketplace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_outreach_attempts_claimed_property_id_fkey"
+            columns: ["claimed_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_anonymous"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_outreach_attempts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_outreach_attempts_external_listing_id_fkey"
+            columns: ["external_listing_id"]
+            isOneToOne: false
+            referencedRelation: "external_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_outreach_attempts_search_request_id_fkey"
+            columns: ["search_request_id"]
+            isOneToOne: false
+            referencedRelation: "search_requests"
             referencedColumns: ["id"]
           },
         ]

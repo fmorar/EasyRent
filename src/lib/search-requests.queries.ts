@@ -34,6 +34,19 @@ export interface AdvertiserMeta {
   confidence?:     number | null
 }
 
+export interface OutreachStatus {
+  id:                string
+  status:            string         // queued | sent | failed | no_response | responded | accepted | declined
+  send_attempts:     number
+  sent_at:           string | null
+  first_response_at: string | null
+  accepted_at:       string | null
+  declined_at:       string | null
+  last_error:        string | null
+  conversation_id:   string | null
+  claimed_property_id: string | null
+}
+
 export interface CandidateRow {
   id:               string
   source_name:      string
@@ -50,6 +63,10 @@ export interface CandidateRow {
   location_text:    string | null
   advertiser:       AdvertiserMeta | null
   last_seen_at:     string
+  /** Null when no automated outreach was created for this candidate
+   *  (confidence below threshold). Populated for high-confidence
+   *  candidates the cron picked. */
+  outreach:         OutreachStatus | null
 }
 
 /**
@@ -128,6 +145,29 @@ export async function getCandidatesForSearchRequest(
     | "advertiser" | "last_seen_at"
   >[]) ?? []
 
+  // Pull the outreach attempts for this search_request so we can
+  // attach status to each candidate. One query, joined in JS by id.
+  const outreachRes = await supabase
+    .from("owner_outreach_attempts")
+    .select("id, status, send_attempts, sent_at, first_response_at, accepted_at, declined_at, last_error, conversation_id, claimed_property_id, external_listing_id")
+    .eq("search_request_id", searchRequestId)
+  type OutreachJoinRow = OutreachStatus & { external_listing_id: string }
+  const outreachByListing = new Map<string, OutreachStatus>()
+  for (const row of (outreachRes.data as OutreachJoinRow[] | null) ?? []) {
+    outreachByListing.set(row.external_listing_id, {
+      id:                  row.id,
+      status:              row.status,
+      send_attempts:       row.send_attempts,
+      sent_at:             row.sent_at,
+      first_response_at:   row.first_response_at,
+      accepted_at:         row.accepted_at,
+      declined_at:         row.declined_at,
+      last_error:          row.last_error,
+      conversation_id:     row.conversation_id,
+      claimed_property_id: row.claimed_property_id,
+    })
+  }
+
   const mapped: CandidateRow[] = rows.map((r) => ({
     id:             r.id,
     source_name:    r.source_name,
@@ -144,9 +184,9 @@ export async function getCandidatesForSearchRequest(
     location_text:  r.location_text,
     advertiser:     (r.advertiser as AdvertiserMeta | null) ?? null,
     last_seen_at:   r.last_seen_at,
+    outreach:       outreachByListing.get(r.id) ?? null,
   }))
 
-  // Sort by confidence desc, nulls last.
   return mapped.sort((a, b) => {
     const ac = a.advertiser?.confidence ?? -1
     const bc = b.advertiser?.confidence ?? -1
