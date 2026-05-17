@@ -22,6 +22,7 @@ import {
   ChevronUpDownIcon as ChevronsUpDown,
   NewspaperIcon as NewsIcon,
   MagnifyingGlassIcon as SearchIcon,
+  ChatBubbleLeftRightIcon as ChatIcon,
 } from "@heroicons/react/24/outline"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -53,6 +54,7 @@ const NAV_MAIN: NavItem[] = [
   { href: "/properties", labelKey: "properties", icon: Building2,       adminOnly: false },
   { href: "/projects",   labelKey: "projects",   icon: FolderOpen,      adminOnly: false },
   { href: "/leads",      labelKey: "leads",      icon: TrendingUp,      adminOnly: false, comingSoon: true },
+  { href: "/conversations", labelKey: "conversations", icon: ChatIcon,  adminOnly: false },
   { href: "/contracts",  labelKey: "contracts",  icon: FileText,        adminOnly: false },
   { href: "/market-analysis", labelKey: "marketAnalysis", icon: BarChart, adminOnly: false },
   { href: "/performance-reports", labelKey: "performanceReports", icon: ChartLine, adminOnly: false },
