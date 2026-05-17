@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Database } from "@/types/supabase"
+import { getUsdToCrcRate, convertPrice, roundUsd, roundCrc } from "@/lib/fx"
 
 type ListingType  = Database["public"]["Enums"]["listing_type"]
 type PropertyType = Database["public"]["Enums"]["property_type"]
@@ -46,8 +47,15 @@ export interface AgentSearchResult {
   id:             string
   slug:           string
   title:          string
+  /** Original price in whatever currency the owner chose. */
   price:          number | null
+  /** Original listing currency: "USD" or "CRC". */
   currency:       string | null
+  /** Same amount converted into the OTHER currency at the current FX
+   *  rate, so the agent can quote both ("₡550k ≈ $1.058") without
+   *  doing math itself. Null when price or currency is unknown. */
+  price_in_usd:   number | null
+  price_in_crc:   number | null
   listing_type:   ListingType | null
   property_type:  PropertyType | null
   status:         Database["public"]["Enums"]["property_status"] | null
@@ -101,11 +109,15 @@ export async function searchPropertiesForAgent(
     combined = dedupe([...combined, ...t2])
   }
 
+  // Fetch FX once for the whole result mapping below; cached so this
+  // is a no-op after the first hit per cold-start window.
+  const { usdToCrc } = await getUsdToCrcRate()
+
   // Observability — when leads complain "but you have X in the
   // catalog!" we need to see which filter knocked it out. The args
   // line is the smallest thing we can log that lets us replay.
   console.log(
-    `[whatsapp-agent.search] args=${JSON.stringify(input)} t1=${t1Count} t2=${t2Count} combined=${combined.length}`,
+    `[whatsapp-agent.search] args=${JSON.stringify(input)} t1=${t1Count} t2=${t2Count} combined=${combined.length} rate=${usdToCrc.toFixed(2)}`,
   )
 
   // Tier 3 — LLM re-rank when free_text is present and results are
@@ -144,7 +156,7 @@ export async function searchPropertiesForAgent(
     }
   }
 
-  return combined.slice(0, cap).map(toAgentResult)
+  return combined.slice(0, cap).map((p) => toAgentResult(p, usdToCrc))
 }
 
 /**
@@ -167,7 +179,8 @@ export async function getPropertySummaryForAgent(slug: string): Promise<AgentSea
     .eq("slug", slug)
     .maybeSingle()
   if (res.error || !res.data) return null
-  return toAgentResult(res.data as Marketplace)
+  const { usdToCrc } = await getUsdToCrcRate()
+  return toAgentResult(res.data as Marketplace, usdToCrc)
 }
 
 /**
@@ -211,8 +224,9 @@ export async function getPropertyDetailsForAgent(slug: string): Promise<
     .eq("id", base.id!)
     .maybeSingle()
 
+  const { usdToCrc } = await getUsdToCrcRate()
   return {
-    ...toAgentResult(base),
+    ...toAgentResult(base, usdToCrc),
     description: stripHtml(base.description),
     amenities:   (propRes.data?.amenities ?? []).slice(0, AMENITIES_HIGHLIGHT_LIMIT),
   }
@@ -252,14 +266,17 @@ async function runQuery(
 
   // Soft filters — dropped on the broad tier so we can offer
   // alternatives when the strict tier doesn't have enough matches.
+  //
+  // Note: `currency` and `min_price`/`max_price` are NOT applied at
+  // the SQL level. The catalog mixes USD and CRC listings, so we
+  // can't filter by raw price without first normalizing currencies.
+  // We pull a wider set here and do the price filter in JS below,
+  // where we have FX context.
   if (tier === "strict") {
     if (input.furnished === true)   q = q.eq("is_furnished", true)
     if (input.furnished === false)  q = q.eq("is_furnished", false)
     if (input.min_bedrooms != null) q = q.gte("bedrooms", input.min_bedrooms)
     if (input.max_bedrooms != null) q = q.lte("bedrooms", input.max_bedrooms)
-    if (input.min_price    != null) q = q.gte("price",    input.min_price)
-    if (input.max_price    != null) q = q.lte("price",    input.max_price)
-    if (input.currency)             q = q.eq("currency",  input.currency)
     if (input.zones && input.zones.length > 0) {
       // OR across zones; ILIKE against display_address. We escape the
       // ILIKE wildcards because the agent passes free-form strings.
@@ -273,13 +290,41 @@ async function runQuery(
   const res = await q
     .order("is_featured",  { ascending: false })
     .order("created_at",   { ascending: false })
-    .limit(20)
+    // Pull more rows than we need because the JS-side price filter
+    // can discard some. 50 is still small (single round-trip, sub-50ms
+    // on the marketplace view).
+    .limit(50)
 
   if (res.error) {
     console.warn(`[whatsapp-agent.search] ${tier} query failed`, res.error.message)
     return []
   }
-  return (res.data ?? []) as Marketplace[]
+  const rows = (res.data ?? []) as Marketplace[]
+
+  // Price filter is strict-only — broad tier ignores price for the
+  // same reason it ignores zones / bedrooms (offer alternatives when
+  // the exact spec doesn't have matches).
+  if (tier === "broad" || (input.min_price == null && input.max_price == null)) {
+    return rows
+  }
+
+  // Convert each property's price into the lead's currency before
+  // applying the range. Lead's currency defaults to USD when not
+  // specified — that's our most common case (foreign budget references).
+  const { usdToCrc } = await getUsdToCrcRate()
+  const userCcy = (input.currency ?? "USD").toUpperCase()
+  return rows.filter((p) => {
+    if (p.price == null) return false
+    const priceInUserCcy = convertPrice(
+      Number(p.price),
+      p.currency,
+      userCcy,
+      usdToCrc,
+    )
+    if (input.min_price != null && priceInUserCcy < input.min_price) return false
+    if (input.max_price != null && priceInUserCcy > input.max_price) return false
+    return true
+  })
 }
 
 function dedupe(rows: Marketplace[]): Marketplace[] {
@@ -293,17 +338,36 @@ function dedupe(rows: Marketplace[]): Marketplace[] {
   return out
 }
 
-function toAgentResult(p: Marketplace): AgentSearchResult {
+function toAgentResult(p: Marketplace, usdToCrcRate: number): AgentSearchResult {
   const base = (
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
     "https://www.easyrent.house"
   )
+  const priceNum = p.price == null ? null : Number(p.price)
+  let priceUsd: number | null = null
+  let priceCrc: number | null = null
+  if (priceNum != null) {
+    if (p.currency === "USD") {
+      priceUsd = roundUsd(priceNum)
+      priceCrc = roundCrc(priceNum * usdToCrcRate)
+    } else if (p.currency === "CRC") {
+      priceCrc = roundCrc(priceNum)
+      priceUsd = roundUsd(priceNum / usdToCrcRate)
+    } else {
+      // Unknown currency — just echo the native value back, leave the
+      // converted fields null so the agent doesn't quote a fake rate.
+      priceUsd = null
+      priceCrc = null
+    }
+  }
   return {
     id:              p.id ?? "",
     slug:            p.slug ?? "",
     title:           p.title ?? "Sin título",
-    price:           p.price == null ? null : Number(p.price),
+    price:           priceNum,
     currency:        p.currency,
+    price_in_usd:    priceUsd,
+    price_in_crc:    priceCrc,
     listing_type:    p.listing_type,
     property_type:   p.property_type,
     status:          p.status,

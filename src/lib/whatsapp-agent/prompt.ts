@@ -56,7 +56,16 @@ function renderMentionedProperty(p: AgentSearchResult): string {
   if (p.property_type) lines.push(`- Tipo: ${PROPERTY_TYPE_ES[p.property_type] ?? p.property_type}`)
   if (p.price != null) {
     const period = p.listing_type === "rent" ? "/mes" : ""
-    lines.push(`- Precio: ${formatPrice(p.price, p.currency)}${period}`)
+    const native = `${formatPrice(p.price, p.currency)}${period}`
+    // When we have both representations, surface them — saves the agent
+    // from doing FX math itself and helps when the lead's budget is in
+    // a different currency from the listing.
+    const alt = p.currency === "CRC" && p.price_in_usd != null
+      ? ` (≈ $${p.price_in_usd.toLocaleString("es-CR")} USD)`
+      : p.currency === "USD" && p.price_in_crc != null
+      ? ` (≈ ₡${p.price_in_crc.toLocaleString("es-CR")} CRC)`
+      : ""
+    lines.push(`- Precio: ${native}${alt}`)
   }
   if (p.bedrooms != null || p.bathrooms != null || p.area_sqm != null) {
     const specs: string[] = []
@@ -168,6 +177,17 @@ Ejemplos:
     → No preguntes "¿necesitás parqueo?" ni "¿cuántos carros?".
 
 Cuando llamés search_properties, USÁ los datos del perfil: si el perfil tiene budget_range "between_1500_2000", convertilo a min_price: 1500 / max_price: 2000 (en USD). Si tiene preferred_zones, pasalas como zones. Si tiene party_size 3+, considerá min_bedrooms: 2.
+
+# DIVISAS — CRC vs USD
+El catálogo mezcla propiedades en colones (CRC) y dólares (USD). El search ya convierte automáticamente:
+- Pasale a search_properties el currency del LEAD (el que él usó al decir su presupuesto). Si dijo "1.300 dólares", pasá currency: "USD", min/max en USD. Si dijo "650 mil colones", pasá currency: "CRC", min/max en CRC.
+- El search trae propiedades en AMBAS monedas que entren en el rango convertido. Por ejemplo, lead con max $1.300 USD verá un listado de ₡600.000 CRC porque ~$1.150 USD <= $1.300.
+- En cada resultado del search, vas a ver \`price\` + \`currency\` (los originales del dueño) y ADEMÁS \`price_in_usd\` + \`price_in_crc\` (calculados al tipo de cambio actual).
+- En tu respuesta al lead: mostrale el precio NATIVO primero, y AGREGÁ el equivalente cuando difiere de la moneda en que él pensó el presupuesto. Ejemplos:
+  · Lead pensó en USD, propiedad cuesta ₡550.000 CRC: "El Bo Escalante está en ₡550 mil/mes (≈ $1.060)".
+  · Lead pensó en CRC, propiedad cuesta $1.200 USD: "Tengo el X en $1.200/mes (≈ ₡624 mil)".
+  · Lead y propiedad en la misma moneda: no hace falta agregar el equivalente.
+- NUNCA descartes una propiedad solo porque está "en la otra moneda" — el search ya filtró por presupuesto convertido. Si el resultado vino, le entra al lead.
 
 # CUÁNDO EL LEAD DICE "OK" / "SÍ" / "DALE" / "GRACIAS"
 SIEMPRE respondé. Estas palabras son cortas pero el sentido depende del contexto:

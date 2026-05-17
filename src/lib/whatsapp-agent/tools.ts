@@ -162,6 +162,12 @@ export async function executeTool(
               title:          r.title,
               price:          r.price,
               currency:       r.currency,
+              // Both currencies pre-computed at the current FX rate so
+              // the agent can quote whichever is more useful to the
+              // lead (or both, e.g. "₡550k ≈ $1.058") without having
+              // to multiply itself.
+              price_in_usd:   r.price_in_usd,
+              price_in_crc:   r.price_in_crc,
               listing_type:   r.listing_type,
               property_type:  r.property_type,
               bedrooms:       r.bedrooms,
