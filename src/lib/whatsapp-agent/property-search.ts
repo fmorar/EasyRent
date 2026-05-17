@@ -138,6 +138,29 @@ export async function searchPropertiesForAgent(
 }
 
 /**
+ * Slim version of `getPropertyDetailsForAgent` — single query against
+ * `v_marketplace`, no photos / amenities / description.
+ *
+ * Designed for the "lead arrived via the property contact button"
+ * flow: we pre-resolve the property and inject it into the agent's
+ * prompt context so the very first reply can reference price + zone
+ * naturally instead of asking "¿qué buscás?" against an obvious URL.
+ *
+ * One round-trip vs three on the full detail helper — cheap enough
+ * to run on every webhook turn that mentions a slug.
+ */
+export async function getPropertySummaryForAgent(slug: string): Promise<AgentSearchResult | null> {
+  const admin = createAdminClient()
+  const res = await admin
+    .from("v_marketplace")
+    .select("id, slug, title, price, currency, listing_type, property_type, status, bedrooms, bathrooms, area_sqm, display_address")
+    .eq("slug", slug)
+    .maybeSingle()
+  if (res.error || !res.data) return null
+  return toAgentResult(res.data as Marketplace)
+}
+
+/**
  * Resolve a single property by slug. Mirrors the public `/p/[slug]`
  * page query — minimal columns the agent needs to answer follow-up
  * questions.

@@ -1,4 +1,5 @@
 import { renderCollectedSnapshot, type AgentContext } from "./state"
+import type { AgentSearchResult } from "./property-search"
 
 /**
  * Build the system prompt for one turn of the WhatsApp concierge.
@@ -24,7 +25,83 @@ export function buildSystemPrompt(ctx: AgentContext): string {
     ? `\n\n## Resumen de la conversación previa\n${ctx.threadSummary}\n`
     : ""
 
-  return `${BASE_RULES}\n\n${dynamicContext}${summarySection}`
+  const mentionedSection = ctx.mentionedProperty
+    ? `\n\n${renderMentionedProperty(ctx.mentionedProperty)}`
+    : ""
+
+  return `${BASE_RULES}\n\n${dynamicContext}${mentionedSection}${summarySection}`
+}
+
+/**
+ * Render the "lead arrived via property page" block.
+ *
+ * Two goals:
+ *   1. Give the model the structured property data so it doesn't have
+ *      to call get_property_details on a turn where we already know
+ *      which property is in play.
+ *   2. Tell the model how to handle this case behaviorally — the
+ *      generic discovery flow ("¿alquiler o compra?") is wrong when
+ *      the lead literally pasted a URL to a specific listing.
+ */
+function renderMentionedProperty(p: AgentSearchResult): string {
+  const lines: string[] = []
+  lines.push("## Propiedad que el lead acaba de mencionar")
+  lines.push(
+    "El último mensaje del lead incluye un link a esta propiedad de nuestro catálogo. Casi seguro vino del botón \"Contactar por WhatsApp\" en la página del inmueble — la intención de comprar / alquilar / visitar YA está implícita.",
+  )
+  lines.push("")
+  lines.push(`- Título: *${p.title}*`)
+  lines.push(`- Slug (usalo si llamás get_property_details): \`${p.slug}\``)
+  if (p.listing_type)  lines.push(`- Operación: ${p.listing_type === "rent" ? "alquiler" : "venta"}`)
+  if (p.property_type) lines.push(`- Tipo: ${PROPERTY_TYPE_ES[p.property_type] ?? p.property_type}`)
+  if (p.price != null) {
+    const period = p.listing_type === "rent" ? "/mes" : ""
+    lines.push(`- Precio: ${formatPrice(p.price, p.currency)}${period}`)
+  }
+  if (p.bedrooms != null || p.bathrooms != null || p.area_sqm != null) {
+    const specs: string[] = []
+    if (p.bedrooms != null) specs.push(`${p.bedrooms} hab`)
+    if (p.bathrooms != null) specs.push(`${p.bathrooms} baño${p.bathrooms === 1 ? "" : "s"}`)
+    if (p.area_sqm != null) specs.push(`${p.area_sqm} m²`)
+    lines.push(`- Especificaciones: ${specs.join(" · ")}`)
+  }
+  if (p.display_address) lines.push(`- Zona: ${p.display_address}`)
+  if (p.status)          lines.push(`- Estado: ${STATUS_ES[p.status] ?? p.status}`)
+  lines.push(`- Link: ${p.url}`)
+  lines.push("")
+  lines.push("CÓMO RESPONDER ESTE CASO:")
+  lines.push("- NO llamés search_properties; ya sabés cuál es la propiedad.")
+  lines.push("- En tu primer mensaje confirmá interés citando el inmueble por nombre y 1-2 datos clave (ej. precio + zona). No re-listés todas las specs — eso ya las vio en la página.")
+  lines.push("- NO preguntes \"¿alquiler o compra?\" — ya está claro por la operación de la propiedad.")
+  lines.push("- Saltá al siguiente dato útil: presupuesto vs precio (solo si tiene sentido), o directo al gate de visita si el lead pregunta cuándo verla.")
+  lines.push("- Si pregunta por amenidades / descripción / fotos → ahí sí llamá get_property_details.")
+  return lines.join("\n")
+}
+
+// ── Local helpers (kept here so the prompt file is self-contained) ─
+
+function formatPrice(price: number, currency: string | null): string {
+  const formatted = new Intl.NumberFormat("es-CR").format(price)
+  if (currency === "CRC") return `₡${formatted}`
+  if (currency === "USD") return `$${formatted}`
+  return `${currency ?? ""} ${formatted}`.trim()
+}
+
+const PROPERTY_TYPE_ES: Record<string, string> = {
+  apartment:  "apartamento",
+  house:      "casa",
+  land:       "lote",
+  commercial: "local comercial",
+  office:     "oficina",
+  warehouse:  "bodega",
+}
+
+const STATUS_ES: Record<string, string> = {
+  available:   "disponible",
+  reserved:    "reservada",
+  sold:        "vendida / alquilada",
+  off_market:  "fuera del mercado",
+  draft:       "borrador",
 }
 
 /**

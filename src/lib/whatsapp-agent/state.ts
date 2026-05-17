@@ -2,6 +2,8 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { formatPhoneDisplay } from "@/lib/phone"
 import type { Database } from "@/types/supabase"
+import { getPropertySummaryForAgent } from "./property-search"
+import type { AgentSearchResult } from "./property-search"
 
 type LeadRow              = Database["public"]["Tables"]["leads"]["Row"]
 type ConversationRow      = Database["public"]["Tables"]["conversations"]["Row"]
@@ -33,6 +35,14 @@ export interface AgentContext {
    *  — populated by the AI after every Nth turn when the thread gets
    *  long. Null on short / new threads. */
   threadSummary:  string | null
+  /** When the most recent inbound message contains an easyrent
+   *  property URL (`/p/<slug>`), we pre-resolve the property and
+   *  expose it here so the agent's first reply can reference it
+   *  naturally. This is the dominant entry path — every property
+   *  page has a "Contactar por WhatsApp" button that pre-fills a
+   *  link. Null when the last inbound has no recognizable slug or
+   *  the slug doesn't resolve. */
+  mentionedProperty: AgentSearchResult | null
 }
 
 export interface CollectedSnapshot {
@@ -186,6 +196,13 @@ export async function loadAgentContext(conversationId: string): Promise<AgentCon
   if (parking_needed == null)  missingForVisit.push("parking_needed")
   if (!occupation)             missingForVisit.push("occupation")
 
+  // ── Mentioned property ─────────────────────────────────────────
+  // Most leads arrive via "Contactar por WhatsApp" on a property
+  // page; their first inbound is the auto-filled "Hola, vi esta
+  // propiedad..." with a /p/<slug> URL. Pre-resolve it so the
+  // agent's first reply can cite the property by name + price.
+  const mentionedProperty = await findMentionedProperty(messages)
+
   return {
     lead,
     conversation: {
@@ -213,7 +230,58 @@ export async function loadAgentContext(conversationId: string): Promise<AgentCon
       missingForVisit,
     },
     threadSummary,
+    mentionedProperty,
   }
+}
+
+/**
+ * Walk the messages newest → oldest, return the first /p/<slug>
+ * URL we find in an INBOUND message and resolve it.
+ *
+ * We only look at inbound messages because outbound messages
+ * (our own search results) contain property URLs constantly and
+ * we don't want those to trigger "the lead mentioned this".
+ *
+ * Returns null when:
+ *   • No inbound message contains a slug URL.
+ *   • The slug resolves but the property no longer exists in the
+ *     marketplace (deleted / off-market) — agent will respond to
+ *     text content normally.
+ */
+async function findMentionedProperty(
+  messages: ConversationMessageRow[],
+): Promise<AgentSearchResult | null> {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.direction !== "inbound") continue
+    const slug = extractPropertySlug(msg.content ?? "")
+    if (!slug) continue
+    return await getPropertySummaryForAgent(slug)
+  }
+  return null
+}
+
+/**
+ * Extract an easyrent property slug from a message body.
+ *
+ * Matches any URL shape we send out, including:
+ *   • https://www.easyrent.house/es/p/<slug>
+ *   • https://easyrent.house/en/p/<slug>
+ *   • www.easyrent.house/p/<slug>
+ *   • bare "/p/<slug>" if someone pasted just the path
+ *
+ * Returns the first slug found, or null. Slugs are URL-safe:
+ * lowercase, digits, hyphens, and the short hash suffix we append
+ * (e.g. `bo-escalante-estudio-Jil1Y5`) — that's why the regex
+ * accepts mixed case.
+ */
+export function extractPropertySlug(body: string): string | null {
+  if (!body) return null
+  const m = body.match(/\/p\/([a-zA-Z0-9-]+)/)
+  if (!m) return null
+  // Defensive: a stray trailing punctuation (".", ",", ")") can hitch
+  // a ride on the slug if the user pasted oddly. Strip those.
+  return m[1].replace(/[.,)\]]+$/, "")
 }
 
 /**
