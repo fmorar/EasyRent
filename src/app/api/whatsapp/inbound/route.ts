@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
 import { verifyTwilioSignature, publicUrlFromRequest } from "@/lib/twilio/verify"
 import { sendWhatsAppMessage } from "@/lib/twilio/send"
+import { isAgentEnabled } from "@/lib/twilio/client"
 import { findOrCreateWhatsAppLead } from "@/lib/actions/whatsapp-lead.actions"
 import {
   findOrCreateWhatsAppConversation,
   appendConversationMessage,
 } from "@/lib/conversations"
 import { toE164 } from "@/lib/phone"
+import { runAgentTurn } from "@/lib/whatsapp-agent/run"
 
 /**
  * Twilio WhatsApp inbound webhook.
@@ -128,8 +130,25 @@ export async function POST(request: Request): Promise<Response> {
   let reply: string
   if (!body && numMedia > 0) {
     reply = "Por ahora puedo leer mensajes de texto. ¿Me lo podés escribir?"
+  } else if (isAgentEnabled()) {
+    // ── AI agent path ───────────────────────────────────────────
+    // Feature-flagged so we can dark-launch + roll back without
+    // touching code. Falls back to the static greeting if the agent
+    // throws — the conversation stays alive, the lead doesn't see a
+    // hard error, and the Sentry / Vercel log captures the trace.
+    try {
+      const turn = await runAgentTurn(conversationId)
+      reply = turn.reply
+      console.log(
+        `[whatsapp.agent] conv=${conversationId} iterations=${turn.iterations} tools=${turn.toolCallsMade}${turn.hitCap ? " hit-cap" : ""}`,
+      )
+    } catch (err) {
+      console.error("[whatsapp.agent] turn failed", err)
+      reply = "Gracias por escribirnos. Te respondemos en un rato."
+    }
   } else {
-    // MVP placeholder reply. Phase 4 swaps this for the agent runner.
+    // Agent disabled: legacy placeholder. Keeps the channel alive
+    // while the flag is off (e.g. during model upgrades).
     reply = "¡Hola! Soy el asistente de easyrent. Ya recibí tu mensaje, en un momento te respondo con info de propiedades. 🏠"
   }
 
