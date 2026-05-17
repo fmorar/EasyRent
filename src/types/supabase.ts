@@ -540,6 +540,122 @@ export type Database = {
           },
         ]
       }
+      external_listings: {
+        Row: {
+          advertiser: Json | null
+          area_sqm: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          claimed_at: string | null
+          claimed_by: string | null
+          claimed_property_id: string | null
+          created_at: string
+          currency: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_claimed: boolean
+          is_furnished: boolean | null
+          last_seen_at: string
+          listing_type: Database["public"]["Enums"]["listing_type"] | null
+          location_text: string | null
+          price: number | null
+          property_type: Database["public"]["Enums"]["property_type"] | null
+          raw_extracted: Json | null
+          scraped_at: string
+          source_id: string | null
+          source_name: string
+          source_url: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          advertiser?: Json | null
+          area_sqm?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          claimed_property_id?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_claimed?: boolean
+          is_furnished?: boolean | null
+          last_seen_at?: string
+          listing_type?: Database["public"]["Enums"]["listing_type"] | null
+          location_text?: string | null
+          price?: number | null
+          property_type?: Database["public"]["Enums"]["property_type"] | null
+          raw_extracted?: Json | null
+          scraped_at?: string
+          source_id?: string | null
+          source_name: string
+          source_url: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          advertiser?: Json | null
+          area_sqm?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          claimed_property_id?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_claimed?: boolean
+          is_furnished?: boolean | null
+          last_seen_at?: string
+          listing_type?: Database["public"]["Enums"]["listing_type"] | null
+          location_text?: string | null
+          price?: number | null
+          property_type?: Database["public"]["Enums"]["property_type"] | null
+          raw_extracted?: Json | null
+          scraped_at?: string
+          source_id?: string | null
+          source_name?: string
+          source_url?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_listings_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_listings_claimed_property_id_fkey"
+            columns: ["claimed_property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_listings_claimed_property_id_fkey"
+            columns: ["claimed_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_marketplace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_listings_claimed_property_id_fkey"
+            columns: ["claimed_property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_anonymous"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fx_rate_cache: {
         Row: {
           date: string

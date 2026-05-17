@@ -32,6 +32,11 @@ export interface AgentSearchInput {
   /** Used as a hint for LLM re-ranking when present. */
   free_text?:     string
   limit?:         number
+  /** When the strict + broad tiers find nothing in our own catalog,
+   *  fall back to scraping Encuentra24 for cold listings. Defaults
+   *  to true; the agent can pass false explicitly when the lead has
+   *  already opted into our catalog only (rare). */
+  include_external?: boolean
 }
 
 /**
@@ -65,6 +70,13 @@ export interface AgentSearchResult {
   display_address: string | null
   /** Absolute URL — pre-built so the agent doesn't have to assemble it. */
   url:            string
+  /** True when this result came from the external (Encuentra24)
+   *  fallback rather than our own catalog. The agent's prompt has a
+   *  dedicated transparency rule for these — cite the source, don't
+   *  imply we represent the listing, offer to coordinate a contact. */
+  is_external?:    boolean
+  /** Name of the source (e.g. "encuentra24") when `is_external` is true. */
+  external_source?: string
 }
 
 const DEFAULT_LIMIT = 6
@@ -156,7 +168,31 @@ export async function searchPropertiesForAgent(
     }
   }
 
-  return combined.slice(0, cap).map((p) => toAgentResult(p, usdToCrc))
+  const internalResults = combined.slice(0, cap).map((p) => toAgentResult(p, usdToCrc))
+
+  // External fallback — when our catalog has NOTHING that fits, scrape
+  // Encuentra24 for cold listings, persist them, and surface them to
+  // the agent with an `is_external` flag. The agent's prompt has a
+  // dedicated rule for how to present these (transparency + handoff
+  // language). Skip when:
+  //   • we already have results (don't pay the latency for no reason),
+  //   • the lead didn't ask for a listing_type yet (the URL composer
+  //     can't run without it),
+  //   • the caller explicitly disabled it (`include_external: false`).
+  if (
+    internalResults.length === 0 &&
+    input.listing_type &&
+    input.include_external !== false
+  ) {
+    const { searchExternalPropertiesForAgent } = await import("./external-search")
+    const externals = await searchExternalPropertiesForAgent(input)
+    if (externals.length > 0) {
+      console.log(`[whatsapp-agent.search] external fallback returned ${externals.length}`)
+      return externals
+    }
+  }
+
+  return internalResults
 }
 
 /**

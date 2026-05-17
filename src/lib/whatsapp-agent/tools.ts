@@ -175,6 +175,11 @@ export async function executeTool(
               area_sqm:       r.area_sqm,
               display_address: r.display_address,
               url:            r.url,
+              // When true: result came from the cold-listing fallback
+              // (Encuentra24). The agent prompt has explicit rules
+              // for how to present these (transparency + handoff).
+              is_external:     r.is_external ?? false,
+              external_source: r.external_source ?? null,
             })),
           },
         }
