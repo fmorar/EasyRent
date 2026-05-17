@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "comment": "Pick up open search_requests opened by the WhatsApp concierge and re-scrape Encuentra24 with enrichment. Owner outreach lives downstream (gated on WhatsApp Business template approval).",
+      "path": "/api/cron/process-search-requests",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

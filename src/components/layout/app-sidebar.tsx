@@ -66,6 +66,7 @@ const NAV_MAIN: NavItem[] = [
 
 const NAV_ADMIN: NavItem[] = [
   { href: "/owner-prospector", labelKey: "ownerProspector", icon: SearchIcon, adminOnly: true },
+  { href: "/external-listings", labelKey: "externalListings", icon: SearchIcon, adminOnly: true },
   { href: "/shares",      labelKey: "shareRequests", icon: Share2,  adminOnly: true },
   // Blog is editorial — only the platform admins (owner_admin +
   // super_admin) curate it. Agents don't see the menu item.
