@@ -166,12 +166,19 @@ export async function runAgentTurn(conversationId: string): Promise<AgentTurnRes
     }
   }
 
-  // Empty reply = intentional silence. The prompt explicitly allows
-  // this for low-information turns ("ok" / "dale" / "gracias") so the
-  // bot doesn't feel robotic with reflexive acknowledgments. The
-  // webhook treats null as "don't send".
+  // Empty reply with no tool calls = model unexpectedly went silent.
+  // We used to treat this as "intentional silence" but that backfired
+  // when the lead's "ok" was actually a confirmation to a question
+  // the bot had just asked — leaving the lead on read mid-flow. Now
+  // the prompt always requires a reply, and we surface a graceful
+  // fallback if the model still returns nothing.
   if (!finalReply) {
-    return { reply: null, toolCallsMade, iterations, hitCap: false }
+    return {
+      reply:         "Disculpá, no entendí del todo. ¿Me lo podés decir de otra forma?",
+      toolCallsMade,
+      iterations,
+      hitCap:        false,
+    }
   }
 
   return { reply: finalReply, toolCallsMade, iterations, hitCap: false }
