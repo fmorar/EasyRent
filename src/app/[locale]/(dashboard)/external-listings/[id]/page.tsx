@@ -4,6 +4,7 @@ import { format } from "date-fns"
 import {
   ArrowLeftIcon, ArrowTopRightOnSquareIcon, PhoneIcon, UserIcon,
   BuildingOffice2Icon, MapPinIcon, CurrencyDollarIcon,
+  ChatBubbleLeftIcon,
 } from "@heroicons/react/24/outline"
 import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
@@ -11,7 +12,10 @@ import { getCandidatesForSearchRequest, type AdvertiserMeta } from "@/lib/search
 import { formatPhoneDisplay } from "@/lib/phone"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { buttonVariants } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
+import { CopyTemplateButton } from "@/components/external-listings/copy-template-button"
 import type { Database } from "@/types/supabase"
 
 type SearchRequest = Database["public"]["Tables"]["search_requests"]["Row"]
@@ -267,11 +271,11 @@ function CandidateCard({
         </div>
 
         {adv?.phone && (
-          <ContactTemplateBox
+          <OutreachActions
+            phone={adv.phone}
             advertiserName={adv.name ?? null}
-            isOwnerLikely={(adv.confidence ?? 0) >= 0.75}
-            leadName={leadName}
-            requestId={requestId}
+            listingType={c.listing_type as "rent" | "sale" | null}
+            listingTitle={c.title}
           />
         )}
       </CardContent>
@@ -279,41 +283,112 @@ function CandidateCard({
   )
 }
 
-/** Pre-baked outreach message the operator can copy-paste into their
- *  WhatsApp until automated outbound (Phase B) is live. Two variants
- *  by confidence — owner-first vs commission-split. */
-function ContactTemplateBox({
-  advertiserName, isOwnerLikely, leadName,
-}: {
+interface OutreachActionsProps {
+  phone:          string
   advertiserName: string | null
-  isOwnerLikely:  boolean
-  leadName:       string | null
-  requestId:      string
-}) {
-  const greeting = advertiserName ? `Hola ${advertiserName.split(" ")[0]},` : "Hola,"
-  const interestedLine = leadName && leadName !== "Sin nombre"
-    ? `Tenemos un cliente (${leadName}) interesado en una propiedad similar a la suya.`
-    : `Tenemos un cliente interesado en una propiedad similar a la suya.`
-  const body = isOwnerLikely
-    ? `${greeting}
+  listingType:    "rent" | "sale" | null
+  listingTitle:   string
+}
 
-Soy del equipo de easyrent.house. ${interestedLine} Vimos su publicación en Encuentra24 y nos gustaría coordinar una visita / consulta. ¿Sigue disponible?
-
-Si le interesa publicar también con nosotros (sin costo, sin exclusividad), podemos hacerlo en minutos.`
-    : `${greeting}
-
-Soy del equipo de easyrent.house. ${interestedLine} Vimos su publicación en Encuentra24. ¿Trabajamos juntos en este caso bajo esquema 50/50 si cierra?
-
-Podemos coordinar y compartir el contacto del cliente cuando confirme interés.`
+/**
+ * Per-candidate outreach affordances:
+ *   1. Renders the pre-baked first-contact message (our copy, the
+ *      one we agreed on with sales — owner intro, service scope,
+ *      commission disclosed up front).
+ *   2. "Abrir en WhatsApp" deep-links to wa.me with the message
+ *      already typed; operator clicks Send.
+ *   3. "Copiar texto" for the (rare) case where the operator wants
+ *      to paste into a different client (WhatsApp Business app,
+ *      WhatsApp Web tab they already had open with the lead, etc.).
+ *
+ * Important: we never leak the lead's phone or name to the owner in
+ * this first contact. The pitch is "tengo un cliente interesado" —
+ * the owner reaches back out to us first and we mediate.
+ *
+ * Stays in sync with the user's specified script. When Phase B lands
+ * (Twilio-approved WA Business templates), the body here is what
+ * gets submitted to Meta for approval.
+ */
+function OutreachActions({
+  phone, advertiserName, listingType, listingTitle,
+}: OutreachActionsProps) {
+  const body  = buildOutreachMessage({ advertiserName, listingType, listingTitle })
+  const waUrl = `https://wa.me/${phone.replace(/[^0-9+]/g, "").replace(/^\+/, "")}?text=${encodeURIComponent(body)}`
 
   return (
-    <details className="text-xs">
-      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-        Ver plantilla para copiar
-      </summary>
-      <pre className="bg-muted/50 rounded p-2 mt-1 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
-        {body}
-      </pre>
-    </details>
+    <div className="space-y-2 pt-1">
+      <details>
+        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+          Ver plantilla
+        </summary>
+        <pre className="bg-muted/50 rounded p-2 mt-1 whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
+          {body}
+        </pre>
+      </details>
+      <div className="flex items-center gap-2">
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noreferrer"
+          className={cn(buttonVariants({ variant: "default", size: "sm" }))}
+        >
+          <ChatBubbleLeftIcon className="size-4" />
+          Abrir en WhatsApp
+        </a>
+        <CopyTemplateButton text={body} />
+      </div>
+    </div>
   )
+}
+
+/**
+ * Build the first-contact outreach body.
+ *
+ * Script (per sales): warm greeting → name the listing → state the
+ * interest → ask if they want us to offer it → ask if they've worked
+ * with agents → disclose commission → list service inclusions.
+ *
+ * Two commission variants:
+ *   • rent  → equivalente a un mes de renta
+ *   • sale  → 3% del precio de venta (CR market standard for the
+ *             seller's-side agent; the buyer's-side cut is separate)
+ *   • null  → generic "comisión estándar, te la confirmo en el chat"
+ *
+ * Uses "tenés" (voseo) to match the easyrent brand voice across the
+ * funnel — even on first contact. Operators should feel free to
+ * adjust in their WA client before sending if they have a personal
+ * relationship with the owner.
+ */
+function buildOutreachMessage({
+  advertiserName, listingType, listingTitle,
+}: {
+  advertiserName: string | null
+  listingType:    "rent" | "sale" | null
+  listingTitle:   string
+}): string {
+  const firstName = advertiserName?.split(/\s+/)[0]?.trim() || null
+  const greeting  = firstName ? `Hola ${firstName},` : "Hola,"
+  const commissionLine = listingType === "rent"
+    ? "Nuestra comisión por el servicio es el equivalente a un mes de renta."
+    : listingType === "sale"
+    ? "Nuestra comisión por el servicio es el 3% del precio de venta."
+    : "Te confirmo la comisión por el servicio cuando me digas si te interesa avanzar."
+
+  return `${greeting}
+
+Soy del equipo de easyrent.house. Vi que tenés esta propiedad disponible:
+
+${listingTitle}
+
+Tengo un cliente interesado en una propiedad similar y me gustaría saber si te interesa que se la ofrezca formalmente. También, ¿has trabajado con agentes antes?
+
+${commissionLine}
+
+Dentro del servicio incluye:
+- Datum (revisión de antecedentes del cliente)
+- Perfilamiento del cliente
+- Elaboración del contrato
+- Toma de fotografías y material audiovisual de ser necesario
+
+Si te interesa, contestame por acá y coordinamos los próximos pasos.`
 }
