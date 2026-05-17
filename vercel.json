@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "comment": "Pick up open search_requests opened by the WhatsApp concierge and re-scrape Encuentra24 with enrichment. Runs daily because Vercel Hobby caps cron frequency at 1/day; upgrade to Pro if you want this every 30 min for faster lead turnaround.",
       "path": "/api/cron/process-search-requests",
       "schedule": "0 13 * * *"
     }
