@@ -1,5 +1,6 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { maybeAdvanceLeadStage } from "@/lib/leads/stage-machine"
 import type { Database } from "@/types/supabase"
 
 type Direction = Database["public"]["Enums"]["message_direction"]
@@ -139,6 +140,26 @@ export async function appendConversationMessage(args: AppendArgs): Promise<
     .from("conversations")
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", args.conversationId)
+
+  // Funnel auto-advance: any outbound from us proves we're engaged.
+  // The first time it fires moves the lead to `contacted`; later
+  // outbounds are no-ops because maybeAdvanceLeadStage is monotonic.
+  // We only do this for LEAD conversations — outbound to an owner
+  // (kind='owner') shouldn't touch their own lead's stage.
+  if (args.direction === "outbound") {
+    const conv = await admin
+      .from("conversations")
+      .select("lead_id, kind")
+      .eq("id", args.conversationId)
+      .single()
+    if (conv.data?.lead_id && (conv.data.kind ?? "lead") === "lead") {
+      await maybeAdvanceLeadStage({
+        leadId:    conv.data.lead_id,
+        suggested: "contacted",
+        reason:    "first-bot-reply",
+      })
+    }
+  }
 
   return { saved: true, messageId: insert.data.id }
 }

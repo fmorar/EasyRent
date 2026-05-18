@@ -9,6 +9,7 @@ import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { LEAD_STAGE_LABELS } from "@/lib/labels"
 import { formatPhoneDisplay } from "@/lib/phone"
 import type { ConversationListItem } from "@/lib/conversations.queries"
 
@@ -195,9 +196,19 @@ function ConversationRowLink({
             </p>
           )}
           <div className="flex items-center justify-between gap-2 mt-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {STATUS_LABEL[item.status]}
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {/* Funnel stage — the macro state, auto-updated by the
+                  agent (state-machine.ts). Status (Activa/Handoff)
+                  follows as the micro state of the bot itself. */}
+              {item.lead.stage && (
+                <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-medium uppercase tracking-wider truncate">
+                  {LEAD_STAGE_LABELS[item.lead.stage]}
+                </Badge>
+              )}
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                · {STATUS_LABEL[item.status]}
+              </span>
+            </div>
             {isUnread && (
               <Badge variant="default" className="font-numeric h-4 min-w-4 px-1 text-[10px]">
                 {item.unread_count}

@@ -1,5 +1,6 @@
 import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline"
 import { EmptyState } from "@/components/shared/empty-state"
+import { LeadsViewToggle } from "@/components/leads/leads-view-toggle"
 import { ConversationsListTabs } from "./conversations-list-tabs"
 import type { ConversationListItem } from "@/lib/conversations.queries"
 
@@ -44,7 +45,7 @@ export function ConversationsListPane({ items }: Props) {
 
 function ListHeader({ unreadCount, totalCount }: { unreadCount: number; totalCount: number }) {
   return (
-    <div className="px-4 py-3 border-b">
+    <div className="px-4 py-3 border-b space-y-2">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="text-lg font-heading font-semibold">Conversaciones</h2>
         <span className="text-xs text-muted-foreground font-numeric">
@@ -52,6 +53,7 @@ function ListHeader({ unreadCount, totalCount }: { unreadCount: number; totalCou
           {unreadCount > 0 && <> · <span className="text-primary">{unreadCount} sin leer</span></>}
         </span>
       </div>
+      <LeadsViewToggle />
     </div>
   )
 }

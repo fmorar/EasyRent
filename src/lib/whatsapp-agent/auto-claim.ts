@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { slugify } from "@/lib/utils"
+import { maybeAdvanceLeadStage } from "@/lib/leads/stage-machine"
 import type { Database } from "@/types/supabase"
 
 type ExternalListing = Database["public"]["Tables"]["external_listings"]["Row"]
@@ -126,7 +127,7 @@ export async function autoClaimListing(args: {
     })
     .eq("id", args.outreachAttemptId)
 
-  await admin
+  const fulfilledSearch = await admin
     .from("search_requests")
     .update({
       status:                        "fulfilled",
@@ -135,6 +136,18 @@ export async function autoClaimListing(args: {
       fulfilled_at:                  new Date().toISOString(),
     })
     .eq("id", args.searchRequestId)
+    .select("lead_id")
+    .single()
+
+  // Funnel advance for the original lead: we now have a property
+  // ready to offer them, so they enter the negotiating stage.
+  if (fulfilledSearch.data?.lead_id) {
+    await maybeAdvanceLeadStage({
+      leadId:    fulfilledSearch.data.lead_id,
+      suggested: "negotiating",
+      reason:    "owner-accepted-via-outreach",
+    })
+  }
 
   console.log(
     `[auto-claim] published external=${args.externalListingId} as property=${propertyId} for search=${args.searchRequestId}`,

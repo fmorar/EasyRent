@@ -1,6 +1,7 @@
 import { requireAuth } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { LeadKanban } from "@/components/leads/lead-kanban"
+import { LeadsViewToggle } from "@/components/leads/leads-view-toggle"
 import type { Lead } from "@/types"
 import { PIPELINE_STAGES } from "@/lib/utils"
 
@@ -50,16 +51,19 @@ export default async function LeadsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold">Leads</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {isAdmin ? "All pipeline leads" : "Your assigned leads"}
           </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {leads?.length ?? 0} total
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-muted-foreground">
+            {leads?.length ?? 0} total
+          </p>
+          <LeadsViewToggle />
+        </div>
       </div>
 
       <LeadKanban

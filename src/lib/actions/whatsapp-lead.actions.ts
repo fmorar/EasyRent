@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { toE164 } from "@/lib/phone"
+import { maybeAdvanceFromProfileSignals } from "@/lib/leads/stage-machine"
 import type { Database } from "@/types/supabase"
 
 /**
@@ -210,6 +211,12 @@ export async function updateLeadFromAgent(args: {
   if (res.error) {
     throw new Error(`updateLeadFromAgent: ${res.error.message}`)
   }
+
+  // Funnel auto-advance: enrichment is the strongest interest
+  // signal we have short of an explicit visit request. The helper
+  // re-reads the lead and decides whether to bump to `interested`;
+  // it's idempotent so calling it on every patch is fine.
+  await maybeAdvanceFromProfileSignals(args.leadId)
 
   return { updated }
 }
