@@ -78,7 +78,11 @@ export default async function ConversationDetailPage({ params }: PageProps) {
           </div>
           <div className="flex items-center gap-2">
             <LeadProfileSheet>
-              <LeadProfileCard lead={lead} mentionedProperty={mentionedProperty} />
+              <LeadProfileCard
+                lead={lead}
+                mentionedProperty={mentionedProperty}
+                conversationId={conversation.id}
+              />
             </LeadProfileSheet>
             <ConversationHandoffToggle
               conversationId={conversation.id}

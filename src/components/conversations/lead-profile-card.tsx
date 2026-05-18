@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { formatPhoneDisplay } from "@/lib/phone"
+import { ThreadSummaryCard } from "./thread-summary-card"
 import type { AgentSearchResult } from "@/lib/whatsapp-agent/property-search"
 import type { Database } from "@/types/supabase"
 
@@ -16,6 +17,10 @@ type LeadRow = Database["public"]["Tables"]["leads"]["Row"]
 interface Props {
   lead:              LeadRow
   mentionedProperty: AgentSearchResult | null
+  /** Conversation id is required so the AI-summary card can call the
+   *  regenerate server action. Optional only because some callers
+   *  render the profile without a thread context. */
+  conversationId?:   string
 }
 
 /**
@@ -33,14 +38,16 @@ interface Props {
  * pre-resolution the agent does — keeps the dashboard's mental
  * model 1:1 with the bot's.
  */
-export function LeadProfileCard({ lead, mentionedProperty }: Props) {
+export function LeadProfileCard({ lead, mentionedProperty, conversationId }: Props) {
   const extracted = (lead.extracted_data ?? null) as
     | {
-        preferred_zones?: string[]
-        id_number?:       string | null
-        parking_needed?:  boolean | null
-        parking_count?:   number  | null
-        occupation?:      string  | null
+        preferred_zones?:           string[]
+        id_number?:                 string | null
+        parking_needed?:            boolean | null
+        parking_count?:             number  | null
+        occupation?:                string  | null
+        thread_summary?:            string  | null
+        thread_summary_updated_at?: string  | null
       }
     | null
   const preferredZones = Array.isArray(extracted?.preferred_zones)
@@ -65,8 +72,23 @@ export function LeadProfileCard({ lead, mentionedProperty }: Props) {
   ]
   const visitGateDone = visitGateChecks.filter((c) => c.done).length
 
+  const threadSummary       = extracted?.thread_summary             ?? null
+  const threadSummaryUpdatedAt = extracted?.thread_summary_updated_at ?? null
+
   return (
     <div className="space-y-4">
+      {/* AI summary — operator-facing brief, also re-used by the agent
+          on its next turn (state.ts reads thread_summary from this
+          same JSONB key). Only render when we know the conversation
+          id; otherwise the regenerate action has no target. */}
+      {conversationId && (
+        <ThreadSummaryCard
+          conversationId={conversationId}
+          initialSummary={threadSummary}
+          initialUpdatedAt={threadSummaryUpdatedAt}
+        />
+      )}
+
       {/* Lead identity */}
       <Card>
         <CardHeader>

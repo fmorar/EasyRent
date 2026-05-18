@@ -30,7 +30,14 @@ export function ConversationsLayoutShell({ list, children }: Props) {
   const hasChat  = segment !== null
 
   return (
-    <div className="flex flex-1 -mx-4 sm:-mx-6 -mb-(--spacing-section) -mt-2 min-h-0">
+    <div
+      // Fixed viewport bounds — WhatsApp-Web style. The page itself
+      // never scrolls; only the internal panes do. Subtract the
+      // dashboard header (h-16 = 4rem) so we sit cleanly underneath
+      // it. Negative margins peel back the dashboard <main> padding
+      // so the panes go edge-to-edge.
+      className="flex h-[calc(100dvh-4rem)] -mx-4 sm:-mx-6 -mb-(--spacing-section) -mt-2 min-h-0 overflow-hidden"
+    >
       <aside
         className={cn(
           "w-full lg:w-[380px] flex-col border-r bg-card min-h-0",

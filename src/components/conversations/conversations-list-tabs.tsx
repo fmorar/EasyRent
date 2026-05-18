@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
+import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -32,15 +33,53 @@ type Filter = "all" | "unread"
 export function ConversationsListTabs({ items }: Props) {
   const pathname     = usePathname()
   const [filter, setFilter] = useState<Filter>("all")
+  const [query, setQuery]   = useState("")
 
   const unreadCount = items.reduce((s, i) => s + i.unread_count, 0)
-  const visible = useMemo(
-    () => filter === "unread" ? items.filter((i) => i.unread_count > 0) : items,
-    [items, filter],
-  )
+
+  // Search across the fields a CR operator would naturally type: the
+  // lead's name, their phone (with or without dashes/spaces), and the
+  // visible content of the last message. Case-insensitive, accents-
+  // folded so "escazu" matches "Escazú".
+  const visible = useMemo(() => {
+    const base = filter === "unread" ? items.filter((i) => i.unread_count > 0) : items
+    const q = normalize(query)
+    if (!q) return base
+    return base.filter((i) => {
+      const haystack = [
+        i.lead.full_name,
+        i.lead.phone_e164,
+        i.external_id,
+        i.last_message?.content,
+      ].map(normalize).join("")
+      return haystack.includes(q)
+    })
+  }, [items, filter, query])
 
   return (
     <>
+      <div className="px-3 py-2 border-b">
+        <div className="relative">
+          <MagnifyingGlassIcon className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar nombre, teléfono o mensaje…"
+            className="w-full pl-8 pr-8 py-1.5 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <XMarkIcon className="size-4" />
+            </button>
+          )}
+        </div>
+      </div>
       <div className="flex border-b">
         <TabBtn active={filter === "all"} onClick={() => setFilter("all")}>
           Todas <span className="font-numeric ml-1 text-muted-foreground">({items.length})</span>
@@ -52,7 +91,11 @@ export function ConversationsListTabs({ items }: Props) {
       <div className="flex-1 overflow-y-auto min-h-0">
         {visible.length === 0 ? (
           <p className="text-sm text-muted-foreground italic text-center p-8">
-            {filter === "unread" ? "Nada sin leer." : "Sin conversaciones."}
+            {query
+              ? `Sin resultados para "${query}".`
+              : filter === "unread"
+              ? "Nada sin leer."
+              : "Sin conversaciones."}
           </p>
         ) : (
           <ul className="divide-y">
@@ -64,6 +107,20 @@ export function ConversationsListTabs({ items }: Props) {
       </div>
     </>
   )
+}
+
+/** Accent-fold + lowercase + collapse spaces. Cheap normalization
+ *  for natural-language search in Spanish (Escazú == escazu) and
+ *  digit-only phone matching (the ILIKE `phone_e164` already keeps
+ *  separators stripped). */
+function normalize(s: string | null | undefined): string {
+  return (s ?? "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function TabBtn({
