@@ -23,8 +23,13 @@ const geistMono = Geist_Mono({
 // to the canonical domain so relative og:image paths in route-level
 // metadata point at the right host (WhatsApp, Slack, Telegram etc.
 // scrape the rendered absolute URL, not the route-relative one).
+//
+// `||` (not `??`) on purpose: Vercel's CLI sometimes returns
+// sensitive env vars as empty strings via `vercel env pull`, which
+// would slip past `??` (only nullish) and crash `new URL("")` at
+// module load. `||` covers empty/whitespace too.
 const SITE_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+  process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ||
   "https://www.easyrent.house"
 
 export const metadata: Metadata = {
