@@ -1,11 +1,21 @@
-"use client"
+// Featured-properties section for the landing.
+//
+// Server-rendered shell + a tiny client island for the type-filter
+// chips. Why split: before this change, the entire section was a
+// "use client" component, which meant the 6 `MarketplaceCard`s + their
+// `ListingCardShell` carousels + every `useTranslations` call hydrated
+// on first paint — pure cost for a section whose only interactivity
+// is "pick a type pill". The shell now renders fully on the server;
+// only the chip row ships JS, and filtering is driven by a CSS
+// attribute selector against `data-property-type` on each card. Zero
+// re-render, zero round-trip.
 
 import Link from "next/link"
-import { useState, useMemo } from "react"
-import { useTranslations } from "next-intl"
+import { getTranslations } from "next-intl/server"
 import { MarketplaceCard } from "@/components/property/marketplace-card"
 import { buttonVariants } from "@/components/ui/button"
 import { ArrowRightIcon } from "@heroicons/react/24/outline"
+import { FeaturedPropertiesFilterChips } from "@/components/landing/featured-properties-filter-chips"
 import { cn } from "@/lib/utils"
 import type { MarketplaceProperty } from "@/types"
 
@@ -23,31 +33,19 @@ interface Props {
 }
 
 // Type filter values map to property_type enum. Labels come from the
-// shared `properties.types` namespace (already i18n'd) plus
-// `featuredProperties.filterAll` for the "All" pseudo-value.
+// shared `properties.types` namespace plus `featuredProperties.filterAll`.
 const TYPE_FILTER_VALUES = ["", "house", "apartment", "land", "commercial"] as const
 
-/**
- * Featured-properties section for the landing.
- *
- * Server hands in the latest 6 marketplace-visible properties; the
- * client filters them by type via chips (purely client-side, no
- * round-trip — the server already gave us a small set). When the
- * filter narrows below the grid count, we just render fewer cards.
- *
- * "Ver todas" sends the user to /marketplace where the full-power
- * filter-bar lives. This section is conversion / discovery, not the
- * actual search tool.
- */
-export function FeaturedProperties({ properties, coverByProperty, photosByProperty }: Props) {
-  const t      = useTranslations("featuredProperties")
-  const tTypes = useTranslations("properties.types")
-  const [filter, setFilter] = useState<string>("")
+export async function FeaturedProperties({ properties, coverByProperty, photosByProperty }: Props) {
+  const t      = await getTranslations("featuredProperties")
+  const tTypes = await getTranslations("properties.types")
 
-  const filtered = useMemo(() => {
-    if (!filter) return properties
-    return properties.filter((p) => p.property_type === filter)
-  }, [filter, properties])
+  // Build the chip definitions on the server so the client island only
+  // needs labels + values. The "" pseudo-value maps to "All".
+  const chips = TYPE_FILTER_VALUES.map((value) => ({
+    value,
+    label: value === "" ? t("filterAll") : tTypes(value),
+  }))
 
   return (
     <section
@@ -82,57 +80,45 @@ export function FeaturedProperties({ properties, coverByProperty, photosByProper
         </div>
       </header>
 
-      {/* ── Type filter chips ─────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-2 mb-(--spacing-block)">
-        {TYPE_FILTER_VALUES.map((value) => {
-          const isActive = filter === value
-          // "" → "All" pseudo-filter; any other value → matching label
-          // from the shared properties.types namespace (already i18n'd
-          // for ES + EN and used across the marketplace, dashboard,
-          // and schema mappings).
-          const label = value === "" ? t("filterAll") : tTypes(value)
-          return (
-            <button
-              key={value || "all"}
-              type="button"
-              onClick={() => setFilter(value)}
-              className={cn(
-                "rounded-full h-9 px-4 text-sm font-medium transition-colors whitespace-nowrap",
-                // Public-surface active chip: ink pill (per the
-                // dashboard-vs-public rule). Dashboard surfaces keep
-                // their yellow primary chips; this is editorial.
-                isActive
-                  ? "bg-foreground text-background"
-                  : "border bg-background text-foreground/80 hover:bg-muted",
-              )}
-            >
-              {label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* ── Grid ──────────────────────────────────────────────────── */}
-      {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed py-16 text-center space-y-3">
-          <p className="text-sm font-medium">{t("emptyHeadline")}</p>
-          <p className="text-xs text-muted-foreground">{t("emptySubhead")}</p>
-          <Link href="/marketplace" className={buttonVariants({ variant: "outline" })}>
-            {t("emptyCta")}
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-          {filtered.map((p) => (
-            <MarketplaceCard
-              key={p.id}
-              property={p}
-              coverUrl={coverByProperty[p.id!]}
-              photos={photosByProperty?.[p.id!]}
-            />
-          ))}
-        </div>
-      )}
+      {/* ── Filter chips + grid wrapper ─────────────────────────────
+              The wrapper carries the active filter as a CSS attribute
+              (`data-active-filter`). Cards advertise their own type via
+              `data-property-type`. A scoped <style> tag inside the
+              chip island hides cards that don't match — instant
+              filter, zero re-render, zero round-trip. */}
+      <FeaturedPropertiesFilterChips chips={chips}>
+        {properties.length === 0 ? (
+          <div className="rounded-2xl border border-dashed py-16 text-center space-y-3">
+            <p className="text-sm font-medium">{t("emptyHeadline")}</p>
+            <p className="text-xs text-muted-foreground">{t("emptySubhead")}</p>
+            <Link href="/marketplace" className={buttonVariants({ variant: "outline" })}>
+              {t("emptyCta")}
+            </Link>
+          </div>
+        ) : (
+          // ── Grid ──────────────────────────────────────────────
+          // Each card gets `data-property-type` so the chip island can
+          // toggle visibility via an attribute selector. When the
+          // active filter matches no card in the current 6, the user
+          // simply sees an empty grid — acceptable here because the
+          // landing only ever shows the 6 latest properties.
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {properties.map((p) => (
+              <div
+                key={p.id}
+                data-property-type={p.property_type ?? ""}
+                className="featured-property-card"
+              >
+                <MarketplaceCard
+                  property={p}
+                  coverUrl={coverByProperty[p.id!]}
+                  photos={photosByProperty?.[p.id!]}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </FeaturedPropertiesFilterChips>
     </section>
   )
 }

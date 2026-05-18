@@ -4,6 +4,7 @@
 //      (replaces the old "3 pillars" copy block — show, don't tell).
 
 import Link from "next/link"
+import Image from "next/image"
 import { getTranslations } from "next-intl/server"
 import {
   ShieldCheckIcon,
@@ -205,15 +206,19 @@ function TiltedProjectCard({
         "transform-gpu rotate-[2deg] hover:rotate-0",
       )}
     >
-      {/* Photo */}
+      {/* Photo — next/image routes through Vercel's optimizer so we get
+          WebP/AVIF, responsive srcset, and 1-year CDN cache. Below-the-
+          fold (the tilted card sits well past first-paint) so we skip
+          `preload`/`fetchPriority` — browsers lazy-load by default. */}
       <div className="relative aspect-[3/4] overflow-hidden">
         {project?.cover_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={project.cover_url}
             alt=""
             aria-hidden
-            className="absolute inset-0 h-full w-full object-cover"
+            fill
+            sizes="(min-width: 1024px) 250px, 40vw"
+            className="object-cover"
           />
         ) : (
           <div className="absolute inset-0 bg-hero-fallback" />

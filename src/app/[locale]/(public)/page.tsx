@@ -14,6 +14,7 @@
 // Order matters: the hero is BIG so the user sees the primary CTA
 // (search) above the fold; everything else is scroll-revealed.
 
+import ReactDOM from "react-dom"
 import { createClient } from "@/lib/supabase/server"
 import { HeroSearch, type HeroProject } from "@/components/landing/hero-search"
 import { TrustSignals } from "@/components/landing/trust-signals"
@@ -217,6 +218,29 @@ export default async function LandingPage() {
     // "verificado/verificada" suffix in ES) from i18n.
     roleKind:   a.role === "owner_admin" || a.role === "super_admin" ? "agency" : "agent",
   }))
+
+  // ── Preload the hero image during HTML parse ────────────────────
+  // The hero is the LCP element on the landing page (Speed Insights
+  // P75 LCP = 4.47s on mobile, vs 0.54s TTFB → the gap is dominated
+  // by "discover hero src → fetch" latency). `ReactDOM.preload` emits
+  // a <link rel="preload" as="image"> in the document head DURING
+  // SSR, so mobile browsers start downloading the hero photo before
+  // the React tree even hydrates and the <Image /> tag is discovered.
+  //
+  // We hand the browser a responsive srcset so phones don't fetch the
+  // desktop-sized hero — the smallest variant (828 wide @ 100vw) is
+  // what mobile P75 will actually consume. fetchPriority=high is the
+  // explicit hint Next 16 dropped from the legacy `priority` shorthand.
+  if (heroProject?.cover_url) {
+    const buildSrc = (w: number) =>
+      `/_next/image?url=${encodeURIComponent(heroProject.cover_url!)}&w=${w}&q=75`
+    ReactDOM.preload(buildSrc(1200), {
+      as: "image",
+      fetchPriority: "high",
+      imageSrcSet: [640, 828, 1200, 1920].map((w) => `${buildSrc(w)} ${w}w`).join(", "),
+      imageSizes:  "(min-width: 1024px) 1200px, 100vw",
+    })
+  }
 
   return (
     <main className="bg-background">
