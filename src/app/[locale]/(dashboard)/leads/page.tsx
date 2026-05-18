@@ -1,112 +1,86 @@
-import Link from "next/link"
 import { requireAuth } from "@/lib/auth"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
-import {
-  ChartBarSquareIcon,
-  FunnelIcon,
-  ChatBubbleLeftRightIcon,
-  ClockIcon,
-  ArrowLeftIcon,
-} from "@heroicons/react/24/outline"
+import { createClient } from "@/lib/supabase/server"
+import { LeadKanban } from "@/components/leads/lead-kanban"
+import { LeadsViewToggle } from "@/components/leads/leads-view-toggle"
+import type { Lead } from "@/types"
+import { PIPELINE_STAGES } from "@/lib/utils"
 
 /**
- * Coming-soon placeholder for /leads.
+ * Leads pipeline — "Tablero" view of the unified leads/conversations
+ * surface. The toggle in the header swaps over to /conversations
+ * (chat view) while keeping the same mental model: one funnel, two
+ * ways to operate.
  *
- * The kanban pipeline + lead detail flow wasn't ready for production
- * yet, so we surface a clear "Pronto" state rather than route users
- * to a broken page. Dashboard tiles still link here on purpose — the
- * preview helps users understand what's being built next.
+ * Lives under `[locale]/(dashboard)/` so the next-intl-prefixed
+ * sidebar Link (/es/leads, /en/leads) resolves here instead of the
+ * non-locale `(dashboard)/leads/` duplicate.
  */
 export default async function LeadsPage() {
-  // Keep the auth gate so anon visitors still get bounced to login —
-  // the page itself is harmless to render, but consistent routing
-  // protects deep-linked URLs.
-  await requireAuth()
+  const { profile } = await requireAuth()
+  const supabase    = await createClient()
+  const isAdmin     = profile.role === "owner_admin"
 
-  return (
-    <div className="space-y-(--spacing-section)">
-      <header className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl sm:text-3xl font-heading font-bold tracking-tight">
-            Leads
-          </h1>
-          <Badge variant="outline" className="text-[10px] uppercase tracking-[0.16em]">
-            Pronto
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Estamos terminando el pipeline de leads. Mientras tanto, podés
-          seguir gestionando consultas desde WhatsApp y correo.
-        </p>
-      </header>
+  // RLS filters by assigned_to = me (or all for admin)
+  const { data: leadsRaw } = await supabase
+    .from("leads")
+    .select(`
+      *,
+      property:properties(id, title, slug),
+      assigned_profile:profiles!leads_assigned_to_fkey(id, full_name, avatar_url)
+    `)
+    .is("deleted_at", null)
+    .eq("is_archived", false)
+    .order("created_at", { ascending: false })
 
-      <Card>
-        <CardContent className="py-12 sm:py-16 px-6 sm:px-10 flex flex-col items-center text-center gap-(--spacing-cluster)">
-          <span className="h-14 w-14 rounded-2xl bg-primary/15 text-foreground flex items-center justify-center">
-            <FunnelIcon className="h-7 w-7" />
-          </span>
-          <div className="space-y-(--spacing-tight) max-w-md">
-            <h2 className="text-xl sm:text-2xl font-heading font-semibold tracking-tight">
-              Pipeline de leads en construcción
-            </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Estamos puliendo el kanban, la asignación automática y el
-              seguimiento por etapa. Pronto vas a poder mover leads, ver
-              el embudo completo y exportar reportes desde acá.
-            </p>
-          </div>
+  const leads = leadsRaw as Lead[] | null
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-(--spacing-tight) w-full max-w-2xl pt-(--spacing-block)">
-            <PreviewTile
-              icon={<ChartBarSquareIcon className="h-4 w-4" />}
-              title="Embudo por etapa"
-              body="Nuevo · Contactado · Visita · Oferta · Cerrado."
-            />
-            <PreviewTile
-              icon={<ChatBubbleLeftRightIcon className="h-4 w-4" />}
-              title="Captura unificada"
-              body="WhatsApp, formularios públicos y links sin marca en un mismo lugar."
-            />
-            <PreviewTile
-              icon={<ClockIcon className="h-4 w-4" />}
-              title="Recordatorios"
-              body="Próximos pasos y SLA por lead para que nada se enfríe."
-            />
-          </div>
+  // Lookup of WhatsApp conversation per lead, so cards can deep-link
+  // straight into the chat thread. RLS already scopes by the same
+  // visibility rules as the leads themselves.
+  const leadIds = (leads ?? []).map((l) => l.id)
+  const conversationsByLeadId: Record<string, string> = {}
+  if (leadIds.length > 0) {
+    const { data: convsRaw } = await supabase
+      .from("conversations")
+      .select("id, lead_id")
+      .eq("channel", "whatsapp")
+      .in("lead_id", leadIds)
+    for (const c of convsRaw ?? []) {
+      if (c.lead_id) conversationsByLeadId[c.lead_id] = c.id
+    }
+  }
 
-          <div className="pt-(--spacing-block)">
-            <Link
-              href="/dashboard"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              <ArrowLeftIcon className="h-4 w-4 mr-1.5" />
-              Volver al panel
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+  // Group by stage for kanban
+  const leadsByStage = PIPELINE_STAGES.reduce(
+    (acc, stage) => {
+      acc[stage] = (leads ?? []).filter((l) => l.stage === stage)
+      return acc
+    },
+    {} as Record<string, Lead[]>
   )
-}
 
-function PreviewTile({
-  icon, title, body,
-}: {
-  icon:  React.ReactNode
-  title: string
-  body:  string
-}) {
   return (
-    <div className="rounded-xl border bg-muted/20 px-4 py-4 text-left space-y-1.5">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        {icon}
-        <span className="text-xs font-medium text-foreground">{title}</span>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-heading font-semibold">Pipeline</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isAdmin ? "Todos los leads del embudo" : "Los leads asignados a vos"}
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-muted-foreground">
+            {leads?.length ?? 0} total
+          </p>
+          <LeadsViewToggle />
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground leading-relaxed">
-        {body}
-      </p>
+
+      <LeadKanban
+        leadsByStage={leadsByStage}
+        currentUserId={profile.id}
+        conversationsByLeadId={conversationsByLeadId}
+      />
     </div>
   )
 }

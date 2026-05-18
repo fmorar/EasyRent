@@ -22,7 +22,6 @@ import {
   ChevronUpDownIcon as ChevronsUpDown,
   NewspaperIcon as NewsIcon,
   MagnifyingGlassIcon as SearchIcon,
-  ChatBubbleLeftRightIcon as ChatIcon,
 } from "@heroicons/react/24/outline"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -53,8 +52,11 @@ const NAV_MAIN: NavItem[] = [
   { href: "/dashboard",  labelKey: "dashboard",  icon: LayoutDashboard, adminOnly: false },
   { href: "/properties", labelKey: "properties", icon: Building2,       adminOnly: false },
   { href: "/projects",   labelKey: "projects",   icon: FolderOpen,      adminOnly: false },
-  { href: "/leads",      labelKey: "leads",      icon: TrendingUp,      adminOnly: false, comingSoon: true },
-  { href: "/conversations", labelKey: "conversations", icon: ChatIcon,  adminOnly: false },
+  // Leads now owns BOTH the kanban board and the chat 3-pane —
+  // they're two views of the same funnel, swapped via the toggle
+  // in the page header. The old standalone "Conversaciones" entry
+  // was removed to keep the sidebar honest about features.
+  { href: "/leads",      labelKey: "leads",      icon: TrendingUp,      adminOnly: false },
   { href: "/contracts",  labelKey: "contracts",  icon: FileText,        adminOnly: false },
   { href: "/market-analysis", labelKey: "marketAnalysis", icon: BarChart, adminOnly: false },
   { href: "/performance-reports", labelKey: "performanceReports", icon: ChartLine, adminOnly: false },
@@ -111,6 +113,10 @@ export function AppSidebar({ role, fullName, email, slug, avatarUrl }: AppSideba
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard"
+    // Special case: /leads is the canonical entry but the chat view
+    // lives at /conversations/*. Both should highlight "Leads" in the
+    // sidebar because they're the two views of the same surface.
+    if (href === "/leads" && pathname.startsWith("/conversations")) return true
     return pathname === href || pathname.startsWith(href + "/")
   }
 
