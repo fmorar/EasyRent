@@ -2709,6 +2709,106 @@ export type Database = {
           },
         ]
       }
+      visit_requests: {
+        Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          confirmed_at: string | null
+          conversation_id: string | null
+          created_at: string
+          external_listing_id: string | null
+          id: string
+          lead_id: string
+          mode: string
+          notes: string | null
+          preferred_date: string | null
+          preferred_time_slot: string | null
+          property_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          external_listing_id?: string | null
+          id?: string
+          lead_id: string
+          mode?: string
+          notes?: string | null
+          preferred_date?: string | null
+          preferred_time_slot?: string | null
+          property_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          external_listing_id?: string | null
+          id?: string
+          lead_id?: string
+          mode?: string
+          notes?: string | null
+          preferred_date?: string | null
+          preferred_time_slot?: string | null
+          property_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_requests_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_requests_external_listing_id_fkey"
+            columns: ["external_listing_id"]
+            isOneToOne: false
+            referencedRelation: "external_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_requests_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_requests_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_requests_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_marketplace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_requests_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_anonymous"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       v_marketplace: {

@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { formatPhoneDisplay } from "@/lib/phone"
 import { ThreadSummaryCard } from "./thread-summary-card"
+import { VisitRequestCard } from "./visit-request-card"
 import type { AgentSearchResult } from "@/lib/whatsapp-agent/property-search"
+import type { ActiveVisitRequest } from "@/lib/conversations.queries"
 import type { Database } from "@/types/supabase"
 
 type LeadRow = Database["public"]["Tables"]["leads"]["Row"]
@@ -21,6 +23,8 @@ interface Props {
    *  regenerate server action. Optional only because some callers
    *  render the profile without a thread context. */
   conversationId?:   string
+  /** Pending / confirmed visit request for this lead, if any. */
+  activeVisitRequest?: ActiveVisitRequest | null
 }
 
 /**
@@ -38,7 +42,9 @@ interface Props {
  * pre-resolution the agent does — keeps the dashboard's mental
  * model 1:1 with the bot's.
  */
-export function LeadProfileCard({ lead, mentionedProperty, conversationId }: Props) {
+export function LeadProfileCard({
+  lead, mentionedProperty, conversationId, activeVisitRequest,
+}: Props) {
   const extracted = (lead.extracted_data ?? null) as
     | {
         preferred_zones?:           string[]
@@ -77,6 +83,11 @@ export function LeadProfileCard({ lead, mentionedProperty, conversationId }: Pro
 
   return (
     <div className="space-y-4">
+      {/* Active visit request — pops to the very top when present
+          because it's almost always the reason the operator opened
+          the profile in the first place. */}
+      {activeVisitRequest && <VisitRequestCard request={activeVisitRequest} />}
+
       {/* AI summary — operator-facing brief, also re-used by the agent
           on its next turn (state.ts reads thread_summary from this
           same JSONB key). Only render when we know the conversation

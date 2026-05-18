@@ -1,6 +1,7 @@
 import "server-only"
 import { z } from "zod"
 import { updateLeadFromAgent } from "@/lib/actions/whatsapp-lead.actions"
+import { createVisitRequest } from "@/lib/actions/visit-request.actions"
 import { searchPropertiesForAgent, getPropertyDetailsForAgent } from "./property-search"
 import { createSearchRequest } from "./search-requests"
 import type { AgentContext } from "./state"
@@ -81,6 +82,19 @@ const GetPropertyDetailsSchema = z.object({
   slug: z.string().min(1).max(180).describe("Property slug as returned by search_properties."),
 })
 
+const CreateVisitRequestSchema = z.object({
+  property_slug: z.string().min(1).max(180).optional()
+    .describe("Slug de la propiedad específica que el lead quiere visitar (la que viste con search_properties o get_property_details, o la del bloque \"Propiedad que el lead acaba de mencionar\"). Si la intención es genérica (\"quiero ver opciones esta semana\"), omitilo."),
+  preferred_date: z.string().min(1).max(120).optional()
+    .describe("Cuándo prefiere el lead. Texto literal (\"esta semana\", \"sábado\", \"el 20 de mayo\", \"mañana\"). NO inventés fechas — solo pasá lo que el lead dijo."),
+  preferred_time_slot: z.string().min(1).max(60).optional()
+    .describe("Franja horaria preferida (\"mañana\", \"tarde\", \"después de las 5pm\"). Texto literal."),
+  mode: z.enum(["in_person", "virtual"]).optional()
+    .describe("in_person (default — el lead va físicamente) o virtual (video tour). Si el lead no especificó, asumí in_person."),
+  notes: z.string().max(500).optional()
+    .describe("Cualquier nota relevante para el operador humano que va a coordinar. Ej: \"prefiere de noche\", \"viene con familia\"."),
+})
+
 // ──────────────────────────────────────────────────────────────────
 // Tool definitions for the OpenAI Responses API.
 // Shape: `{ type: 'function', name, description, parameters }`
@@ -117,6 +131,13 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description:
       "Get full details (description, amenities, photos) for ONE property by slug. Use only when the lead asks about a specific property already mentioned. NEVER fabricate details that aren't returned.",
     parameters:  zodToJsonSchema(GetPropertyDetailsSchema),
+  },
+  {
+    type:        "function",
+    name:        "create_visit_request",
+    description:
+      "Crear una solicitud de visita FORMAL cuando el lead confirma explícitamente que quiere agendar Y todos los datos del gate de visita están capturados (nombre completo, cédula, personas, mascotas, parqueo, ocupación). El sistema valida server-side; si falta algún dato vas a recibir un error con la lista exacta. Después de llamarla, la conversación pasa a manos de un asesor humano — el bot deja de auto-responder en este thread. Decile al lead que el operador coordina el horario exacto con el dueño en las próximas horas.",
+    parameters:  zodToJsonSchema(CreateVisitRequestSchema),
   },
 ]
 
@@ -219,6 +240,42 @@ export async function executeTool(
           return { ok: false, error: `Property with slug "${args.slug}" not found in the marketplace.` }
         }
         return { ok: true, data: detail }
+      }
+      case "create_visit_request": {
+        const args = CreateVisitRequestSchema.parse(rawArgs)
+        const result = await createVisitRequest({
+          leadId:            ctx.lead.id,
+          conversationId:    ctx.conversation.id,
+          propertySlug:      args.property_slug      ?? null,
+          preferredDate:     args.preferred_date     ?? null,
+          preferredTimeSlot: args.preferred_time_slot ?? null,
+          mode:              args.mode                ?? "in_person",
+          notes:             args.notes               ?? null,
+        })
+        if (!result.ok) {
+          // Surface the structured gate-incomplete error so the agent
+          // can ask for exactly what's missing next turn instead of
+          // re-trying blind.
+          if (result.reason === "gate_incomplete") {
+            return {
+              ok: false,
+              error: `No puedo crear la solicitud todavía — faltan estos datos del gate de visita: ${result.missing.join(", ")}. Pedíselos al lead UNO por turno antes de re-intentar.`,
+            }
+          }
+          return { ok: false, error: result.error ?? `No se pudo crear la solicitud (${result.reason}).` }
+        }
+        // Tell the model what happened so it crafts a confirmation
+        // message and stops trying to schedule itself.
+        return {
+          ok: true,
+          data: {
+            request_id:           result.requestId,
+            advanced_stage:       result.advancedStage,
+            handoff_now_active:   true,
+            confirmation_message:
+              "La solicitud quedó creada. Un asesor humano va a coordinar la hora exacta con el dueño en las próximas horas y te avisa por acá. Cerrá tu próximo mensaje con esa idea (no prometás una hora concreta, ese trabajo es del asesor).",
+          },
+        }
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` }

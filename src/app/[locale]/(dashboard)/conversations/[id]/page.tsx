@@ -36,7 +36,7 @@ export default async function ConversationDetailPage({ params }: PageProps) {
   const detail      = await getConversationDetailForUser({ profile, conversationId: id })
   if (!detail) notFound()
 
-  const { conversation, lead, messages, mentionedProperty } = detail
+  const { conversation, lead, messages, mentionedProperty, activeVisitRequest } = detail
   const displayName = lead.full_name && lead.full_name !== "Sin nombre"
     ? lead.full_name
     : (lead.phone_e164 ? formatPhoneDisplay(lead.phone_e164) : "Sin nombre")
@@ -82,6 +82,7 @@ export default async function ConversationDetailPage({ params }: PageProps) {
                 lead={lead}
                 mentionedProperty={mentionedProperty}
                 conversationId={conversation.id}
+                activeVisitRequest={activeVisitRequest}
               />
             </LeadProfileSheet>
             <ConversationHandoffToggle

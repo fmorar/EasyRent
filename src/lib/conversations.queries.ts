@@ -50,6 +50,21 @@ export interface ConversationListItem {
   unread_count: number
 }
 
+export interface ActiveVisitRequest {
+  id:                  string
+  status:              string
+  preferred_date:      string | null
+  preferred_time_slot: string | null
+  mode:                string
+  notes:               string | null
+  property_id:         string | null
+  /** Title of the linked property if there is one — denormalized
+   *  for the dashboard so we don't need a follow-up query. */
+  property_title:      string | null
+  property_slug:       string | null
+  created_at:          string
+}
+
 export interface ConversationDetail {
   conversation:     ConversationRow
   lead:             LeadRow
@@ -58,6 +73,10 @@ export interface ConversationDetail {
    *  Same helper the agent uses, so what humans see matches what the
    *  agent saw on its last turn. */
   mentionedProperty: AgentSearchResult | null
+  /** Most recent NON-TERMINAL visit request for this lead (pending or
+   *  confirmed). Null when none. The profile sheet surfaces it so
+   *  operators see active scheduling intent at a glance. */
+  activeVisitRequest: ActiveVisitRequest | null
 }
 
 /**
@@ -215,5 +234,43 @@ export async function getConversationDetailForUser(args: {
     }
   }
 
-  return { conversation, lead, messages, mentionedProperty }
+  // Active visit request (pending or confirmed). One per lead for v1
+  // — if multiple ever exist, take the most recent non-terminal.
+  const vrRes = await supabase
+    .from("visit_requests")
+    .select("id, status, preferred_date, preferred_time_slot, mode, notes, property_id, created_at, property:properties(title, slug)")
+    .eq("lead_id", lead.id)
+    .in("status", ["pending", "confirmed"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const vrData = vrRes.data as
+    | {
+        id:                  string
+        status:              string
+        preferred_date:      string | null
+        preferred_time_slot: string | null
+        mode:                string
+        notes:               string | null
+        property_id:         string | null
+        created_at:          string
+        property:            { title: string | null; slug: string | null } | null
+      }
+    | null
+  const activeVisitRequest: ActiveVisitRequest | null = vrData
+    ? {
+        id:                  vrData.id,
+        status:              vrData.status,
+        preferred_date:      vrData.preferred_date,
+        preferred_time_slot: vrData.preferred_time_slot,
+        mode:                vrData.mode,
+        notes:               vrData.notes,
+        property_id:         vrData.property_id,
+        property_title:      vrData.property?.title ?? null,
+        property_slug:       vrData.property?.slug  ?? null,
+        created_at:          vrData.created_at,
+      }
+    : null
+
+  return { conversation, lead, messages, mentionedProperty, activeVisitRequest }
 }
